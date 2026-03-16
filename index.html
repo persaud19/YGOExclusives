@@ -112,7 +112,33 @@
         >
         <div class="inv-card-count" id="inv-card-count"></div>
       </div>
-      <div id="inv-cards"></div>
+      <div class="inv-table-wrap">
+        <table class="inv-table" id="inv-table" style="display:none">
+          <thead>
+            <tr>
+              <th class="inv-th-img"></th>
+              <th style="white-space:nowrap">Card #</th>
+              <th>Name</th>
+              <th>Rarity</th>
+              <th class="inv-th-qty inv-th-group-start">1st NM</th>
+              <th class="inv-th-qty">1st LP</th>
+              <th class="inv-th-qty">1st MP</th>
+              <th class="inv-th-total">1st ∑</th>
+              <th class="inv-th-qty inv-th-group-start">Un NM</th>
+              <th class="inv-th-qty">Un LP</th>
+              <th class="inv-th-qty">Un MP</th>
+              <th class="inv-th-total">Un ∑</th>
+              <th>Location</th>
+              <th>HR Type</th>
+              <th class="inv-th-qty inv-th-group-start">HR NM</th>
+              <th class="inv-th-qty">HR LP</th>
+              <th class="inv-th-status"></th>
+            </tr>
+          </thead>
+          <tbody id="inv-tbody"></tbody>
+        </table>
+        <div id="inv-empty" style="display:none;padding:32px;text-align:center;color:var(--muted)"></div>
+      </div>
     </div>
   </div>
 

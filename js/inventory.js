@@ -1,15 +1,14 @@
-// ─── inventory.js — Inventory Mode Logic ─────────────────────────────────────
+// ─── inventory.js — Excel-style grid ──────────────────────────────────────────
 
 let invInitialized = false;
-const saveTimers = {}; // cardId → timeout handle
+const saveTimers = {};
 
 function initInventory() {
   if (invInitialized) return;
   invInitialized = true;
 
   const searchInput = document.getElementById('inv-search-input');
-  const cardsContainer = document.getElementById('inv-cards');
-  const cardCount = document.getElementById('inv-card-count');
+  const cardCount   = document.getElementById('inv-card-count');
 
   searchInput.focus();
 
@@ -19,195 +18,205 @@ function initInventory() {
     searchDebounce = setTimeout(() => {
       const val = searchInput.value.trim().toUpperCase();
       if (val.length >= 2) {
-        loadInventoryCards(val, cardsContainer, cardCount);
+        loadInventoryCards(val, cardCount);
       } else {
-        cardsContainer.innerHTML = '';
+        document.getElementById('inv-tbody').innerHTML = '';
+        document.getElementById('inv-table').style.display = 'none';
+        document.getElementById('inv-empty').style.display = 'none';
         cardCount.textContent = '';
       }
     }, 300);
   });
 }
 
-async function loadInventoryCards(setCode, container, countEl) {
-  container.innerHTML = '<p class="muted text-center mt-16">Loading…</p>';
+async function loadInventoryCards(setCode, countEl) {
+  const tbody = document.getElementById('inv-tbody');
+  const table = document.getElementById('inv-table');
+  const empty = document.getElementById('inv-empty');
+
+  tbody.innerHTML = '';
+  table.style.display = 'none';
+  empty.style.display = 'none';
   countEl.textContent = '';
+
   try {
     const cards = await getCardsBySet(setCode);
-    countEl.textContent = cards.length ? `${cards.length} card${cards.length !== 1 ? 's' : ''} found` : '';
+    countEl.textContent = cards.length
+      ? `${cards.length} card${cards.length !== 1 ? 's' : ''} found`
+      : '';
+
     if (!cards.length) {
-      container.innerHTML = `<p class="muted text-center mt-16">No cards found for set code <strong>${setCode}</strong></p>`;
+      empty.textContent = `No cards found for set code "${setCode}"`;
+      empty.className = 'muted text-center';
+      empty.style.display = '';
       return;
     }
-    // Sort by numeric part of card number (e.g. LOB-004 → 4)
+
+    // Sort by numeric part of card number
     cards.sort((a, b) => {
       const numA = parseInt((a.card_number.match(/[-‐](\d+)/) || [, '0'])[1], 10);
       const numB = parseInt((b.card_number.match(/[-‐](\d+)/) || [, '0'])[1], 10);
       return numA - numB;
     });
-    container.innerHTML = '';
-    cards.forEach(card => container.appendChild(buildCardRow(card)));
+
+    const fragment = document.createDocumentFragment();
+    cards.forEach(card => fragment.appendChild(buildCardRow(card)));
+    tbody.appendChild(fragment);
+    table.style.display = '';
   } catch (e) {
-    container.innerHTML = `<p class="red text-center mt-16">Error: ${e.message}</p>`;
+    empty.textContent = 'Error: ' + e.message;
+    empty.className = 'red text-center';
+    empty.style.display = '';
   }
 }
 
 function buildCardRow(card) {
-  const el = document.createElement('div');
-  el.className = 'inv-card';
-  el.dataset.cardId = card.id;
+  const tr = document.createElement('tr');
+  tr.className = 'inv-row';
+  tr.dataset.cardId = card.id;
 
   const rarityBadge = getRarityBadgeClass(card.rarity);
-  const hasHR = card.higher_rarity && card.higher_rarity !== 'None' && card.higher_rarity !== '';
+  const hasHR = !!(card.higher_rarity && card.higher_rarity !== 'None' && card.higher_rarity !== '');
 
-  el.innerHTML = `
-    <div class="save-flash" id="flash-${card.id}">✓ Saved</div>
-    <div class="inv-card-header">
+  const feNm = card.fe_nm     || 0;
+  const feLp = card.fe_lp     || 0;
+  const feMp = card.fe_mp     || 0;
+  const unNm = card.un_nm     || 0;
+  const unLp = card.un_lp     || 0;
+  const unMp = card.un_mp     || 0;
+  const hrNm = card.hr_qty_nm || 0;
+  const hrLp = card.hr_qty_lp || 0;
+
+  tr.innerHTML = `
+    <td class="inv-td-img">
       ${card.api_id
-        ? `<img class="inv-card-img" src="${CARD_IMG(card.api_id)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-        : ''}
-      <div class="inv-card-img-placeholder" ${card.api_id ? 'style="display:none"' : ''}>IMG</div>
-      <div class="inv-card-info">
-        <div class="inv-card-number">${escHtml(card.card_number)}</div>
-        <div class="inv-card-name">${escHtml(card.card_name)}</div>
-        ${card.rarity ? `<span class="badge ${rarityBadge}">${escHtml(card.rarity)}</span>` : ''}
-      </div>
-    </div>
-
-    <!-- 1st Edition -->
-    <div class="edition-row">
-      <div class="edition-label-row">
-        <span class="edition-pill first">1st Edition</span>
-        <span class="edition-total" id="fe-total-${card.id}">${(card.fe_nm||0)+(card.fe_lp||0)+(card.fe_mp||0)}</span>
-      </div>
-      <div class="qty-controls">
-        ${buildQtyGroup('fe_nm', 'NM', card.fe_nm || 0, card.id)}
-        ${buildQtyGroup('fe_lp', 'LP', card.fe_lp || 0, card.id)}
-        ${buildQtyGroup('fe_mp', 'MP', card.fe_mp || 0, card.id)}
-      </div>
-    </div>
-
-    <!-- Unlimited -->
-    <div class="edition-row">
-      <div class="edition-label-row">
-        <span class="edition-pill unlimited">Unlimited</span>
-        <span class="edition-total" id="un-total-${card.id}">${(card.un_nm||0)+(card.un_lp||0)+(card.un_mp||0)}</span>
-      </div>
-      <div class="qty-controls">
-        ${buildQtyGroup('un_nm', 'NM', card.un_nm || 0, card.id)}
-        ${buildQtyGroup('un_lp', 'LP', card.un_lp || 0, card.id)}
-        ${buildQtyGroup('un_mp', 'MP', card.un_mp || 0, card.id)}
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="inv-card-footer">
-      <div class="inv-footer-row">
-        <select class="input" id="loc-${card.id}" data-field="location" data-card="${card.id}">
-          ${LOCATIONS.map(l => `<option value="${l}" ${card.location === l ? 'selected' : ''}>${l}</option>`).join('')}
-        </select>
-        <select class="input" id="hr-${card.id}" data-field="higher_rarity" data-card="${card.id}">
-          ${HR_OPTIONS.map(r => `<option value="${r === 'None' ? '' : r}" ${(card.higher_rarity || '') === (r === 'None' ? '' : r) ? 'selected' : ''}>${r}</option>`).join('')}
-        </select>
-      </div>
-      <!-- HR quantity row (shown when HR selected) -->
-      <div class="hr-qty-row" id="hr-qty-${card.id}" ${hasHR ? '' : 'style="display:none"'}>
-        <div class="hr-qty-group">
-          <div class="qty-label">HR NM</div>
-          ${buildQtyRow('hr_qty_nm', card.hr_qty_nm || 0, card.id)}
-        </div>
-        <div class="hr-qty-group">
-          <div class="qty-label">HR LP</div>
-          ${buildQtyRow('hr_qty_lp', card.hr_qty_lp || 0, card.id)}
-        </div>
-      </div>
-    </div>
+        ? `<img class="inv-thumb" src="${CARD_IMG(card.api_id)}" alt="" loading="lazy" onerror="this.style.opacity=0">`
+        : '<div class="inv-thumb-ph"></div>'}
+    </td>
+    <td class="inv-td-num">${escHtml(card.card_number)}</td>
+    <td class="inv-td-name">${escHtml(card.card_name)}</td>
+    <td class="inv-td-rarity"><span class="badge ${rarityBadge}">${escHtml(card.rarity || '')}</span></td>
+    ${buildQtyCell('fe_nm',     feNm, card.id, 0, true)}
+    ${buildQtyCell('fe_lp',     feLp, card.id, 1, false)}
+    ${buildQtyCell('fe_mp',     feMp, card.id, 2, false)}
+    <td class="inv-td-total" id="fe-total-${card.id}">${feNm + feLp + feMp}</td>
+    ${buildQtyCell('un_nm',     unNm, card.id, 3, true)}
+    ${buildQtyCell('un_lp',     unLp, card.id, 4, false)}
+    ${buildQtyCell('un_mp',     unMp, card.id, 5, false)}
+    <td class="inv-td-total" id="un-total-${card.id}">${unNm + unLp + unMp}</td>
+    <td class="inv-td-select">
+      <select class="inv-select" data-field="location" data-card="${card.id}">
+        ${LOCATIONS.map(l => `<option value="${l}" ${card.location === l ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+    </td>
+    <td class="inv-td-select">
+      <select class="inv-select" data-field="higher_rarity" data-card="${card.id}">
+        ${HR_OPTIONS.map(r => `<option value="${r === 'None' ? '' : r}" ${(card.higher_rarity || '') === (r === 'None' ? '' : r) ? 'selected' : ''}>${r}</option>`).join('')}
+      </select>
+    </td>
+    ${buildQtyCell('hr_qty_nm', hrNm, card.id, 6, true,  !hasHR)}
+    ${buildQtyCell('hr_qty_lp', hrLp, card.id, 7, false, !hasHR)}
+    <td class="inv-td-status" id="inv-status-${card.id}"></td>
   `;
 
-  // Wire events after insertion
-  requestAnimationFrame(() => wireCardEvents(el, card));
-  return el;
+  requestAnimationFrame(() => wireRowEvents(tr, card.id));
+  return tr;
 }
 
-function buildQtyGroup(field, label, val, cardId) {
+function buildQtyCell(field, val, cardId, colIdx, groupStart, disabled = false) {
+  const dis = disabled ? 'disabled' : '';
   return `
-    <div class="qty-group">
-      <div class="qty-label">${label}</div>
-      ${buildQtyRow(field, val, cardId)}
-    </div>`;
+    <td class="inv-qty-cell${groupStart ? ' inv-qty-group-start' : ''}${disabled ? ' inv-qty-disabled' : ''}">
+      <div class="inv-qty-widget">
+        <button class="inv-qty-btn" data-action="minus" data-field="${field}" data-card="${cardId}" ${dis}>−</button>
+        <input  class="inv-qty-input" type="text" inputmode="numeric" pattern="[0-9]*"
+                value="${val}" data-field="${field}" data-card="${cardId}" data-col-idx="${colIdx}" ${dis}>
+        <button class="inv-qty-btn" data-action="plus"  data-field="${field}" data-card="${cardId}" ${dis}>+</button>
+      </div>
+    </td>`;
 }
 
-function buildQtyRow(field, val, cardId) {
-  return `
-    <div class="qty-row">
-      <button class="qty-btn" data-action="minus" data-field="${field}" data-card="${cardId}">−</button>
-      <input class="qty-input" type="text" inputmode="numeric" pattern="[0-9]*"
-             id="${field}-${cardId}" data-field="${field}" data-card="${cardId}" value="${val}">
-      <button class="qty-btn" data-action="plus" data-field="${field}" data-card="${cardId}">+</button>
-    </div>`;
-}
-
-function wireCardEvents(el, card) {
-  const cardId = card.id;
-
+function wireRowEvents(tr, cardId) {
   // +/- buttons
-  el.querySelectorAll('.qty-btn').forEach(btn => {
+  tr.querySelectorAll('.inv-qty-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const { action, field } = btn.dataset;
-      const input = el.querySelector(`[data-field="${field}"][data-card="${cardId}"].qty-input`);
-      if (!input) return;
+      const input = tr.querySelector(`.inv-qty-input[data-field="${field}"]`);
+      if (!input || input.disabled) return;
       let v = parseInt(input.value, 10) || 0;
       v = action === 'plus' ? v + 1 : Math.max(0, v - 1);
       input.value = v;
-      updateEditionTotals(el, cardId);
-      scheduleSave(cardId, el);
+      updateRowTotals(tr, cardId);
+      scheduleSave(cardId, tr);
     });
   });
 
-  // Direct qty input
-  el.querySelectorAll('.qty-input').forEach(input => {
+  // Direct qty input + keyboard navigation
+  tr.querySelectorAll('.inv-qty-input').forEach(input => {
+    // Select all on focus (Excel behaviour)
+    input.addEventListener('focus', () => input.select());
+
     input.addEventListener('input', () => {
-      updateEditionTotals(el, cardId);
-      scheduleSave(cardId, el);
+      updateRowTotals(tr, cardId);
+      scheduleSave(cardId, tr);
+    });
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // Move to same column in next row
+        const colIdx = input.dataset.colIdx;
+        const nextRow = tr.nextElementSibling;
+        if (nextRow) {
+          const next = nextRow.querySelector(`.inv-qty-input[data-col-idx="${colIdx}"]:not([disabled])`);
+          if (next) next.focus();
+        }
+      }
     });
   });
 
-  // Location / HR selects
-  el.querySelectorAll('select[data-card]').forEach(sel => {
+  // Location / HR type dropdowns
+  tr.querySelectorAll('select[data-card]').forEach(sel => {
     sel.addEventListener('change', () => {
       if (sel.dataset.field === 'higher_rarity') {
-        const hrRow = document.getElementById(`hr-qty-${cardId}`);
-        hrRow.style.display = sel.value ? '' : 'none';
+        toggleHrCells(tr, !!sel.value);
       }
-      scheduleSave(cardId, el);
+      scheduleSave(cardId, tr);
     });
   });
 }
 
-function updateEditionTotals(el, cardId) {
-  const feTotal = ['fe_nm', 'fe_lp', 'fe_mp']
-    .reduce((sum, f) => sum + (parseInt(el.querySelector(`[data-field="${f}"].qty-input`)?.value, 10) || 0), 0);
-  const unTotal = ['un_nm', 'un_lp', 'un_mp']
-    .reduce((sum, f) => sum + (parseInt(el.querySelector(`[data-field="${f}"].qty-input`)?.value, 10) || 0), 0);
+function toggleHrCells(tr, enabled) {
+  ['hr_qty_nm', 'hr_qty_lp'].forEach(field => {
+    const cell  = tr.querySelector(`.inv-qty-input[data-field="${field}"]`)?.closest('td');
+    const input = tr.querySelector(`.inv-qty-input[data-field="${field}"]`);
+    tr.querySelectorAll(`.inv-qty-btn[data-field="${field}"]`).forEach(b => b.disabled = !enabled);
+    if (cell)  cell.classList.toggle('inv-qty-disabled', !enabled);
+    if (input) input.disabled = !enabled;
+  });
+}
+
+function updateRowTotals(tr, cardId) {
+  const v = f => parseInt(tr.querySelector(`.inv-qty-input[data-field="${f}"]`)?.value, 10) || 0;
   const feEl = document.getElementById(`fe-total-${cardId}`);
   const unEl = document.getElementById(`un-total-${cardId}`);
-  if (feEl) feEl.textContent = feTotal;
-  if (unEl) unEl.textContent = unTotal;
+  if (feEl) feEl.textContent = v('fe_nm') + v('fe_lp') + v('fe_mp');
+  if (unEl) unEl.textContent = v('un_nm') + v('un_lp') + v('un_mp');
 }
 
-function scheduleSave(cardId, el) {
+function scheduleSave(cardId, tr) {
   clearTimeout(saveTimers[cardId]);
-  el.classList.add('saving');
-  el.classList.remove('saved');
-  saveTimers[cardId] = setTimeout(() => doSave(cardId, el), 800);
+  setRowStatus(cardId, 'saving');
+  saveTimers[cardId] = setTimeout(() => doSave(cardId, tr), 800);
 }
 
-async function doSave(cardId, el) {
-  const getVal = field => {
-    const inp = el.querySelector(`[data-field="${field}"].qty-input`);
+async function doSave(cardId, tr) {
+  const getVal = f => {
+    const inp = tr.querySelector(`.inv-qty-input[data-field="${f}"]`);
     return inp ? (parseInt(inp.value, 10) || 0) : 0;
   };
-  const getSel = field => {
-    const sel = el.querySelector(`select[data-field="${field}"]`);
+  const getSel = f => {
+    const sel = tr.querySelector(`select[data-field="${f}"]`);
     return sel ? sel.value : null;
   };
 
@@ -228,17 +237,20 @@ async function doSave(cardId, el) {
 
   try {
     await updateCard(patch);
-    el.classList.remove('saving');
-    el.classList.add('saved');
-    const flash = document.getElementById(`flash-${cardId}`);
-    if (flash) {
-      flash.classList.add('show');
-      setTimeout(() => { flash.classList.remove('show'); el.classList.remove('saved'); }, 1800);
-    }
+    setRowStatus(cardId, 'saved');
+    setTimeout(() => setRowStatus(cardId, ''), 1800);
   } catch (e) {
-    el.classList.remove('saving');
+    setRowStatus(cardId, '');
     showToast('Save failed: ' + e.message);
   }
+}
+
+function setRowStatus(cardId, status) {
+  const el = document.getElementById(`inv-status-${cardId}`);
+  if (!el) return;
+  if (status === 'saving') el.innerHTML = '<span class="inv-status-dot saving">●</span>';
+  else if (status === 'saved') el.innerHTML = '<span class="inv-status-dot saved">✓</span>';
+  else el.innerHTML = '';
 }
 
 // ─── Rarity badge helper ──────────────────────────────────────────────────────
@@ -255,5 +267,5 @@ function getRarityBadgeClass(rarity) {
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
 function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
