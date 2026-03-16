@@ -84,7 +84,7 @@ function updateSortArrows() {
 async function loadCollectionPage() {
   const tbody = document.getElementById('col-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="11" class="text-center muted" style="padding:24px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="12" class="text-center muted" style="padding:24px">Loading…</td></tr>';
   try {
     const { rows, total } = await getCardsPage({
       ...colFilters,
@@ -97,13 +97,13 @@ async function loadCollectionPage() {
     renderCollectionRows(rows, tbody);
     updateCollectionPagination(total);
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="11" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
   }
 }
 
 function renderCollectionRows(rows, tbody) {
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="text-center muted" style="padding:24px">No cards found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center muted" style="padding:24px">No cards found</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(card => {
@@ -118,7 +118,8 @@ function renderCollectionRows(rows, tbody) {
       <td style="max-width:200px;font-weight:500">${escHtml(card.card_name)}</td>
       <td><span class="badge ${getRarityBadgeClass(card.rarity)}">${escHtml(card.rarity||'')}</span></td>
       <td class="small muted" style="white-space:nowrap">${escHtml(card.set_name||'')}</td>
-      <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${(card.unlimited_nm > 0) ? '$'+Number(card.unlimited_nm).toFixed(2) : '—'}</td>
+      <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${(card.tcg_market_price > 0) ? '$'+Number(card.tcg_market_price).toFixed(2) : '—'}</td>
+      <td class="small muted" style="white-space:nowrap">${(card.ebay_low_price > 0) ? '$'+Number(card.ebay_low_price).toFixed(2) : '—'}</td>
       <td class="small muted">${(card.acquisition_cost > 0) ? '$'+Number(card.acquisition_cost).toFixed(2) : '—'}</td>
       <td class="small muted">${escHtml(card.location||'')}</td>
       <td>

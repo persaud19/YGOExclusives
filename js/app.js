@@ -27,7 +27,7 @@ async function initApp() {
   });
 
   document.getElementById('start-owner-btn').addEventListener('click', () => {
-    showPinModal();
+    enterMode('owner');
   });
 
   document.getElementById('switch-mode-btn').addEventListener('click', () => {
