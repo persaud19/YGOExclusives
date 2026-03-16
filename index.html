@@ -269,6 +269,12 @@
                   <option value="Unlimited">Unlimited</option>
                 </select>
               </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">Rarity <span id="lc-rarity-note" class="muted small" style="font-style:italic;margin-left:6px"></span></label>
+                <select id="lc-rarity" class="input" onchange="lcOnRarityChange()">
+                  <option value="">— select rarity —</option>
+                </select>
+              </div>
               <div class="form-group">
                 <label class="form-label">Asking Price ($)</label>
                 <input id="lc-price" class="input" type="number" step="0.01" min="0" placeholder="0.00">

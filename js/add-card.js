@@ -306,13 +306,27 @@ function lcShowMatch(identified, card) {
       : '';
   }
 
-  // Price reference: TCG Market + eBay Low
-  const tcg  = card.tcg_market_price > 0  ? `TCG Market: $${Number(card.tcg_market_price).toFixed(2)}`  : null;
-  const ebay = card.ebay_low_price   > 0  ? `eBay Low: $${Number(card.ebay_low_price).toFixed(2)}`      : null;
-  const priceRef = document.getElementById('lc-price-ref');
-  if (priceRef) {
-    priceRef.textContent = [tcg, ebay].filter(Boolean).join('  ·  ') || 'No price data on file';
+  // Populate rarity select — pre-select Claude's identified rarity
+  const raritySel  = document.getElementById('lc-rarity');
+  const rarityNote = document.getElementById('lc-rarity-note');
+  if (raritySel) {
+    const claudeRarity  = (identified.rarity || '').trim();
+    const dbRarity      = (card.rarity       || '').trim();
+    // Build options from master RARITIES list
+    raritySel.innerHTML = '<option value="">— select rarity —</option>' +
+      RARITIES.map(r => `<option value="${r}"${r === claudeRarity ? ' selected' : ''}>${r}</option>`).join('');
+    // Show a note if Claude's rarity differs from DB rarity
+    if (rarityNote) {
+      if (claudeRarity && dbRarity && claudeRarity.toLowerCase() !== dbRarity.toLowerCase()) {
+        rarityNote.textContent = `(DB: ${dbRarity} · Claude detected: ${claudeRarity})`;
+      } else {
+        rarityNote.textContent = claudeRarity ? `Claude detected: ${claudeRarity}` : '';
+      }
+    }
   }
+
+  // Price reference: TCG Market + eBay Low
+  lcUpdatePriceRef(card);
 
   // Auto-fill price with TCG market
   const priceEl = document.getElementById('lc-price');
@@ -322,6 +336,69 @@ function lcShowMatch(identified, card) {
 
   const s3 = document.getElementById('lc-step3');
   if (s3) s3.style.display = '';
+}
+
+// ─── Price ref helper ─────────────────────────────────────────────────────────
+function lcUpdatePriceRef(card) {
+  const tcg  = card.tcg_market_price > 0 ? `TCG Market: $${Number(card.tcg_market_price).toFixed(2)}` : null;
+  const ebay = card.ebay_low_price   > 0 ? `eBay Low: $${Number(card.ebay_low_price).toFixed(2)}`     : null;
+  const priceRef = document.getElementById('lc-price-ref');
+  if (priceRef) {
+    priceRef.textContent = [tcg, ebay].filter(Boolean).join('  ·  ') || 'No price data on file';
+    priceRef.style.color = '';
+  }
+}
+
+// ─── Rarity Change → re-lookup price ──────────────────────────────────────────
+async function lcOnRarityChange() {
+  if (!lcCardData) return;
+  const sel            = document.getElementById('lc-rarity');
+  const selectedRarity = sel?.value?.trim();
+  if (!selectedRarity) return;
+
+  const priceRef = document.getElementById('lc-price-ref');
+  if (priceRef) { priceRef.textContent = 'Looking up price for this rarity…'; priceRef.style.color = ''; }
+
+  try {
+    let card = null;
+
+    // 1. Try card_number + rarity
+    if (lcCardData.card_number) {
+      const res  = await fetch(
+        `${SUPABASE_URL}/rest/v1/cards?card_number=ilike.${encodeURIComponent(lcCardData.card_number)}&rarity=ilike.${encodeURIComponent(selectedRarity)}&limit=1&select=*`,
+        { headers: DB_HEADERS_RETURN }
+      );
+      const rows = await res.json();
+      card = rows?.[0] || null;
+    }
+
+    // 2. Fall back: card_name + rarity
+    if (!card && lcCardData.card_name) {
+      const res  = await fetch(
+        `${SUPABASE_URL}/rest/v1/cards?card_name=ilike.${encodeURIComponent(lcCardData.card_name)}&rarity=ilike.${encodeURIComponent(selectedRarity)}&limit=1&select=*`,
+        { headers: DB_HEADERS_RETURN }
+      );
+      const rows = await res.json();
+      card = rows?.[0] || null;
+    }
+
+    if (card) {
+      lcDbCard = card;
+      lcUpdatePriceRef(card);
+      // Auto-update asking price
+      const priceEl = document.getElementById('lc-price');
+      if (priceEl && card.tcg_market_price > 0) {
+        priceEl.value = Number(card.tcg_market_price).toFixed(2);
+      }
+    } else {
+      if (priceRef) {
+        priceRef.textContent = `No "${selectedRarity}" entry found in collection — price not updated`;
+        priceRef.style.color = 'var(--yellow)';
+      }
+    }
+  } catch (e) {
+    if (priceRef) { priceRef.textContent = 'Rarity lookup error: ' + e.message; priceRef.style.color = 'var(--red)'; }
+  }
 }
 
 // ─── Generate Listing ─────────────────────────────────────────────────────────
