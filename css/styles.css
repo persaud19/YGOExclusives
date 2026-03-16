@@ -823,6 +823,97 @@ tr:hover td { background: var(--surf2); }
 }
 .stat-label { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
 
+/* ─── List Card Tab ─────────────────────────────────────────────────────────── */
+.lc-wrap { max-width: 1000px; }
+
+.lc-apikey-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--b1);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+}
+.lc-apikey-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.lc-apikey-ok    { font-size: 0.85rem; color: var(--green); }
+
+.lc-columns {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 680px) {
+  .lc-columns { grid-template-columns: 1fr; }
+}
+
+.lc-step-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  color: var(--gold2);
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+/* Upload zone */
+.lc-drop-zone {
+  border: 2px dashed var(--b2);
+  border-radius: 10px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  background: var(--surf);
+  padding: 14px;
+  transition: border-color 0.15s;
+}
+.lc-drop-zone:hover { border-color: var(--gold); }
+.lc-drop-ph {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  pointer-events: none;
+}
+
+/* Match box */
+.lc-match-box {
+  background: var(--b1);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.lc-match-inner { display: flex; gap: 12px; align-items: flex-start; }
+.lc-match-thumb { width: 52px; height: 76px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.lc-match-info  { flex: 1; min-width: 0; }
+.lc-match-name  { font-weight: 600; font-size: 0.95rem; color: #fff; margin-bottom: 3px; }
+.lc-match-meta  { font-size: 0.78rem; color: var(--muted); }
+.lc-match-ok    { font-size: 0.78rem; color: var(--green); margin-top: 5px; }
+
+/* Confirm grid */
+.lc-confirm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+@media (max-width: 560px) {
+  .lc-confirm-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Listing field header */
+.lc-field-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.lc-field-hdr .form-label { flex: 1; margin-bottom: 0; }
+
 /* ─── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .tab-content { padding: 12px; }

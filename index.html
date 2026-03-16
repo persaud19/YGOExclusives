@@ -84,7 +84,7 @@
       Collection
     </button>
     <button class="tab-btn hidden" data-tab="add-card" data-mode="owner">
-      Add Card
+      List Card
     </button>
     <button class="tab-btn hidden" data-tab="sales" data-mode="owner">
       Sales
@@ -199,105 +199,110 @@
     </div>
   </div>
 
-  <!-- ─── ADD CARD TAB ──────────────────────────────────────────────────── -->
+  <!-- ─── LIST CARD TAB ─────────────────────────────────────────────────── -->
   <div id="tab-add-card" class="tab-panel">
-    <div class="tab-content">
-      <div class="card card-lg">
-        <h2 class="modal-title" style="margin-bottom:20px">Add Card to Collection</h2>
-        <form id="add-card-form" onsubmit="submitAddCard(event)">
-          <!-- API Search -->
-          <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label">Search YGOPRODeck</label>
-            <input id="add-card-search" class="input" type="text" placeholder="Type card name to search…" autocomplete="off">
-            <div id="add-card-results" class="add-card-search-results"></div>
-          </div>
-          <input type="hidden" id="add-card-api-id">
+    <div class="tab-content lc-wrap">
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-            <div class="form-group">
-              <label class="form-label">Card Name *</label>
-              <input id="add-card-name" class="input" type="text" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Card Number *</label>
-              <input id="add-card-number" class="input" type="text" placeholder="e.g. LOB-001" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Rarity</label>
-              <select id="add-rarity" class="input">
-                <option value="">— Select —</option>
-                <option>Common</option><option>Rare</option><option>Short Print</option>
-                <option>Super Rare</option><option>Ultra Rare</option><option>Secret Rare</option>
-                <option>Ultimate Rare</option><option>Ghost Rare</option><option>Mosaic Rare</option>
-                <option>Starfoil Rare</option><option>Shatterfoil Rare</option><option>Alternate Rare</option>
-                <option>Gold Rare</option><option>Gold Secret Rare</option><option>Ghost/Gold Rare</option>
-                <option>Prismatic Secret Rare</option><option>Starlight Rare</option>
-                <option>Collector's Rare</option><option>10000 Secret Rare</option>
-                <option>Duel Terminal Normal Parallel Rare</option>
-                <option>Duel Terminal Ultra Parallel Rare</option>
-                <option>Quarter Century Secret Rare</option><option>Platinum Rare</option>
-                <option>Platinum Secret Rare</option><option>Premium Gold Rare</option>
-                <option>Pharaoh's Rare</option><option>Prismatic Collector's Rare</option>
-                <option>Prismatic Ultimate Rare</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Set Name</label>
-              <input id="add-set-name" class="input" type="text" placeholder="e.g. Legend of Blue Eyes">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Year</label>
-              <input id="add-year" class="input" type="text" placeholder="2002">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Location</label>
-              <select id="add-location" class="input">
-                <option>Basement Box</option><option>Binder</option><option>Deck</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- TCG Price -->
-          <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label">TCG Market Price ($) — auto-fills prices below</label>
-            <input id="add-tcg-price" class="input" type="number" step="0.01" min="0"
-                   placeholder="0.00" oninput="autoFillPrices(this.value)" style="max-width:160px">
-          </div>
-
-          <!-- Prices grid -->
-          <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
-            <div class="form-label" style="margin-bottom:10px">Prices</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-              <div class="form-group"><label class="form-label">1st NM</label><input id="add-fe-nm" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-              <div class="form-group"><label class="form-label">1st LP</label><input id="add-fe-lp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-              <div class="form-group"><label class="form-label">1st MP</label><input id="add-fe-mp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-              <div class="form-group"><label class="form-label">Un NM</label><input id="add-un-nm" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-              <div class="form-group"><label class="form-label">Un LP</label><input id="add-un-lp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-              <div class="form-group"><label class="form-label">Un MP</label><input id="add-un-mp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-            </div>
-          </div>
-
-          <!-- Acquisition -->
-          <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:16px">
-            <div class="form-label" style="margin-bottom:10px">Acquisition</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div class="form-group"><label class="form-label">Cost Paid</label><input id="add-acq-cost" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-              <div class="form-group"><label class="form-label">Shipping In</label><input id="add-acq-shipping" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-              <div class="form-group"><label class="form-label">Platform Fee</label><input id="add-acq-fee" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
-              <div class="form-group"><label class="form-label">Source</label><input id="add-acq-source" class="input" type="text" placeholder="eBay, FB, etc."></div>
-              <div class="form-group"><label class="form-label">Date</label><input id="add-acq-date" class="input" type="date"></div>
-            </div>
-          </div>
-
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;color:var(--txt)">
-              <input type="checkbox" id="add-listed"> Listed on eBay/FB
-            </label>
-          </div>
-
-          <button type="submit" class="btn btn-primary" style="width:100%">Save Card</button>
-        </form>
+      <!-- API Key bar -->
+      <div class="lc-apikey-bar">
+        <span class="lc-apikey-label">Anthropic API Key</span>
+        <div id="lc-apikey-saved-row" style="display:none;display:flex;align-items:center;gap:8px">
+          <span class="lc-apikey-ok">✓ Key saved</span>
+          <button class="btn btn-ghost btn-sm" onclick="lcChangeKey()">Change</button>
+        </div>
+        <div id="lc-apikey-input-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="lc-key-input" class="input" type="password" placeholder="sk-ant-…" style="max-width:300px">
+          <button class="btn btn-secondary btn-sm" onclick="lcSaveKey()">Save Key</button>
+          <a href="https://console.anthropic.com/account/keys" target="_blank" class="muted small" style="white-space:nowrap">Get a key ↗</a>
+        </div>
       </div>
+
+      <!-- Two-column layout -->
+      <div class="lc-columns">
+
+        <!-- Left: photo upload -->
+        <div class="lc-left">
+          <div class="lc-step-title">1. Upload Card Photo</div>
+          <div class="lc-drop-zone" id="lc-drop-zone" onclick="document.getElementById('lc-file').click()">
+            <div id="lc-drop-ph" class="lc-drop-ph">
+              <div style="font-size:2.2rem;margin-bottom:6px">📷</div>
+              <div>Click to upload</div>
+              <div class="muted small" style="margin-top:4px">JPG · PNG · WEBP</div>
+            </div>
+            <img id="lc-preview" style="display:none;max-width:100%;max-height:300px;border-radius:8px;object-fit:contain;margin:auto;display:none">
+          </div>
+          <input type="file" id="lc-file" accept="image/*" style="display:none" onchange="lcOnFile(event)">
+          <button class="btn btn-primary" id="lc-identify-btn" style="width:100%;margin-top:10px;display:none" onclick="lcIdentify()">
+            Identify with Claude Vision
+          </button>
+          <div id="lc-identify-msg" class="muted small" style="margin-top:6px;text-align:center;min-height:1.4em"></div>
+        </div>
+
+        <!-- Right: steps 2-4 -->
+        <div class="lc-right">
+
+          <!-- Step 2: Match -->
+          <div id="lc-step2" style="display:none">
+            <div class="lc-step-title">2. Card Match</div>
+            <div id="lc-match-card" class="lc-match-box"></div>
+          </div>
+
+          <!-- Step 3: Confirm -->
+          <div id="lc-step3" style="display:none">
+            <div class="lc-step-title">3. Confirm Details</div>
+            <div class="lc-confirm-grid">
+              <div class="form-group">
+                <label class="form-label">Condition</label>
+                <select id="lc-cond" class="input">
+                  <option value="NM">Near Mint (NM)</option>
+                  <option value="LP">Lightly Played (LP)</option>
+                  <option value="MP">Moderately Played (MP)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Edition</label>
+                <select id="lc-edition" class="input">
+                  <option value="1st Edition">1st Edition</option>
+                  <option value="Unlimited">Unlimited</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Asking Price ($)</label>
+                <input id="lc-price" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+              </div>
+            </div>
+            <div id="lc-cond-note" class="muted small" style="margin:4px 0 2px;font-style:italic"></div>
+            <div id="lc-price-ref" class="muted small" style="margin-bottom:12px"></div>
+            <button class="btn btn-primary" style="width:100%" onclick="lcGenerateListing()">Generate Listing →</button>
+          </div>
+
+          <!-- Step 4: Listing preview -->
+          <div id="lc-step4" style="display:none;margin-top:20px">
+            <div class="lc-step-title">4. eBay Listing</div>
+            <div class="form-group" style="margin-bottom:8px">
+              <div class="lc-field-hdr">
+                <label class="form-label">Title</label>
+                <span id="lc-title-chars" class="muted small"></span>
+                <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('lc-title').value)">Copy</button>
+              </div>
+              <input id="lc-title" class="input" type="text" maxlength="80" oninput="lcUpdateTitleChars()">
+            </div>
+            <div class="form-group" style="margin-bottom:14px">
+              <div class="lc-field-hdr">
+                <label class="form-label">Description</label>
+                <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('lc-desc').value)">Copy</button>
+              </div>
+              <textarea id="lc-desc" class="input" rows="12" style="resize:vertical;font-size:0.8rem;line-height:1.55"></textarea>
+            </div>
+            <button class="btn btn-primary" style="width:100%;font-size:1rem;padding:13px" onclick="lcListIt()">
+              List It on eBay
+            </button>
+            <div class="muted small text-center" style="margin-top:6px">Copies listing · marks card as listed · opens eBay</div>
+          </div>
+
+        </div><!-- /.lc-right -->
+      </div><!-- /.lc-columns -->
+
     </div>
   </div>
 
