@@ -166,7 +166,8 @@ async function runBulkPrice() {
     ygoMap = new Map();
     cards.forEach(c => {
       const price = parseFloat(c.card_prices?.[0]?.tcgplayer_price) || 0;
-      ygoMap.set(c.name.toLowerCase().trim(), { id: c.id, price });
+      const ebay  = parseFloat(c.card_prices?.[0]?.ebay_price)      || 0;
+      ygoMap.set(c.name.toLowerCase().trim(), { id: c.id, price, ebay });
     });
     setStat('s-ygo', ygoMap.size);
     log(`✓ Loaded ${ygoMap.size.toLocaleString()} cards from YGOPRODeck`, 'ok');
@@ -224,6 +225,8 @@ async function runBulkPrice() {
 
     const p     = match.price;
     const patch = { id: card.id, tcg_market_price: p, updated_at: new Date().toISOString() };
+
+    if (match.ebay > 0) patch.ebay_low_price = +match.ebay.toFixed(2);
 
     if (optSetApiId && !card.api_id && match.id) {
       patch.api_id = match.id;

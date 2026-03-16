@@ -412,6 +412,7 @@ select.input { cursor: pointer; appearance: none;
 
 .tab-content { flex: 1; padding: 16px; max-width: 900px; margin: 0 auto; width: 100%; }
 #tab-inventory .tab-content { max-width: 100%; }
+#tab-collection .tab-content { max-width: 100%; }
 
 /* ─── Inventory Mode ───────────────────────────────────────────────────────── */
 .inv-search-wrap {
