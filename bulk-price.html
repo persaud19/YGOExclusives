@@ -251,29 +251,39 @@ async function runBulkPrice() {
     return;
   }
 
-  // ── Step 4: Batch upsert ──────────────────────────────────────────────────────
-  const BATCH = 250;
+  // ── Step 4: Batch PATCH (concurrent per batch) ───────────────────────────────
+  // Use PATCH per card (not upsert/POST) so Supabase only updates existing rows
+  // without triggering NOT NULL constraints on columns we're not touching.
+  const BATCH = 100;
   const totalBatches = Math.ceil(updates.length / BATCH);
   log(`Uploading ${updates.length.toLocaleString()} updates in ${totalBatches} batches of ${BATCH}…`);
 
+  async function patchCard(row) {
+    const { id, ...fields } = row;
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/cards?id=eq.${id}`,
+      { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify(fields) }
+    );
+    if (!res.ok) throw new Error(await res.text());
+  }
+
   for (let i = 0; i < updates.length; i += BATCH) {
-    const batch      = updates.slice(i, i + BATCH);
-    const batchNum   = Math.floor(i / BATCH) + 1;
-    try {
-      await upsertCardsBatch(batch);
-      totalUpdated += batch.length;
-      setStat('s-updated', totalUpdated);
-    } catch (e) {
-      totalErrors += batch.length;
-      setStat('s-errors', totalErrors);
-      log(`✗ Batch ${batchNum} failed: ` + e.message, 'err');
-    }
+    const batch    = updates.slice(i, i + BATCH);
+    const batchNum = Math.floor(i / BATCH) + 1;
+    const results  = await Promise.allSettled(batch.map(patchCard));
+    let batchErrors = 0;
+    results.forEach(r => {
+      if (r.status === 'fulfilled') totalUpdated++;
+      else { totalErrors++; batchErrors++; }
+    });
+    setStat('s-updated', totalUpdated);
+    setStat('s-errors', totalErrors);
+    if (batchErrors) log(`✗ Batch ${batchNum}: ${batchErrors} failed`, 'err');
     setProgress(
       i + batch.length,
       updates.length,
       `Batch ${batchNum} / ${totalBatches} — ${totalUpdated.toLocaleString()} updated`
     );
-    // yield to keep UI responsive
     await new Promise(r => setTimeout(r, 0));
   }
 
