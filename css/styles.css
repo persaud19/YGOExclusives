@@ -411,6 +411,7 @@ select.input { cursor: pointer; appearance: none;
 .switch-mode-btn:hover { color: var(--txt); border-color: var(--b2); }
 
 .tab-content { flex: 1; padding: 16px; max-width: 900px; margin: 0 auto; width: 100%; }
+#tab-inventory .tab-content { max-width: 100%; }
 
 /* ─── Inventory Mode ───────────────────────────────────────────────────────── */
 .inv-search-wrap {
