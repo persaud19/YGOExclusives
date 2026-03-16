@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadowrealm Emporium</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     START SCREEN
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="start-screen">
+  <div class="start-logo">Shadowrealm Emporium</div>
+  <div class="start-byline">by Ryan Persaud</div>
+  <div class="start-buttons">
+    <button class="start-btn start-btn-inventory" id="start-inventory-btn">
+      Inventory Mode
+      <span class="start-btn-desc">Count &amp; update card quantities</span>
+    </button>
+    <button class="start-btn start-btn-owner" id="start-owner-btn">
+      Full Access
+      <span class="start-btn-desc">Collection · Sales · Reports</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     PIN MODAL
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="pin-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:320px;text-align:center">
+    <div class="modal-title">Enter PIN</div>
+    <div class="pin-display">
+      <div class="pin-dot" id="pin-d0"></div>
+      <div class="pin-dot" id="pin-d1"></div>
+      <div class="pin-dot" id="pin-d2"></div>
+      <div class="pin-dot" id="pin-d3"></div>
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+    <div class="pin-keypad" style="margin-top:16px">
+      <button class="pin-key" data-val="1">1</button>
+      <button class="pin-key" data-val="2">2</button>
+      <button class="pin-key" data-val="3">3</button>
+      <button class="pin-key" data-val="4">4</button>
+      <button class="pin-key" data-val="5">5</button>
+      <button class="pin-key" data-val="6">6</button>
+      <button class="pin-key" data-val="7">7</button>
+      <button class="pin-key" data-val="8">8</button>
+      <button class="pin-key" data-val="9">9</button>
+      <button class="pin-key clear" data-val="C">C</button>
+      <button class="pin-key" data-val="0">0</button>
+      <button class="pin-key clear" data-val="⌫">⌫</button>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:16px" id="pin-modal-close">Cancel</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="app" class="hidden">
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="app-header-brand">Shadowrealm Emporium</div>
+    <div class="app-header-right">
+      <span id="mode-badge" class="mode-badge inventory">Inventory Mode</span>
+      <button class="switch-mode-btn" id="switch-mode-btn">Switch Mode</button>
+    </div>
+  </header>
+
+  <!-- Tab Bar -->
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="inventory" data-mode="inventory,owner">
+      Inventory
+    </button>
+    <button class="tab-btn hidden" data-tab="collection" data-mode="owner">
+      Collection
+    </button>
+    <button class="tab-btn hidden" data-tab="add-card" data-mode="owner">
+      Add Card
+    </button>
+    <button class="tab-btn hidden" data-tab="sales" data-mode="owner">
+      Sales
+    </button>
+    <button class="tab-btn hidden" data-tab="reports" data-mode="owner">
+      Reports
+    </button>
+  </nav>
+
+  <!-- ─── INVENTORY TAB ──────────────────────────────────────────────────── -->
+  <div id="tab-inventory" class="tab-panel active">
+    <div class="tab-content">
+      <div class="inv-search-wrap">
+        <label class="inv-search-label" for="inv-search-input">What set are you counting?</label>
+        <input
+          id="inv-search-input"
+          class="input inv-search-input"
+          type="text"
+          inputmode="text"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          placeholder="e.g. LOB, MRD, RA01…"
+        >
+        <div class="inv-card-count" id="inv-card-count"></div>
+      </div>
+      <div id="inv-cards"></div>
+    </div>
+  </div>
+
+  <!-- ─── COLLECTION TAB ────────────────────────────────────────────────── -->
+  <div id="tab-collection" class="tab-panel">
+    <div class="tab-content">
+      <div class="collection-toolbar">
+        <input id="col-search" class="input collection-search" type="text"
+               placeholder="Search by name, card #, or set…">
+        <select id="col-filter-rarity" class="input" style="flex:0 0 150px">
+          <option value="">All Rarities</option>
+          <option>Common</option><option>Rare</option><option>Short Print</option>
+          <option>Super Rare</option><option>Ultra Rare</option><option>Secret Rare</option>
+          <option>Ultimate Rare</option><option>Ghost Rare</option>
+          <option>Starlight Rare</option><option>Collector's Rare</option>
+          <option>Quarter Century Secret Rare</option><option>Prismatic Secret Rare</option>
+          <option>Gold Rare</option><option>Platinum Secret Rare</option>
+        </select>
+        <select id="col-filter-location" class="input" style="flex:0 0 140px">
+          <option value="">All Locations</option>
+          <option>Basement Box</option><option>Binder</option><option>Deck</option>
+        </select>
+        <select id="col-filter-listed" class="input" style="flex:0 0 130px">
+          <option value="">Listed Status</option>
+          <option value="true">Listed</option>
+          <option value="false">Not Listed</option>
+        </select>
+        <button id="col-export-btn" class="btn btn-secondary btn-sm" style="white-space:nowrap">Export CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="col-thead">
+            <tr>
+              <th class="col-thumb"></th>
+              <th data-sort="card_number">Card # <span class="sort-arrow"> ↑</span></th>
+              <th data-sort="card_name">Name <span class="sort-arrow"> ↕</span></th>
+              <th data-sort="rarity">Rarity <span class="sort-arrow"> ↕</span></th>
+              <th data-sort="set_name">Set <span class="sort-arrow"> ↕</span></th>
+              <th data-sort="unlimited_nm">NM Price <span class="sort-arrow"> ↕</span></th>
+              <th data-sort="acquisition_cost">Cost In <span class="sort-arrow"> ↕</span></th>
+              <th data-sort="location">Location <span class="sort-arrow"> ↕</span></th>
+              <th>Un NM Qty</th>
+              <th>Listed</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="col-tbody">
+            <tr><td colspan="11" class="muted text-center" style="padding:24px">Loading collection…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <button class="btn btn-secondary btn-sm" id="col-prev-btn" disabled>← Prev</button>
+        <span class="page-info" id="col-page-info"></span>
+        <button class="btn btn-secondary btn-sm" id="col-next-btn">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── ADD CARD TAB ──────────────────────────────────────────────────── -->
+  <div id="tab-add-card" class="tab-panel">
+    <div class="tab-content">
+      <div class="card card-lg">
+        <h2 class="modal-title" style="margin-bottom:20px">Add Card to Collection</h2>
+        <form id="add-card-form" onsubmit="submitAddCard(event)">
+          <!-- API Search -->
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">Search YGOPRODeck</label>
+            <input id="add-card-search" class="input" type="text" placeholder="Type card name to search…" autocomplete="off">
+            <div id="add-card-results" class="add-card-search-results"></div>
+          </div>
+          <input type="hidden" id="add-card-api-id">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="form-group">
+              <label class="form-label">Card Name *</label>
+              <input id="add-card-name" class="input" type="text" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Card Number *</label>
+              <input id="add-card-number" class="input" type="text" placeholder="e.g. LOB-001" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Rarity</label>
+              <select id="add-rarity" class="input">
+                <option value="">— Select —</option>
+                <option>Common</option><option>Rare</option><option>Short Print</option>
+                <option>Super Rare</option><option>Ultra Rare</option><option>Secret Rare</option>
+                <option>Ultimate Rare</option><option>Ghost Rare</option><option>Mosaic Rare</option>
+                <option>Starfoil Rare</option><option>Shatterfoil Rare</option><option>Alternate Rare</option>
+                <option>Gold Rare</option><option>Gold Secret Rare</option><option>Ghost/Gold Rare</option>
+                <option>Prismatic Secret Rare</option><option>Starlight Rare</option>
+                <option>Collector's Rare</option><option>10000 Secret Rare</option>
+                <option>Duel Terminal Normal Parallel Rare</option>
+                <option>Duel Terminal Ultra Parallel Rare</option>
+                <option>Quarter Century Secret Rare</option><option>Platinum Rare</option>
+                <option>Platinum Secret Rare</option><option>Premium Gold Rare</option>
+                <option>Pharaoh's Rare</option><option>Prismatic Collector's Rare</option>
+                <option>Prismatic Ultimate Rare</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Set Name</label>
+              <input id="add-set-name" class="input" type="text" placeholder="e.g. Legend of Blue Eyes">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Year</label>
+              <input id="add-year" class="input" type="text" placeholder="2002">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Location</label>
+              <select id="add-location" class="input">
+                <option>Basement Box</option><option>Binder</option><option>Deck</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- TCG Price -->
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">TCG Market Price ($) — auto-fills prices below</label>
+            <input id="add-tcg-price" class="input" type="number" step="0.01" min="0"
+                   placeholder="0.00" oninput="autoFillPrices(this.value)" style="max-width:160px">
+          </div>
+
+          <!-- Prices grid -->
+          <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div class="form-label" style="margin-bottom:10px">Prices</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <div class="form-group"><label class="form-label">1st NM</label><input id="add-fe-nm" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+              <div class="form-group"><label class="form-label">1st LP</label><input id="add-fe-lp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+              <div class="form-group"><label class="form-label">1st MP</label><input id="add-fe-mp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+              <div class="form-group"><label class="form-label">Un NM</label><input id="add-un-nm" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+              <div class="form-group"><label class="form-label">Un LP</label><input id="add-un-lp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+              <div class="form-group"><label class="form-label">Un MP</label><input id="add-un-mp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+            </div>
+          </div>
+
+          <!-- Acquisition -->
+          <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:16px">
+            <div class="form-label" style="margin-bottom:10px">Acquisition</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div class="form-group"><label class="form-label">Cost Paid</label><input id="add-acq-cost" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+              <div class="form-group"><label class="form-label">Shipping In</label><input id="add-acq-shipping" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+              <div class="form-group"><label class="form-label">Platform Fee</label><input id="add-acq-fee" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+              <div class="form-group"><label class="form-label">Source</label><input id="add-acq-source" class="input" type="text" placeholder="eBay, FB, etc."></div>
+              <div class="form-group"><label class="form-label">Date</label><input id="add-acq-date" class="input" type="date"></div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;color:var(--txt)">
+              <input type="checkbox" id="add-listed"> Listed on eBay/FB
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width:100%">Save Card</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SALES TAB ─────────────────────────────────────────────────────── -->
+  <div id="tab-sales" class="tab-panel">
+    <div class="tab-content">
+      <!-- Log Sale Form -->
+      <div class="card card-lg" style="margin-bottom:20px">
+        <h2 class="modal-title" style="margin-bottom:16px">Log a Sale</h2>
+        <form id="sale-form">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="form-group">
+              <label class="form-label">Sale Date</label>
+              <input id="sale-date" class="input" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Platform</label>
+              <select id="sale-platform" class="input">
+                <option>eBay</option><option>Facebook</option><option>Cash</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Card Name *</label>
+              <input id="sale-card-name" class="input" type="text" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Card Number</label>
+              <input id="sale-card-number" class="input" type="text">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Set Name</label>
+              <input id="sale-set-name" class="input" type="text">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Rarity</label>
+              <input id="sale-rarity" class="input" type="text">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Sale Price ($) *</label>
+              <input id="sale-price" class="input" type="number" step="0.01" min="0" required placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Platform Fee ($)</label>
+              <input id="sale-fee" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Shipping Charged to Buyer ($)</label>
+              <input id="sale-shipping-charged" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Your Shipping Cost Out ($)</label>
+              <input id="sale-shipping-out" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Acquisition Cost ($)</label>
+              <input id="sale-acq-cost" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" onclick="submitSale(event)" style="width:100%">Log Sale</button>
+        </form>
+      </div>
+
+      <!-- Sales Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Card</th><th>Set</th><th>Platform</th>
+              <th>Sale $</th><th>Fees</th><th>Cost In</th><th>Net Profit</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="sales-tbody">
+            <tr><td colspan="9" class="muted text-center" style="padding:24px">No sales yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <button class="btn btn-secondary btn-sm" id="sales-prev-btn" disabled>← Prev</button>
+        <span class="page-info" id="sales-page-info"></span>
+        <button class="btn btn-secondary btn-sm" id="sales-next-btn">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── REPORTS TAB ───────────────────────────────────────────────────── -->
+  <div id="tab-reports" class="tab-panel">
+    <div class="tab-content">
+
+      <!-- Summary stat cards -->
+      <div class="stat-grid" id="report-stats"></div>
+
+      <!-- Monthly P&L -->
+      <div class="report-section">
+        <h3>Monthly P&amp;L</h3>
+        <div id="report-monthly-pl"><p class="muted small">Loading…</p></div>
+      </div>
+
+      <!-- Inventory Value by Set -->
+      <div class="report-section">
+        <h3>Inventory Value by Set <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(top 10 · Unlimited NM price × qty)</span></h3>
+        <div id="report-set-value"><p class="muted small">Loading…</p></div>
+      </div>
+
+      <!-- Price Movers -->
+      <div class="report-section">
+        <h3>Price Movers <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(TCG market ±20%+ since acquisition)</span></h3>
+        <div id="report-price-movers"><p class="muted small">Loading…</p></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── EDIT MODAL ──────────────────────────────────────────────────────── -->
+  <div id="edit-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeEditModal()">
+    <div class="modal-box" style="max-width:600px;max-height:92vh;overflow-y:auto">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:20px">
+        <img id="edit-thumb" src="" alt="" style="width:52px;height:76px;object-fit:cover;border-radius:5px;flex-shrink:0" onerror="this.style.display='none'">
+        <div style="flex:1;min-width:0">
+          <div class="modal-title" id="edit-modal-title" style="margin-bottom:4px"></div>
+          <div class="muted small" id="edit-modal-sub"></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="closeEditModal()" style="flex-shrink:0">✕</button>
+      </div>
+      <input type="hidden" id="edit-api-id">
+
+      <!-- Basic Info -->
+      <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div class="form-label" style="margin-bottom:10px;color:var(--gold2)">Basic Info</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Card Name</label>
+            <input id="edit-card-name" class="input" type="text" oninput="refreshListingPreviewsFromForm()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Card Number</label>
+            <input id="edit-card-number" class="input" type="text">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rarity</label>
+            <select id="edit-rarity" class="input" onchange="refreshListingPreviewsFromForm()">
+              <option value="">— Select —</option>
+              <option>Common</option><option>Rare</option><option>Short Print</option>
+              <option>Super Rare</option><option>Ultra Rare</option><option>Secret Rare</option>
+              <option>Ultimate Rare</option><option>Ghost Rare</option><option>Mosaic Rare</option>
+              <option>Starfoil Rare</option><option>Shatterfoil Rare</option><option>Alternate Rare</option>
+              <option>Gold Rare</option><option>Gold Secret Rare</option><option>Ghost/Gold Rare</option>
+              <option>Prismatic Secret Rare</option><option>Starlight Rare</option>
+              <option>Collector's Rare</option><option>10000 Secret Rare</option>
+              <option>Duel Terminal Normal Parallel Rare</option>
+              <option>Duel Terminal Ultra Parallel Rare</option>
+              <option>Quarter Century Secret Rare</option><option>Platinum Rare</option>
+              <option>Platinum Secret Rare</option><option>Premium Gold Rare</option>
+              <option>Pharaoh's Rare</option><option>Prismatic Collector's Rare</option>
+              <option>Prismatic Ultimate Rare</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Set Name</label>
+            <input id="edit-set-name" class="input" type="text" oninput="refreshListingPreviewsFromForm()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Year</label>
+            <input id="edit-year" class="input" type="text" placeholder="e.g. 2002">
+          </div>
+        </div>
+      </div>
+
+      <!-- Quantities -->
+      <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div class="form-label" style="margin-bottom:10px;color:var(--gold2)">Quantities</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+          <div class="form-group"><label class="form-label">1st Ed NM</label><input id="edit-fe-nm" class="input" type="text" inputmode="numeric" value="0"></div>
+          <div class="form-group"><label class="form-label">1st Ed LP</label><input id="edit-fe-lp" class="input" type="text" inputmode="numeric" value="0"></div>
+          <div class="form-group"><label class="form-label">1st Ed MP</label><input id="edit-fe-mp" class="input" type="text" inputmode="numeric" value="0"></div>
+          <div class="form-group"><label class="form-label">Unlimited NM</label><input id="edit-un-nm" class="input" type="text" inputmode="numeric" value="0"></div>
+          <div class="form-group"><label class="form-label">Unlimited LP</label><input id="edit-un-lp" class="input" type="text" inputmode="numeric" value="0"></div>
+          <div class="form-group"><label class="form-label">Unlimited MP</label><input id="edit-un-mp" class="input" type="text" inputmode="numeric" value="0"></div>
+        </div>
+        <!-- Higher Rarity -->
+        <div class="form-group" style="margin-bottom:8px">
+          <label class="form-label">Higher Rarity (alt print)</label>
+          <select id="edit-higher-rarity" class="input" onchange="editHRChange()">
+            <option value="">None</option>
+            <option>Common</option><option>Rare</option><option>Super Rare</option>
+            <option>Ultra Rare</option><option>Secret Rare</option><option>Ultimate Rare</option>
+            <option>Ghost Rare</option><option>Mosaic Rare</option><option>Starfoil Rare</option>
+            <option>Shatterfoil Rare</option><option>Alternate Rare</option><option>Gold Rare</option>
+            <option>Gold Secret Rare</option><option>Ghost/Gold Rare</option>
+            <option>Prismatic Secret Rare</option><option>Starlight Rare</option>
+            <option>Collector's Rare</option><option>10000 Secret Rare</option>
+            <option>Quarter Century Secret Rare</option><option>Platinum Rare</option>
+            <option>Platinum Secret Rare</option><option>Premium Gold Rare</option>
+            <option>Pharaoh's Rare</option><option>Prismatic Collector's Rare</option>
+            <option>Prismatic Ultimate Rare</option>
+          </select>
+        </div>
+        <div id="edit-hr-qty-row" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-group"><label class="form-label">HR NM Qty</label><input id="edit-hr-qty-nm" class="input" type="text" inputmode="numeric" value="0"></div>
+          <div class="form-group"><label class="form-label">HR LP Qty</label><input id="edit-hr-qty-lp" class="input" type="text" inputmode="numeric" value="0"></div>
+        </div>
+      </div>
+
+      <!-- Prices -->
+      <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+        <!-- Market reference prices -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="form-label" style="color:var(--gold2)">Market Prices</div>
+          <button id="edit-fetch-btn" class="btn btn-ghost btn-sm" onclick="fetchEditPrices()">Fetch ↑</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          <div class="form-group">
+            <label class="form-label">TCGPlayer Low $</label>
+            <input id="edit-tcg-low" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">TCGPlayer Market $</label>
+            <input id="edit-tcg-market" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">eBay Low $</label>
+            <input id="edit-ebay-low" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">eBay Last Sold $</label>
+            <input id="edit-ebay-sold" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+        <!-- Listing condition prices -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="form-label" style="color:var(--gold2);margin:0">Listing Prices</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:0.75rem;color:var(--text-muted)">Base:</span>
+            <select id="edit-price-base" class="input" style="padding:4px 6px;font-size:0.8rem;width:auto">
+              <option value="tcg-low">TCG Low</option>
+              <option value="tcg-market" selected>TCG Market</option>
+              <option value="ebay-low">eBay Low</option>
+              <option value="ebay-sold">eBay Sold</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="editAutoFillPrices()">Auto-fill ↓</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div class="form-group"><label class="form-label">1st NM $</label><input id="edit-first-ed-nm" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+          <div class="form-group"><label class="form-label">1st LP $</label><input id="edit-first-ed-lp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+          <div class="form-group"><label class="form-label">1st MP $</label><input id="edit-first-ed-mp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+          <div class="form-group"><label class="form-label">Un NM $</label><input id="edit-unlimited-nm" class="input" type="number" step="0.01" min="0" placeholder="0.00" oninput="refreshListingPreviewsFromForm()"></div>
+          <div class="form-group"><label class="form-label">Un LP $</label><input id="edit-unlimited-lp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+          <div class="form-group"><label class="form-label">Un MP $</label><input id="edit-unlimited-mp" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+        </div>
+      </div>
+
+      <!-- Location & Status -->
+      <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin-bottom:12px">
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <select id="edit-location" class="input">
+            <option>Basement Box</option><option>Binder</option><option>Deck</option>
+          </select>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;color:var(--txt);margin-top:20px;white-space:nowrap">
+          <input type="checkbox" id="edit-listed"> Listed
+        </label>
+      </div>
+
+      <!-- Acquisition -->
+      <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div class="form-label" style="margin-bottom:10px;color:var(--gold2)">Acquisition</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-group"><label class="form-label">Cost Paid ($)</label><input id="edit-acq-cost" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+          <div class="form-group"><label class="form-label">Shipping In ($)</label><input id="edit-acq-shipping" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+          <div class="form-group"><label class="form-label">Platform Fee ($)</label><input id="edit-acq-fee" class="input" type="number" step="0.01" min="0" placeholder="0.00"></div>
+          <div class="form-group"><label class="form-label">Source</label><input id="edit-acq-source" class="input" type="text" placeholder="eBay, FB, etc."></div>
+          <div class="form-group"><label class="form-label">Date</label><input id="edit-acq-date" class="input" type="date"></div>
+        </div>
+      </div>
+
+      <!-- Listing Generators -->
+      <div style="background:var(--b1);border-radius:8px;padding:12px;margin-bottom:20px">
+        <div class="form-label" style="margin-bottom:10px;color:var(--gold2)">Listing Generators</div>
+        <div class="form-group" style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <label class="form-label">eBay Title (80 chars)</label>
+            <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('edit-ebay-title').value)">Copy</button>
+          </div>
+          <input id="edit-ebay-title" class="input" type="text" readonly style="font-size:0.8rem;color:var(--muted)">
+        </div>
+        <div class="form-group" style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <label class="form-label">eBay Description</label>
+            <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('edit-ebay-desc').value)">Copy</button>
+          </div>
+          <textarea id="edit-ebay-desc" class="input" rows="4" readonly style="font-size:0.75rem;color:var(--muted);resize:none"></textarea>
+        </div>
+        <div class="form-group">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <label class="form-label">Facebook Post</label>
+            <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('edit-fb-post').value)">Copy</button>
+          </div>
+          <textarea id="edit-fb-post" class="input" rows="6" readonly style="font-size:0.75rem;color:var(--muted);resize:none"></textarea>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="display:flex;gap:12px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-primary" id="edit-save-btn" onclick="saveEditModal()">Save Changes</button>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ─── Scripts ───────────────────────────────────────────────────────────── -->
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/collection.js"></script>
+<script src="js/add-card.js"></script>
+<script src="js/sales.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/listing.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

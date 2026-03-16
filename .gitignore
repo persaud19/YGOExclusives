@@ -1,0 +1,14 @@
+# Exports / local data
+*.csv
+
+# Claude session files
+.claude/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local serve scripts (not needed on Netlify)
+serve*.bat
+serve*.ps1
+serve*.sh

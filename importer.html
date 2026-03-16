@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadowrealm — CSV Importer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    body { max-width: 760px; margin: 0 auto; padding: 24px 16px 80px; }
+
+    .imp-header { text-align: center; margin-bottom: 40px; }
+    .imp-header h1 { font-size: 1.6rem; color: var(--gold2); margin-bottom: 4px; }
+    .imp-header p  { color: var(--muted); font-size: 0.85rem; }
+
+    /* Step indicator */
+    .steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 32px;
+    }
+    .step {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      position: relative;
+    }
+    .step-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Cinzel', serif; font-size: 0.8rem; font-weight: 700;
+      border: 2px solid var(--dim);
+      background: var(--surf2);
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .step.active .step-num   { border-color: var(--gold); color: var(--gold2); background: rgba(200,149,12,0.1); }
+    .step.done   .step-num   { border-color: var(--green); color: var(--green); background: rgba(61,184,122,0.1); }
+    .step-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.05em; text-align: center; }
+    .step.active .step-label { color: var(--gold2); }
+    .step.done   .step-label { color: var(--green); }
+
+    .step-line {
+      width: 48px; height: 2px;
+      background: var(--dim);
+      margin-bottom: 18px; /* aligns with step-num */
+      flex-shrink: 0;
+    }
+    .step-line.done { background: var(--green); }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed var(--b2);
+      border-radius: 16px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--gold);
+      background: rgba(200,149,12,0.05);
+    }
+    .drop-icon { font-size: 3rem; margin-bottom: 12px; }
+    .drop-title { font-family: 'Cinzel', serif; font-size: 1rem; color: var(--txt); margin-bottom: 6px; }
+    .drop-sub   { font-size: 0.8rem; color: var(--muted); }
+    #file-input { display: none; }
+
+    /* Rules card */
+    .rules-grid {
+      display: grid; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .rule-item {
+      display: flex; gap: 12px;
+      background: var(--b1);
+      border-radius: 8px;
+      padding: 10px 14px;
+      align-items: flex-start;
+    }
+    .rule-num {
+      font-family: 'Cinzel', serif;
+      font-size: 0.8rem;
+      color: var(--gold2);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .rule-text { font-size: 0.82rem; color: var(--txt); line-height: 1.4; }
+    .rule-sub  { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    /* Preview table */
+    .preview-table-wrap { overflow-x: auto; margin-bottom: 16px; }
+    .preview-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .preview-table th, .preview-table td { padding: 7px 10px; border-bottom: 1px solid var(--b1); }
+    .preview-table th { color: var(--muted); font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.05em; background: var(--surf2); white-space: nowrap; }
+    .preview-table tr:hover td { background: var(--surf2); }
+
+    /* Progress */
+    .progress-section {
+      background: var(--surf2);
+      border: 1px solid var(--b1);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+    }
+    .progress-label { font-family: 'Cinzel', serif; font-size: 1rem; color: var(--txt); margin-bottom: 16px; }
+    .progress-sub   { font-size: 0.8rem; color: var(--muted); margin-top: 12px; }
+    .progress-counts { display: flex; gap: 24px; justify-content: center; margin-top: 20px; }
+    .pcount { text-align: center; }
+    .pcount-val { font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: 700; }
+    .pcount-label { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+    /* Result */
+    .result-section { text-align: center; }
+    .result-icon { font-size: 3rem; margin-bottom: 12px; }
+    .result-title { font-family: 'Cinzel', serif; font-size: 1.2rem; color: var(--gold2); margin-bottom: 8px; }
+
+    .set-codes-wrap {
+      max-height: 160px; overflow-y: auto;
+      background: var(--b1); border-radius: 8px;
+      padding: 12px; margin-top: 16px;
+      text-align: left;
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="imp-header">
+  <h1>CSV Importer</h1>
+  <p>Shadowrealm Emporium — One-time collection load tool</p>
+</div>
+
+<!-- Step Indicator -->
+<div class="steps">
+  <div class="step active" id="step-1">
+    <div class="step-num">1</div>
+    <div class="step-label">Upload</div>
+  </div>
+  <div class="step-line" id="line-1"></div>
+  <div class="step" id="step-2">
+    <div class="step-num">2</div>
+    <div class="step-label">Rules</div>
+  </div>
+  <div class="step-line" id="line-2"></div>
+  <div class="step" id="step-3">
+    <div class="step-num">3</div>
+    <div class="step-label">Preview</div>
+  </div>
+  <div class="step-line" id="line-3"></div>
+  <div class="step" id="step-4">
+    <div class="step-num">4</div>
+    <div class="step-label">Import</div>
+  </div>
+</div>
+
+<!-- ─── STEP 1: Upload ─────────────────────────────────────────────────────── -->
+<div id="panel-1">
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="drop-icon">📂</div>
+    <div class="drop-title">Drop your CSV here or click to browse</div>
+    <div class="drop-sub" id="drop-sub">Inventory_Check.csv — 31,427 rows expected</div>
+  </div>
+  <input type="file" id="file-input" accept=".csv,text/csv">
+</div>
+
+<!-- ─── STEP 2: Rules ─────────────────────────────────────────────────────── -->
+<div id="panel-2" class="hidden">
+  <div id="file-summary" class="card" style="margin-bottom:20px;display:flex;gap:20px;flex-wrap:wrap;align-items:center">
+    <!-- populated by JS -->
+  </div>
+
+  <div class="rules-grid">
+    <div class="rule-item">
+      <div class="rule-num">1</div>
+      <div>
+        <div class="rule-text">RA01 sets: each semicolon-separated rarity becomes its own card row</div>
+        <div class="rule-sub">e.g. "Secret Rare;Ultra Rare;Super Rare" → 3 separate rows. Quantities start at 0.</div>
+      </div>
+    </div>
+    <div class="rule-item">
+      <div class="rule-num">2</div>
+      <div>
+        <div class="rule-text">Other sets with semicolons: first value = primary rarity, second = Higher Rarity</div>
+        <div class="rule-sub">e.g. "Ultra Rare;Ultimate Rare" → rarity: Ultra Rare, higher_rarity: Ultimate Rare</div>
+      </div>
+    </div>
+    <div class="rule-item">
+      <div class="rule-num">3</div>
+      <div>
+        <div class="rule-text">Blank location defaults to "Basement Box"</div>
+      </div>
+    </div>
+    <div class="rule-item">
+      <div class="rule-num">4</div>
+      <div>
+        <div class="rule-text">Total Quantity with no edition breakdown → stored as Unlimited NM</div>
+      </div>
+    </div>
+    <div class="rule-item">
+      <div class="rule-num">5</div>
+      <div>
+        <div class="rule-text">Rarity spelling normalised automatically</div>
+        <div class="rule-sub">"Collectors Rare" → "Collector's Rare" · "Ghost" → "Ghost Rare" · etc.</div>
+      </div>
+    </div>
+    <div class="rule-item">
+      <div class="rule-num">6</div>
+      <div>
+        <div class="rule-text">Secondary Rarity column overrides semicolon-derived Higher Rarity</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+    <button class="btn btn-primary" onclick="goStep(3)">Continue to Preview →</button>
+  </div>
+</div>
+
+<!-- ─── STEP 3: Preview ───────────────────────────────────────────────────── -->
+<div id="panel-3" class="hidden">
+  <div style="margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+    <div>
+      <span class="cinzel" style="color:var(--gold2)" id="preview-total-count"></span>
+      <span class="muted small" style="margin-left:8px">rows to import (showing 8)</span>
+    </div>
+    <div class="muted small" id="preview-ra01-info"></div>
+  </div>
+
+  <div class="preview-table-wrap">
+    <table class="preview-table" id="preview-table">
+      <thead>
+        <tr>
+          <th>Card #</th><th>Card Name</th><th>Rarity</th><th>Set</th>
+          <th>1st NM</th><th>1st LP</th><th>Un NM</th><th>Un LP</th>
+          <th>Location</th><th>HR</th><th>Listed</th>
+        </tr>
+      </thead>
+      <tbody id="preview-tbody"></tbody>
+    </table>
+  </div>
+
+  <div style="display:flex;gap:12px;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="goStep(2)">← Back</button>
+    <button class="btn btn-primary" id="start-import-btn" onclick="startImport()">
+      Import All Rows →
+    </button>
+  </div>
+</div>
+
+<!-- ─── STEP 4: Import ────────────────────────────────────────────────────── -->
+<div id="panel-4" class="hidden">
+  <div class="progress-section" id="progress-section">
+    <div class="progress-label" id="progress-label">Preparing import…</div>
+    <div class="progress-wrap" style="max-width:480px;margin:0 auto">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div class="progress-sub" id="progress-sub"></div>
+    <div class="progress-counts">
+      <div class="pcount">
+        <div class="pcount-val green" id="pcount-imported">0</div>
+        <div class="pcount-label">Imported</div>
+      </div>
+      <div class="pcount">
+        <div class="pcount-val muted" id="pcount-total">—</div>
+        <div class="pcount-label">Total</div>
+      </div>
+      <div class="pcount">
+        <div class="pcount-val red" id="pcount-errors">0</div>
+        <div class="pcount-label">Errors</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result (shown after done) -->
+  <div id="result-section" class="result-section hidden">
+    <div class="result-icon">✅</div>
+    <div class="result-title">Import Complete!</div>
+    <div class="muted small" id="result-summary"></div>
+    <div class="set-codes-wrap" id="result-sets"></div>
+    <div style="margin-top:24px;display:flex;gap:12px;justify-content:center">
+      <button class="btn btn-secondary" onclick="location.reload()">Import Another File</button>
+      <a href="index.html" class="btn btn-primary">Open App →</a>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Scripts ───────────────────────────────────────────────────────────── -->
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="importer/importer.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let csvText   = null;
+let processed = null;
+let currentStep = 1;
+
+// ─── Step navigation ──────────────────────────────────────────────────────────
+function goStep(n) {
+  if (n === 3 && !processed) buildPreview();
+  showStep(n);
+}
+
+function showStep(n) {
+  currentStep = n;
+  [1,2,3,4].forEach(i => {
+    document.getElementById(`panel-${i}`).classList.toggle('hidden', i !== n);
+    const stepEl = document.getElementById(`step-${i}`);
+    stepEl.classList.toggle('active', i === n);
+    stepEl.classList.toggle('done', i < n);
+  });
+  [1,2,3].forEach(i => {
+    document.getElementById(`line-${i}`)?.classList.toggle('done', i < n);
+  });
+}
+
+// ─── File upload ──────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) loadFile(file);
+});
+
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) loadFile(file);
+  else alert('Please drop a .csv file.');
+});
+
+function loadFile(file) {
+  document.getElementById('drop-sub').textContent = `Reading ${file.name}…`;
+  const reader = new FileReader();
+  reader.onload = e => {
+    csvText = e.target.result;
+    // Quick row count (count newlines)
+    const rowCount = (csvText.match(/\n/g) || []).length;
+    document.getElementById('drop-sub').textContent =
+      `✓ ${file.name} — ~${rowCount.toLocaleString()} rows`;
+
+    // Parse + process immediately so rules step is instant
+    processed = null; // reset, will build on step 3
+    const lines = parseCSV(csvText);
+    const rawCount = Math.max(0, lines.length - 1); // minus header
+
+    // Show file summary on step 2
+    document.getElementById('file-summary').innerHTML = `
+      <div><div class="cinzel" style="color:var(--gold2);font-size:1.2rem">${rawCount.toLocaleString()}</div><div class="muted small">Source rows</div></div>
+      <div><div class="cinzel" style="color:var(--txt);font-size:1rem">${file.name}</div><div class="muted small">${(file.size/1024/1024).toFixed(1)} MB</div></div>
+    `;
+    showStep(2);
+  };
+  reader.onerror = () => alert('Error reading file.');
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ─── Build Preview ────────────────────────────────────────────────────────────
+function buildPreview() {
+  if (!csvText) return;
+  const { rows } = processCSV(csvText);
+  processed = rows;
+
+  document.getElementById('preview-total-count').textContent = rows.length.toLocaleString();
+
+  // Count RA01 expansions
+  const ra01Rows = rows.filter(r => isRA01Set(r.card_number));
+  if (ra01Rows.length) {
+    document.getElementById('preview-ra01-info').textContent =
+      `${ra01Rows.length.toLocaleString()} rows from RA01 set expansion`;
+  }
+
+  // Show first 8 rows
+  const sample = rows.slice(0, 8);
+  const e = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  document.getElementById('preview-tbody').innerHTML = sample.map(r => `
+    <tr>
+      <td style="white-space:nowrap;color:var(--muted)">${e(r.card_number)}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e(r.card_name)}</td>
+      <td style="white-space:nowrap">${e(r.rarity)}</td>
+      <td style="white-space:nowrap;color:var(--muted)">${e(r.set_name)}</td>
+      <td class="text-center">${r.fe_nm||0}</td>
+      <td class="text-center">${r.fe_lp||0}</td>
+      <td class="text-center">${r.un_nm||0}</td>
+      <td class="text-center">${r.un_lp||0}</td>
+      <td style="white-space:nowrap">${e(r.location)}</td>
+      <td style="white-space:nowrap;color:var(--muted)">${e(r.higher_rarity)}</td>
+      <td class="text-center">${r.listed ? '✓' : ''}</td>
+    </tr>`).join('');
+}
+
+// ─── Start Import ─────────────────────────────────────────────────────────────
+async function startImport() {
+  if (!processed || !processed.length) {
+    alert('No rows to import. Please check your CSV file.');
+    return;
+  }
+
+  document.getElementById('start-import-btn').disabled = true;
+  showStep(4);
+
+  const total = processed.length;
+  document.getElementById('pcount-total').textContent = total.toLocaleString();
+  document.getElementById('progress-label').textContent = 'Importing…';
+
+  const BATCH_SIZE = 250;
+
+  const { imported, errorCount } = await importBatch(
+    processed,
+    BATCH_SIZE,
+    (done, total, imp, errs) => {
+      const pct = Math.round((done / total) * 100);
+      document.getElementById('progress-bar').style.width = pct + '%';
+      document.getElementById('progress-sub').textContent =
+        `Batch ${Math.ceil(done/BATCH_SIZE)} / ${Math.ceil(total/BATCH_SIZE)} — ${pct}%`;
+      document.getElementById('pcount-imported').textContent = imp.toLocaleString();
+      document.getElementById('pcount-errors').textContent   = errs;
+    }
+  );
+
+  // Show result
+  document.getElementById('progress-section').classList.add('hidden');
+  const resultEl = document.getElementById('result-section');
+  resultEl.classList.remove('hidden');
+
+  document.getElementById('result-summary').textContent =
+    `${imported.toLocaleString()} cards imported · ${errorCount} errors`;
+
+  const sets = getUniqueSets(processed);
+  document.getElementById('result-sets').innerHTML =
+    `<div style="color:var(--muted);font-size:0.75rem;width:100%;margin-bottom:4px">${sets.length} unique set codes:</div>` +
+    sets.map(s => `<span class="badge badge-muted">${s}</span>`).join('');
+}
+</script>
+
+<div id="toast"></div>
+
+</body>
+</html>
