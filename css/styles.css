@@ -621,13 +621,13 @@ select.input { cursor: pointer; appearance: none;
 /* ─── Inventory Grid (Excel-style) ─────────────────────────────────────────── */
 .inv-table-wrap { overflow-x: auto; margin-top: 4px; }
 
-.inv-table { width: 100%; border-collapse: collapse; font-size: 2rem; white-space: nowrap; }
+.inv-table { width: 100%; border-collapse: collapse; font-size: 1.5rem; white-space: nowrap; }
 
 .inv-table thead th {
   background: var(--surf2);
-  padding: 10px 12px;
+  padding: 8px 10px;
   font-family: 'Cinzel', serif;
-  font-size: 1.5rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   color: #fff;
@@ -638,12 +638,12 @@ select.input { cursor: pointer; appearance: none;
 }
 .inv-table thead th:first-child { text-align: left; }
 .inv-th-group-start { border-left: 2px solid var(--b2) !important; }
-.inv-th-total { color: var(--gold2) !important; font-size: 1.4rem !important; }
+.inv-th-total { color: var(--gold2) !important; font-size: 1.05rem !important; }
 .inv-th-img   { width: 136px; }
 .inv-th-status { width: 40px; }
 
 .inv-table td {
-  padding: 6px 10px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--b1);
   vertical-align: middle;
   color: #fff;
@@ -653,14 +653,14 @@ select.input { cursor: pointer; appearance: none;
 .inv-row.saved  td { border-bottom-color: var(--green); }
 
 .inv-td-img   { width: 136px; padding: 4px 6px; }
-.inv-td-num   { font-family: 'Cinzel', serif; font-size: 1.6rem; color: var(--gold2); font-weight: 600; }
-.inv-td-name  { font-weight: 600; font-size: 2rem; color: #fff; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+.inv-td-num   { font-family: 'Cinzel', serif; font-size: 1.2rem; color: var(--gold2); font-weight: 600; }
+.inv-td-name  { font-weight: 600; font-size: 1.5rem; color: #fff; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
 .inv-td-rarity { }
 .inv-td-total {
   text-align: center;
   font-family: 'Cinzel', serif;
   font-weight: 700;
-  font-size: 2.2rem;
+  font-size: 1.65rem;
   color: var(--gold2);
   min-width: 50px;
 }
@@ -671,18 +671,18 @@ select.input { cursor: pointer; appearance: none;
 .inv-thumb-ph { width: 112px; height: 160px; background: var(--b1); border-radius: 6px; }
 
 /* Quantity cell */
-.inv-qty-cell { padding: 4px 6px; text-align: center; }
+.inv-qty-cell { padding: 3px 5px; text-align: center; }
 .inv-qty-group-start { border-left: 2px solid var(--b2); }
 .inv-qty-disabled { opacity: 0.28; pointer-events: none; }
 
 .inv-qty-input {
-  width: 90px; height: 56px;
+  width: 68px; height: 42px;
   background: var(--surf);
   border: 1px solid var(--b2);
   border-radius: 6px;
   color: #fff;
   font-family: 'Cinzel', serif;
-  font-size: 2.2rem;
+  font-size: 1.65rem;
   font-weight: 700;
   text-align: center;
   outline: none;
@@ -696,8 +696,8 @@ select.input { cursor: pointer; appearance: none;
 }
 
 .inv-select {
-  font-size: 1.8rem;
-  padding: 6px 10px;
+  font-size: 1.35rem;
+  padding: 5px 8px;
   background: var(--surf);
   border: 1px solid var(--b2);
   border-radius: 6px;
@@ -709,7 +709,7 @@ select.input { cursor: pointer; appearance: none;
 .inv-select:focus { border-color: var(--gold); }
 
 /* Save status dot */
-.inv-status-dot { font-size: 1.6rem; font-weight: 700; }
+.inv-status-dot { font-size: 1.2rem; font-weight: 700; }
 .inv-status-dot.saving { color: var(--gold); }
 .inv-status-dot.saved  { color: var(--green); }
 
