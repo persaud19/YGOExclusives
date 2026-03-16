@@ -127,30 +127,12 @@ function buildQtyCell(field, val, cardId, colIdx, groupStart, disabled = false) 
   const dis = disabled ? 'disabled' : '';
   return `
     <td class="inv-qty-cell${groupStart ? ' inv-qty-group-start' : ''}${disabled ? ' inv-qty-disabled' : ''}">
-      <div class="inv-qty-widget">
-        <button class="inv-qty-btn" data-action="minus" data-field="${field}" data-card="${cardId}" ${dis}>−</button>
-        <input  class="inv-qty-input" type="text" inputmode="numeric" pattern="[0-9]*"
-                value="${val}" data-field="${field}" data-card="${cardId}" data-col-idx="${colIdx}" ${dis}>
-        <button class="inv-qty-btn" data-action="plus"  data-field="${field}" data-card="${cardId}" ${dis}>+</button>
-      </div>
+      <input class="inv-qty-input" type="text" inputmode="numeric" pattern="[0-9]*"
+             value="${val}" data-field="${field}" data-card="${cardId}" data-col-idx="${colIdx}" ${dis}>
     </td>`;
 }
 
 function wireRowEvents(tr, cardId) {
-  // +/- buttons
-  tr.querySelectorAll('.inv-qty-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const { action, field } = btn.dataset;
-      const input = tr.querySelector(`.inv-qty-input[data-field="${field}"]`);
-      if (!input || input.disabled) return;
-      let v = parseInt(input.value, 10) || 0;
-      v = action === 'plus' ? v + 1 : Math.max(0, v - 1);
-      input.value = v;
-      updateRowTotals(tr, cardId);
-      scheduleSave(cardId, tr);
-    });
-  });
-
   // Direct qty input + keyboard navigation
   tr.querySelectorAll('.inv-qty-input').forEach(input => {
     // Select all on focus (Excel behaviour)
@@ -190,7 +172,6 @@ function toggleHrCells(tr, enabled) {
   ['hr_qty_nm', 'hr_qty_lp'].forEach(field => {
     const cell  = tr.querySelector(`.inv-qty-input[data-field="${field}"]`)?.closest('td');
     const input = tr.querySelector(`.inv-qty-input[data-field="${field}"]`);
-    tr.querySelectorAll(`.inv-qty-btn[data-field="${field}"]`).forEach(b => b.disabled = !enabled);
     if (cell)  cell.classList.toggle('inv-qty-disabled', !enabled);
     if (input) input.disabled = !enabled;
   });
