@@ -621,16 +621,16 @@ select.input { cursor: pointer; appearance: none;
 /* ─── Inventory Grid (Excel-style) ─────────────────────────────────────────── */
 .inv-table-wrap { overflow-x: auto; margin-top: 4px; }
 
-.inv-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; white-space: nowrap; }
+.inv-table { width: 100%; border-collapse: collapse; font-size: 2rem; white-space: nowrap; }
 
 .inv-table thead th {
   background: var(--surf2);
-  padding: 7px 8px;
+  padding: 10px 12px;
   font-family: 'Cinzel', serif;
-  font-size: 0.63rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
   letter-spacing: 0.05em;
-  color: var(--muted);
+  color: #fff;
   border-bottom: 2px solid var(--b1);
   text-align: center;
   user-select: none;
@@ -638,71 +638,72 @@ select.input { cursor: pointer; appearance: none;
 }
 .inv-table thead th:first-child { text-align: left; }
 .inv-th-group-start { border-left: 2px solid var(--b2) !important; }
-.inv-th-total { color: var(--dim) !important; font-size: 0.58rem !important; }
-.inv-th-img   { width: 36px; }
-.inv-th-status { width: 24px; }
+.inv-th-total { color: var(--gold2) !important; font-size: 1.4rem !important; }
+.inv-th-img   { width: 136px; }
+.inv-th-status { width: 40px; }
 
 .inv-table td {
-  padding: 4px 6px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--b1);
   vertical-align: middle;
+  color: #fff;
 }
-.inv-row:hover td { background: rgba(255,255,255,0.03); }
+.inv-row:hover td { background: rgba(255,255,255,0.04); }
 .inv-row.saving td { border-bottom-color: var(--gold); }
 .inv-row.saved  td { border-bottom-color: var(--green); }
 
-.inv-td-img   { width: 68px; padding: 3px 4px; }
-.inv-td-num   { font-family: 'Cinzel', serif; font-size: 0.68rem; color: var(--muted); }
-.inv-td-name  { font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.inv-td-img   { width: 136px; padding: 4px 6px; }
+.inv-td-num   { font-family: 'Cinzel', serif; font-size: 1.6rem; color: var(--gold2); font-weight: 600; }
+.inv-td-name  { font-weight: 600; font-size: 2rem; color: #fff; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
 .inv-td-rarity { }
 .inv-td-total {
   text-align: center;
   font-family: 'Cinzel', serif;
   font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--txt);
-  min-width: 30px;
+  font-size: 2.2rem;
+  color: var(--gold2);
+  min-width: 50px;
 }
-.inv-td-select { padding: 3px 4px; }
-.inv-td-status { width: 24px; text-align: center; padding: 0 4px; }
+.inv-td-select { padding: 4px 6px; }
+.inv-td-status { width: 40px; text-align: center; padding: 0 6px; }
 
-.inv-thumb    { width: 56px; height: 80px; object-fit: cover; border-radius: 4px; display: block; }
-.inv-thumb-ph { width: 56px; height: 80px; background: var(--b1); border-radius: 4px; }
+.inv-thumb    { width: 112px; height: 160px; object-fit: cover; border-radius: 6px; display: block; }
+.inv-thumb-ph { width: 112px; height: 160px; background: var(--b1); border-radius: 6px; }
 
 /* Quantity cell */
-.inv-qty-cell { padding: 3px 4px; text-align: center; }
+.inv-qty-cell { padding: 4px 6px; text-align: center; }
 .inv-qty-group-start { border-left: 2px solid var(--b2); }
 .inv-qty-disabled { opacity: 0.28; pointer-events: none; }
 
 .inv-qty-widget {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 .inv-qty-btn {
-  width: 18px; height: 24px;
+  width: 44px; height: 56px;
   background: var(--surf2);
-  border: 1px solid var(--dim);
-  border-radius: 3px;
-  color: var(--muted);
-  font-size: 0.85rem;
+  border: 1px solid var(--b2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 2rem;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   padding: 0; line-height: 1;
   transition: background 0.1s, color 0.1s;
   flex-shrink: 0;
 }
-.inv-qty-btn:hover:not([disabled]) { background: var(--b2); color: var(--txt); }
-.inv-qty-btn:active:not([disabled]) { transform: scale(0.88); }
+.inv-qty-btn:hover:not([disabled]) { background: var(--b2); color: var(--gold2); }
+.inv-qty-btn:active:not([disabled]) { transform: scale(0.92); }
 
 .inv-qty-input {
-  width: 40px; height: 24px;
+  width: 90px; height: 56px;
   background: var(--surf);
   border: 1px solid var(--b2);
-  border-radius: 3px;
-  color: var(--txt);
+  border-radius: 6px;
+  color: #fff;
   font-family: 'Cinzel', serif;
-  font-size: 0.9rem;
+  font-size: 2.2rem;
   font-weight: 700;
   text-align: center;
   outline: none;
@@ -711,25 +712,25 @@ select.input { cursor: pointer; appearance: none;
 }
 .inv-qty-input:focus {
   border-color: var(--gold);
-  box-shadow: 0 0 0 2px rgba(240,176,48,0.2);
+  box-shadow: 0 0 0 3px rgba(240,176,48,0.25);
   position: relative; z-index: 1;
 }
 
 .inv-select {
-  font-size: 0.75rem;
-  padding: 3px 6px;
+  font-size: 1.8rem;
+  padding: 6px 10px;
   background: var(--surf);
   border: 1px solid var(--b2);
-  border-radius: 4px;
-  color: var(--txt);
+  border-radius: 6px;
+  color: #fff;
   outline: none;
   cursor: pointer;
-  max-width: 110px;
+  max-width: 200px;
 }
 .inv-select:focus { border-color: var(--gold); }
 
 /* Save status dot */
-.inv-status-dot { font-size: 0.7rem; font-weight: 700; }
+.inv-status-dot { font-size: 1.6rem; font-weight: 700; }
 .inv-status-dot.saving { color: var(--gold); }
 .inv-status-dot.saved  { color: var(--green); }
 
