@@ -6,8 +6,7 @@ const ANTHROPIC_URL  = 'https://api.anthropic.com/v1/messages';
 let addCardInitialized = false;
 let lcCardData = null;   // identified card info from Claude
 let lcDbCard   = null;   // matched card from Supabase
-let lcPhotoB64 = null;   // base64 image data
-let lcMimeType = 'image/jpeg';
+let lcPhotos   = [];     // array of { b64, mimeType, name }
 
 function initAddCard() {
   if (addCardInitialized) return;
@@ -42,35 +41,78 @@ function lcChangeKey() {
 
 // ─── File Upload ──────────────────────────────────────────────────────────────
 function lcOnFile(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
 
-  lcMimeType = file.type || 'image/jpeg';
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const dataUrl = evt.target.result;
+      lcPhotos.push({
+        b64:      dataUrl.split(',')[1],
+        mimeType: file.type || 'image/jpeg',
+        name:     file.name,
+        dataUrl,
+      });
+      loaded++;
+      if (loaded === files.length) lcRenderPreviews();
+    };
+    reader.readAsDataURL(file);
+  });
 
-  const reader = new FileReader();
-  reader.onload = evt => {
-    const dataUrl = evt.target.result;
-
-    // Show preview
-    const preview = document.getElementById('lc-preview');
-    const ph      = document.getElementById('lc-drop-ph');
-    if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
-    if (ph)      { ph.style.display = 'none'; }
-
-    // Store base64 (strip data:...;base64, prefix)
-    lcPhotoB64 = dataUrl.split(',')[1];
-
-    // Show identify button, reset downstream
-    const btn = document.getElementById('lc-identify-btn');
-    if (btn) btn.style.display = '';
-    lcReset(2);
-  };
-  reader.readAsDataURL(file);
-  // Reset file input so same file can be re-selected
+  // Reset file input so same files can be re-selected
   e.target.value = '';
+  lcReset(2);
+}
+
+function lcRenderPreviews() {
+  const ph        = document.getElementById('lc-drop-ph');
+  const previewEl = document.getElementById('lc-previews');
+  if (ph)        ph.style.display        = 'none';
+  if (previewEl) {
+    previewEl.style.display = '';
+    previewEl.innerHTML = lcPhotos.map((p, i) => `
+      <div class="lc-thumb-wrap">
+        <img src="${p.dataUrl}" class="lc-thumb-img" alt="${escHtml(p.name)}">
+        <button class="lc-thumb-del" onclick="lcRemovePhoto(${i})" title="Remove">✕</button>
+      </div>`).join('');
+  }
+
+  const identBtn  = document.getElementById('lc-identify-btn');
+  const addMoreBtn = document.getElementById('lc-add-more-btn');
+  if (identBtn)   identBtn.style.display   = '';
+  if (addMoreBtn) addMoreBtn.style.display = '';
+}
+
+function lcRemovePhoto(idx) {
+  lcPhotos.splice(idx, 1);
+  if (lcPhotos.length === 0) {
+    const ph        = document.getElementById('lc-drop-ph');
+    const previewEl = document.getElementById('lc-previews');
+    if (ph)        ph.style.display        = '';
+    if (previewEl) previewEl.style.display = 'none';
+    const identBtn   = document.getElementById('lc-identify-btn');
+    const addMoreBtn = document.getElementById('lc-add-more-btn');
+    if (identBtn)   identBtn.style.display   = 'none';
+    if (addMoreBtn) addMoreBtn.style.display = 'none';
+  } else {
+    lcRenderPreviews();
+  }
 }
 
 function lcReset(fromStep) {
+  if (fromStep <= 1) {
+    lcPhotos = [];
+    const ph        = document.getElementById('lc-drop-ph');
+    const previewEl = document.getElementById('lc-previews');
+    if (ph)        ph.style.display        = '';
+    if (previewEl) { previewEl.style.display = 'none'; previewEl.innerHTML = ''; }
+    const identBtn   = document.getElementById('lc-identify-btn');
+    const addMoreBtn = document.getElementById('lc-add-more-btn');
+    if (identBtn)   identBtn.style.display   = 'none';
+    if (addMoreBtn) addMoreBtn.style.display = 'none';
+  }
   if (fromStep <= 2) {
     const s2 = document.getElementById('lc-step2');
     const mc = document.getElementById('lc-match-card');
@@ -95,33 +137,35 @@ function lcReset(fromStep) {
 async function lcIdentify() {
   const apiKey = localStorage.getItem(LC_KEY_STORAGE);
   if (!apiKey) { showToast('Enter your Anthropic API key first'); return; }
-  if (!lcPhotoB64) { showToast('Upload a photo first'); return; }
+  if (!lcPhotos.length) { showToast('Upload at least one photo first'); return; }
 
   const btn = document.getElementById('lc-identify-btn');
   const msg = document.getElementById('lc-identify-msg');
   btn.disabled    = true;
   btn.textContent = 'Identifying…';
-  if (msg) { msg.textContent = 'Sending to Claude Vision…'; msg.style.color = ''; }
+  if (msg) {
+    msg.textContent = `Sending ${lcPhotos.length} photo${lcPhotos.length > 1 ? 's' : ''} to Claude Vision…`;
+    msg.style.color = '';
+  }
   lcReset(2);
 
   try {
+    // Build content array: all images first, then the prompt
+    const imageBlocks = lcPhotos.map(p => ({
+      type: 'image',
+      source: { type: 'base64', media_type: p.mimeType, data: p.b64 },
+    }));
+
     const body = {
       model: 'claude-sonnet-4-6',
       max_tokens: 600,
       messages: [{
         role: 'user',
         content: [
-          {
-            type: 'image',
-            source: {
-              type:       'base64',
-              media_type: lcMimeType,
-              data:       lcPhotoB64,
-            },
-          },
+          ...imageBlocks,
           {
             type: 'text',
-            text: `You are analyzing a Yu-Gi-Oh! trading card image. Respond ONLY with a raw JSON object — no markdown, no code fences, no extra text.
+            text: `You are analyzing ${lcPhotos.length > 1 ? 'multiple photos of the same Yu-Gi-Oh! trading card' : 'a Yu-Gi-Oh! trading card image'}. Use all provided images together to identify the card and assess its condition. Respond ONLY with a raw JSON object — no markdown, no code fences, no extra text.
 
 {
   "card_name": "exact name printed on the card",
@@ -129,7 +173,7 @@ async function lcIdentify() {
   "rarity": "rarity as printed e.g. Ultra Rare",
   "edition": "1st Edition or Unlimited",
   "condition": "NM or LP or MP",
-  "condition_reason": "one sentence describing visible wear",
+  "condition_reason": "one sentence describing visible wear based on all photos",
   "lore_text": "the card effect or flavor text verbatim"
 }`,
           },
