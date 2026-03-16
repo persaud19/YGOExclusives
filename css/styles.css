@@ -651,7 +651,7 @@ select.input { cursor: pointer; appearance: none;
 .inv-row.saving td { border-bottom-color: var(--gold); }
 .inv-row.saved  td { border-bottom-color: var(--green); }
 
-.inv-td-img   { width: 36px; padding: 3px 4px; }
+.inv-td-img   { width: 68px; padding: 3px 4px; }
 .inv-td-num   { font-family: 'Cinzel', serif; font-size: 0.68rem; color: var(--muted); }
 .inv-td-name  { font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 .inv-td-rarity { }
@@ -666,8 +666,8 @@ select.input { cursor: pointer; appearance: none;
 .inv-td-select { padding: 3px 4px; }
 .inv-td-status { width: 24px; text-align: center; padding: 0 4px; }
 
-.inv-thumb    { width: 28px; height: 40px; object-fit: cover; border-radius: 3px; display: block; }
-.inv-thumb-ph { width: 28px; height: 40px; background: var(--b1); border-radius: 3px; }
+.inv-thumb    { width: 56px; height: 80px; object-fit: cover; border-radius: 4px; display: block; }
+.inv-thumb-ph { width: 56px; height: 80px; background: var(--b1); border-radius: 4px; }
 
 /* Quantity cell */
 .inv-qty-cell { padding: 3px 4px; text-align: center; }
