@@ -116,6 +116,7 @@ function buildCardRow(card) {
     </td>
     ${buildQtyCell('hr_qty_nm', hrNm, card.id, 6, true,  !hasHR)}
     ${buildQtyCell('hr_qty_lp', hrLp, card.id, 7, false, !hasHR)}
+    <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + hrNm + hrLp}</td>
     <td class="inv-td-status" id="inv-status-${card.id}"></td>
   `;
 
@@ -179,10 +180,15 @@ function toggleHrCells(tr, enabled) {
 
 function updateRowTotals(tr, cardId) {
   const v = f => parseInt(tr.querySelector(`.inv-qty-input[data-field="${f}"]`)?.value, 10) || 0;
-  const feEl = document.getElementById(`fe-total-${cardId}`);
-  const unEl = document.getElementById(`un-total-${cardId}`);
-  if (feEl) feEl.textContent = v('fe_nm') + v('fe_lp') + v('fe_mp');
-  if (unEl) unEl.textContent = v('un_nm') + v('un_lp') + v('un_mp');
+  const feEl  = document.getElementById(`fe-total-${cardId}`);
+  const unEl  = document.getElementById(`un-total-${cardId}`);
+  const allEl = document.getElementById(`all-total-${cardId}`);
+  const feSum = v('fe_nm') + v('fe_lp') + v('fe_mp');
+  const unSum = v('un_nm') + v('un_lp') + v('un_mp');
+  const hrSum = v('hr_qty_nm') + v('hr_qty_lp');
+  if (feEl)  feEl.textContent  = feSum;
+  if (unEl)  unEl.textContent  = unSum;
+  if (allEl) allEl.textContent = feSum + unSum + hrSum;
 }
 
 function scheduleSave(cardId, tr) {

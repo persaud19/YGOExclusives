@@ -638,10 +638,16 @@ select.input { cursor: pointer; appearance: none;
   position: sticky; top: 0; z-index: 1;
 }
 .inv-table thead th:first-child { text-align: left; }
-.inv-th-group-start { border-left: 2px solid var(--b2) !important; }
-.inv-th-total { color: var(--gold2) !important; font-size: 1.05rem !important; }
-.inv-th-img   { width: 136px; }
-.inv-th-status { width: 40px; }
+.inv-th-group-start  { border-left: 2px solid var(--b2) !important; }
+.inv-th-total        { color: var(--gold2) !important; font-size: 1.05rem !important; }
+.inv-th-img          { width: 136px; }
+.inv-th-status       { width: 40px; }
+.inv-th-group-label  { text-align: center !important; color: var(--gold) !important;
+                       font-size: .7rem !important; letter-spacing: .08em;
+                       text-transform: uppercase; padding-bottom: 2px !important;
+                       border-bottom: 1px solid var(--b2); }
+.inv-thead-sub th    { font-size: .72rem !important; color: var(--muted) !important;
+                       padding-top: 2px !important; }
 
 .inv-table td {
   padding: 5px 8px;
@@ -664,6 +670,25 @@ select.input { cursor: pointer; appearance: none;
   font-size: 1.65rem;
   color: var(--gold2);
   min-width: 50px;
+}
+.inv-th-total-end {
+  color: #fff !important;
+  font-size: 1.05rem !important;
+  background: var(--purple) !important;
+  border-left: 3px solid var(--gold) !important;
+  white-space: nowrap;
+  text-align: center;
+}
+.inv-td-total-end {
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: 1.9rem;
+  color: #fff;
+  background: var(--purple);
+  border-left: 3px solid var(--gold);
+  min-width: 70px;
+  padding: 0 10px;
 }
 .inv-td-select { padding: 4px 6px; }
 .inv-td-status { width: 40px; text-align: center; padding: 0 6px; }

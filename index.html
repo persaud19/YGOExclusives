@@ -115,24 +115,30 @@
       <div class="inv-table-wrap">
         <table class="inv-table" id="inv-table" style="display:none">
           <thead>
-            <tr>
-              <th class="inv-th-img"></th>
-              <th style="white-space:nowrap">Card #</th>
-              <th>Name</th>
-              <th>Rarity</th>
-              <th class="inv-th-qty inv-th-group-start">1st NM</th>
-              <th class="inv-th-qty">1st LP</th>
-              <th class="inv-th-qty">1st MP</th>
-              <th class="inv-th-total">1st ∑</th>
-              <th class="inv-th-qty inv-th-group-start">Un NM</th>
-              <th class="inv-th-qty">Un LP</th>
-              <th class="inv-th-qty">Un MP</th>
-              <th class="inv-th-total">Un ∑</th>
-              <th>Location</th>
-              <th>HR Type</th>
-              <th class="inv-th-qty inv-th-group-start">HR NM</th>
-              <th class="inv-th-qty">HR LP</th>
-              <th class="inv-th-status"></th>
+            <tr class="inv-thead-group">
+              <th class="inv-th-img" rowspan="2"></th>
+              <th rowspan="2" style="white-space:nowrap">Card #</th>
+              <th rowspan="2">Name</th>
+              <th rowspan="2">Rarity</th>
+              <th colspan="4" class="inv-th-group-label inv-th-group-start">1st Edition</th>
+              <th colspan="4" class="inv-th-group-label inv-th-group-start">Unlimited</th>
+              <th rowspan="2">Location</th>
+              <th colspan="3" class="inv-th-group-label inv-th-group-start">High Rarity</th>
+              <th rowspan="2" class="inv-th-total-end" title="Total across all editions &amp; conditions">Total Cards</th>
+              <th class="inv-th-status" rowspan="2"></th>
+            </tr>
+            <tr class="inv-thead-sub">
+              <th class="inv-th-qty inv-th-group-start">NM</th>
+              <th class="inv-th-qty">LP</th>
+              <th class="inv-th-qty">MP</th>
+              <th class="inv-th-total">∑</th>
+              <th class="inv-th-qty inv-th-group-start">NM</th>
+              <th class="inv-th-qty">LP</th>
+              <th class="inv-th-qty">MP</th>
+              <th class="inv-th-total">∑</th>
+              <th class="inv-th-group-start">Type</th>
+              <th class="inv-th-qty">NM</th>
+              <th class="inv-th-qty">LP</th>
             </tr>
           </thead>
           <tbody id="inv-tbody"></tbody>
