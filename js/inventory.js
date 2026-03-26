@@ -117,6 +117,9 @@ function buildCardRow(card) {
     ${buildQtyCell('hr_qty_nm', hrNm, card.id, 6, true,  !hasHR)}
     ${buildQtyCell('hr_qty_lp', hrLp, card.id, 7, false, !hasHR)}
     <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + hrNm + hrLp}</td>
+    <td class="inv-td-review">
+      <input type="checkbox" class="inv-review-check" data-card="${card.id}" ${card.needs_review ? 'checked' : ''} title="Flag for review">
+    </td>
     <td class="inv-td-status" id="inv-status-${card.id}"></td>
   `;
 
@@ -167,6 +170,19 @@ function wireRowEvents(tr, cardId) {
       scheduleSave(cardId, tr);
     });
   });
+
+  // Needs Review checkbox
+  const reviewCheck = tr.querySelector('.inv-review-check');
+  if (reviewCheck) {
+    reviewCheck.addEventListener('change', async () => {
+      try {
+        await updateCard({ id: cardId, needs_review: reviewCheck.checked });
+      } catch (e) {
+        showToast('Failed to save flag: ' + e.message);
+        reviewCheck.checked = !reviewCheck.checked; // revert
+      }
+    });
+  }
 }
 
 function toggleHrCells(tr, enabled) {

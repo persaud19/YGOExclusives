@@ -64,6 +64,8 @@ function wireCollectionControls() {
   });
 
   document.getElementById('col-export-btn')?.addEventListener('click', exportCollectionCSV);
+  document.getElementById('col-add-btn')?.addEventListener('click', openAddCardModal);
+  document.getElementById('col-import-btn')?.addEventListener('click', openImportModal);
 }
 
 function updateSortArrows() {
@@ -481,4 +483,231 @@ async function exportCollectionCSV() {
 
   btn.disabled    = false;
   btn.textContent = 'Export CSV';
+}
+
+// ─── Add Card Modal ───────────────────────────────────────────────────────────
+function openAddCardModal() {
+  const modal = document.getElementById('add-card-modal');
+  if (!modal) return;
+
+  // Populate rarity select
+  const rarSel = document.getElementById('ac-rarity');
+  if (rarSel && rarSel.options.length <= 1) {
+    (typeof RARITIES !== 'undefined' ? RARITIES : []).forEach(r => {
+      rarSel.add(new Option(r, r));
+    });
+  }
+
+  // Populate location select
+  const locSel = document.getElementById('ac-location');
+  if (locSel && locSel.options.length === 0) {
+    (typeof LOCATIONS !== 'undefined' ? LOCATIONS : []).forEach(l => {
+      locSel.add(new Option(l, l));
+    });
+  }
+
+  // Clear fields
+  ['ac-card-number','ac-card-name','ac-set-name','ac-year'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('ac-rarity').value  = '';
+  document.getElementById('ac-error').textContent = '';
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('ac-card-number')?.focus(), 50);
+}
+
+function closeAddCardModal() {
+  document.getElementById('add-card-modal')?.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function saveNewCard() {
+  const num  = document.getElementById('ac-card-number')?.value.trim();
+  const name = document.getElementById('ac-card-name')?.value.trim();
+  const errEl = document.getElementById('ac-error');
+  errEl.textContent = '';
+
+  if (!num)  { errEl.textContent = 'Card # is required.'; return; }
+  if (!name) { errEl.textContent = 'Card Name is required.'; return; }
+
+  const btn = document.getElementById('ac-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const row = {
+      card_number: num,
+      card_name:   name,
+      rarity:      document.getElementById('ac-rarity')?.value   || '',
+      set_name:    document.getElementById('ac-set-name')?.value.trim() || '',
+      year:        document.getElementById('ac-year')?.value.trim()     || null,
+      location:    document.getElementById('ac-location')?.value        || '',
+      fe_nm: 0, fe_lp: 0, fe_mp: 0,
+      un_nm: 0, un_lp: 0, un_mp: 0,
+      listed: false,
+    };
+    await saveCard(row);
+    showToast(`Added: ${name}`);
+    closeAddCardModal();
+    colPage = 0;
+    loadCollectionPage();
+  } catch (e) {
+    errEl.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Card';
+  }
+}
+
+// ─── Import Set Modal ─────────────────────────────────────────────────────────
+let _importRows = [];
+
+const IMPORT_TEMPLATE_HEADERS = ['Card #','Card Name','Type','ATR','Sub Type','LVL','ATK','DEF','Rarity','Set Name','Year'];
+
+function openImportModal() {
+  _importRows = [];
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-preview').textContent = '';
+  document.getElementById('import-progress').style.display = 'none';
+  document.getElementById('import-go-btn').disabled = true;
+  document.getElementById('import-set-modal')?.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeImportModal() {
+  document.getElementById('import-set-modal')?.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function downloadImportTemplate() {
+  const sample = [
+    IMPORT_TEMPLATE_HEADERS,
+    ['MAZE-EN001','Shadow Ghoul','Effect Monster','DARK','Zombie','5','1600','1300','Rare','Maze of Millennia','2024'],
+    ['MAZE-EN002','Labyrinth Wall','Spell','','Field','','','','Rare','Maze of Millennia','2024'],
+  ];
+  const csv = sample.map(r => r.map(v => `"${v}"`).join(',')).join('\r\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv),
+    download: 'import-template.csv',
+  });
+  a.click();
+}
+
+function previewImportFile(input) {
+  _importRows = [];
+  const previewEl = document.getElementById('import-preview');
+  const goBtn     = document.getElementById('import-go-btn');
+  goBtn.disabled  = true;
+
+  const file = input.files?.[0];
+  if (!file) { previewEl.textContent = ''; return; }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) {
+      previewEl.textContent = 'File appears empty.';
+      return;
+    }
+
+    // Parse header row — find column indices
+    const headers = parseCSVRow(lines[0]).map(h => h.trim().toLowerCase());
+    const idx = {
+      card_number: findCol(headers, ['card #','card#']),
+      card_name:   findCol(headers, ['card name','cardname','name']),
+      rarity:      findCol(headers, ['rarity']),
+      set_name:    findCol(headers, ['set name','setname','set']),
+      year:        findCol(headers, ['year']),
+    };
+
+    if (idx.card_number < 0 || idx.card_name < 0) {
+      previewEl.innerHTML = '<span class="red">Missing required columns: "Card #" and "Card Name".</span>';
+      return;
+    }
+
+    _importRows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVRow(lines[i]);
+      const num  = cols[idx.card_number]?.trim();
+      const name = cols[idx.card_name]?.trim();
+      if (!num && !name) continue;
+      _importRows.push({
+        card_number: num  || '',
+        card_name:   name || '',
+        rarity:      idx.rarity  >= 0 ? (cols[idx.rarity]?.trim()   || '') : '',
+        set_name:    idx.set_name >= 0 ? (cols[idx.set_name]?.trim() || '') : '',
+        year:        idx.year     >= 0 ? (cols[idx.year]?.trim()     || null) : null,
+        fe_nm: 0, fe_lp: 0, fe_mp: 0,
+        un_nm: 0, un_lp: 0, un_mp: 0,
+        listed: false,
+      });
+    }
+
+    previewEl.innerHTML = `<span style="color:var(--green)">&#10003; ${_importRows.length} card${_importRows.length !== 1 ? 's' : ''} ready to import</span>`;
+    goBtn.disabled = _importRows.length === 0;
+  };
+  reader.readAsText(file);
+}
+
+function findCol(headers, aliases) {
+  for (const a of aliases) {
+    const i = headers.indexOf(a);
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+function parseCSVRow(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (c === ',' && !inQuote) {
+      result.push(cur); cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+async function runImport() {
+  if (!_importRows.length) return;
+  const goBtn   = document.getElementById('import-go-btn');
+  const progEl  = document.getElementById('import-progress');
+  const barEl   = document.getElementById('import-bar');
+  const statEl  = document.getElementById('import-status');
+
+  goBtn.disabled    = true;
+  progEl.style.display = '';
+  const BATCH = 250;
+  let done = 0, errors = 0;
+
+  for (let i = 0; i < _importRows.length; i += BATCH) {
+    const batch = _importRows.slice(i, i + BATCH);
+    try {
+      await upsertCardsBatch(batch);
+      done += batch.length;
+    } catch (e) {
+      errors += batch.length;
+    }
+    const pct = Math.round(((i + batch.length) / _importRows.length) * 100);
+    barEl.style.width = pct + '%';
+    statEl.textContent = `${Math.min(i + batch.length, _importRows.length)} / ${_importRows.length} processed…`;
+  }
+
+  statEl.textContent = errors
+    ? `Done — ${done} imported, ${errors} failed.`
+    : `&#10003; All ${done} cards imported successfully.`;
+  showToast(`Import complete: ${done} cards added`);
+  colPage = 0;
+  loadCollectionPage();
+  goBtn.disabled = false;
 }

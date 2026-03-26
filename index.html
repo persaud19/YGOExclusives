@@ -125,6 +125,7 @@
               <th rowspan="2">Location</th>
               <th colspan="3" class="inv-th-group-label inv-th-group-start">High Rarity</th>
               <th rowspan="2" class="inv-th-total-end" title="Total across all editions &amp; conditions">Total Cards</th>
+              <th rowspan="2" class="inv-th-review">Needs<br>Review</th>
               <th class="inv-th-status" rowspan="2"></th>
             </tr>
             <tr class="inv-thead-sub">
@@ -173,6 +174,8 @@
           <option value="false">Not Listed</option>
         </select>
         <button id="col-export-btn" class="btn btn-secondary btn-sm" style="white-space:nowrap">Export CSV</button>
+        <button id="col-add-btn" class="btn btn-primary btn-sm" data-mode="owner" style="white-space:nowrap">+ Add Card</button>
+        <button id="col-import-btn" class="btn btn-secondary btn-sm" data-mode="owner" style="white-space:nowrap">&#8679; Import Set</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -427,6 +430,72 @@
         <div id="report-price-movers"><p class="muted small">Loading…</p></div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ─── ADD CARD MODAL ─────────────────────────────────────────────────── -->
+  <div id="add-card-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeAddCardModal()">
+    <div class="modal-box" style="max-width:520px">
+      <div class="modal-title">Add New Card</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Card # <span class="red">*</span></label>
+          <input id="ac-card-number" class="input" type="text" placeholder="e.g. MAZE-EN001">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Card Name <span class="red">*</span></label>
+          <input id="ac-card-name" class="input" type="text" placeholder="e.g. Blue-Eyes White Dragon">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rarity</label>
+          <select id="ac-rarity" class="input">
+            <option value="">— select —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Set Name</label>
+          <input id="ac-set-name" class="input" type="text" placeholder="e.g. Maze of Millennia">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Year</label>
+          <input id="ac-year" class="input" type="text" inputmode="numeric" placeholder="e.g. 2024">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <select id="ac-location" class="input"></select>
+        </div>
+      </div>
+      <div id="ac-error" class="red" style="margin-top:8px;font-size:0.85rem"></div>
+      <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeAddCardModal()">Cancel</button>
+        <button class="btn btn-primary" id="ac-save-btn" onclick="saveNewCard()">Save Card</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── IMPORT SET MODAL ─────────────────────────────────────────────────── -->
+  <div id="import-set-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeImportModal()">
+    <div class="modal-box" style="max-width:560px">
+      <div class="modal-title">Import New Set</div>
+      <p class="muted" style="margin:12px 0 8px;font-size:0.9rem">
+        Upload a CSV with one row per card. Required columns: <strong>Card #</strong>, <strong>Card Name</strong>, <strong>Rarity</strong>, <strong>Set Name</strong>, <strong>Year</strong>. Extra columns (Type, ATR, etc.) are ignored.
+      </p>
+      <button class="btn btn-ghost btn-sm" onclick="downloadImportTemplate()" style="margin-bottom:16px">
+        &#8681; Download Template CSV
+      </button>
+      <div class="form-group">
+        <label class="form-label">Select CSV File</label>
+        <input id="import-file-input" type="file" accept=".csv" class="input" onchange="previewImportFile(this)">
+      </div>
+      <div id="import-preview" style="margin-top:8px;font-size:0.85rem;color:var(--muted)"></div>
+      <div id="import-progress" style="display:none;margin-top:12px">
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="import-bar"></div></div>
+        <div id="import-status" style="font-size:0.8rem;color:var(--muted);margin-top:4px"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeImportModal()">Cancel</button>
+        <button class="btn btn-primary" id="import-go-btn" onclick="runImport()" disabled>Import</button>
+      </div>
     </div>
   </div>
 

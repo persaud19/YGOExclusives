@@ -690,6 +690,24 @@ select.input { cursor: pointer; appearance: none;
   min-width: 70px;
   padding: 0 10px;
 }
+.inv-th-review {
+  text-align: center;
+  font-size: 0.8rem !important;
+  color: var(--yellow) !important;
+  white-space: nowrap;
+  min-width: 60px;
+}
+.inv-td-review {
+  text-align: center;
+  vertical-align: middle;
+  padding: 0 8px;
+}
+.inv-review-check {
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  accent-color: var(--yellow);
+}
 .inv-td-select { padding: 4px 6px; }
 .inv-td-status { width: 40px; text-align: center; padding: 0 6px; }
 
@@ -823,8 +841,8 @@ tr:hover td { background: var(--surf2); }
 }
 
 /* ─── Progress Bar ─────────────────────────────────────────────────────────── */
-.progress-wrap { background: var(--b1); border-radius: 4px; height: 8px; overflow: hidden; }
-.progress-bar  { height: 100%; background: var(--gold); border-radius: 4px; transition: width 0.3s; }
+.progress-wrap, .progress-bar-wrap { background: var(--b1); border-radius: 4px; height: 8px; overflow: hidden; }
+.progress-bar, .progress-bar-fill  { height: 100%; background: var(--gold); border-radius: 4px; transition: width 0.3s; width: 0; }
 
 /* ─── Stat Cards ───────────────────────────────────────────────────────────── */
 .stat-grid {
