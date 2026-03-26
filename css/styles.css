@@ -672,9 +672,9 @@ select.input { cursor: pointer; appearance: none;
   min-width: 50px;
 }
 .inv-th-total-end {
-  color: #fff !important;
+  color: var(--gold) !important;
   font-size: 1.05rem !important;
-  background: var(--purple) !important;
+  background: #1e0a3c !important;
   border-left: 3px solid var(--gold) !important;
   white-space: nowrap;
   text-align: center;
@@ -684,8 +684,8 @@ select.input { cursor: pointer; appearance: none;
   font-family: 'Cinzel', serif;
   font-weight: 900;
   font-size: 1.9rem;
-  color: #fff;
-  background: var(--purple);
+  color: var(--gold);
+  background: #1e0a3c;
   border-left: 3px solid var(--gold);
   min-width: 70px;
   padding: 0 10px;
