@@ -22,6 +22,22 @@ async function dbUpsert(table, rows, headers = DB_HEADERS) {
   return res;
 }
 
+async function dbInsert(table, row) {
+  const headers = {
+    'Content-Type':  'application/json',
+    'apikey':        SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Prefer':        'return=minimal',
+  };
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(row),
+  });
+  if (!res.ok) throw new Error(`DB INSERT ${table} failed: ${res.status} ${await res.text()}`);
+  return res;
+}
+
 async function dbUpdate(table, row, matchKey = 'id') {
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/${table}?${matchKey}=eq.${encodeURIComponent(row[matchKey])}`,

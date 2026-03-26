@@ -538,6 +538,7 @@ async function saveNewCard() {
 
   try {
     const row = {
+      id:          crypto.randomUUID(),
       card_number: num,
       card_name:   name,
       rarity:      document.getElementById('ac-rarity')?.value   || '',
@@ -548,7 +549,7 @@ async function saveNewCard() {
       un_nm: 0, un_lp: 0, un_mp: 0,
       listed: false,
     };
-    await saveCard(row);
+    await dbInsert('cards', row);
     showToast(`Added: ${name}`);
     closeAddCardModal();
     colPage = 0;
