@@ -636,6 +636,7 @@ function previewImportFile(input) {
       const name = cols[idx.card_name]?.trim();
       if (!num && !name) continue;
       _importRows.push({
+        id:          crypto.randomUUID(),
         card_number: num  || '',
         card_name:   name || '',
         rarity:      idx.rarity  >= 0 ? (cols[idx.rarity]?.trim()   || '') : '',
