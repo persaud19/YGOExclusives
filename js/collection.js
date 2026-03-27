@@ -138,8 +138,9 @@ function renderCollectionRows(rows, tbody) {
           ${listed ? 'Listed' : 'Unlisted'}
         </span>
       </td>
-      <td>
+      <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-sm" onclick="openEditModal('${card.id}')">Edit</button>
+        <button class="btn btn-sm" style="background:var(--red);color:#fff;margin-left:6px" onclick="deleteCard('${card.id}','${card.card_name.replace(/'/g,"\\'")}')">Delete</button>
       </td>
     </tr>`;
   }).join('');
@@ -183,6 +184,18 @@ async function quickToggleListed(id, newVal, badgeEl) {
     badgeEl.setAttribute('onclick', `quickToggleListed('${id}',${!newVal},this)`);
   } catch (e) {
     showToast('Failed: ' + e.message);
+  }
+}
+
+// ─── Delete Card ──────────────────────────────────────────────────────────────
+async function deleteCard(cardId, cardName) {
+  if (!confirm(`Delete "${cardName}" from your collection?\nThis cannot be undone.`)) return;
+  try {
+    await dbDelete('cards', 'id', cardId);
+    showToast(`Deleted: ${cardName}`);
+    loadCollectionPage();
+  } catch (e) {
+    showToast('Delete failed: ' + e.message);
   }
 }
 
