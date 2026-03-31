@@ -3,31 +3,38 @@
 let acqInitialised = false;
 let acqImportRows  = [];
 
-// Rarities treated as normal (non-High-Rarity) cards
+// Rarities that are NOT high-rarity
 const REGULAR_RARITIES = new Set([
   'Common', 'Rare', 'Short Print', 'Super Rare', 'Ultra Rare', 'Secret Rare'
 ]);
 
-// ── Source Dropdown (localStorage-backed) ─────────────────────────────────────
-const ACQ_SOURCES_KEY     = 'acq_sources';
-const ACQ_DEFAULT_SOURCES = ['eBay', 'Local Card Shop', 'Facebook Marketplace', 'TCGPlayer', 'Cash'];
-
-function initSourceDropdown() {
-  const stored = JSON.parse(localStorage.getItem(ACQ_SOURCES_KEY) || '[]');
-  const all    = [...new Set([...ACQ_DEFAULT_SOURCES, ...stored])];
-  const dl     = document.getElementById('acq-source-list');
-  if (!dl) return;
-  dl.innerHTML = all.map(s => `<option value="${s}">`).join('');
+// ── Vendor Dropdown (Supabase-backed) ─────────────────────────────────────────
+async function fetchVendors() {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/vendors?order=name`,
+      { headers: DB_HEADERS }
+    );
+    if (!res.ok) return [];
+    const rows = await res.json();
+    return rows.map(v => v.name);
+  } catch { return []; }
 }
 
-function saveSourceIfNew(val) {
-  if (!val) return;
-  const stored = JSON.parse(localStorage.getItem(ACQ_SOURCES_KEY) || '[]');
-  if (!ACQ_DEFAULT_SOURCES.includes(val) && !stored.includes(val)) {
-    stored.push(val);
-    localStorage.setItem(ACQ_SOURCES_KEY, JSON.stringify(stored));
-    initSourceDropdown();
-  }
+async function saveVendorIfNew(name) {
+  if (!name) return;
+  await fetch(`${SUPABASE_URL}/rest/v1/vendors`, {
+    method: 'POST',
+    headers: { ...DB_HEADERS, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+    body: JSON.stringify({ name })
+  });
+}
+
+async function initSourceDropdown() {
+  const vendors = await fetchVendors();
+  const dl = document.getElementById('acq-source-list');
+  if (!dl) return;
+  dl.innerHTML = vendors.map(s => `<option value="${s}">`).join('');
 }
 
 // ── Card Number Auto-Lookup ────────────────────────────────────────────────────
@@ -67,11 +74,9 @@ async function lookupCardByNumber(raw) {
       const rarSel = document.getElementById('acq-rarity');
       if (rarSel) rarSel.value = card.rarity;
 
-      // Auto-set edition: non-standard rarity → High Rarity
-      const edSel = document.getElementById('acq-edition');
-      if (edSel && !REGULAR_RARITIES.has(card.rarity)) {
-        edSel.value = 'High Rarity';
-      }
+      // Auto-check High Rarity checkbox if rarity is non-standard
+      const hrCheck = document.getElementById('acq-hr-check');
+      if (hrCheck) hrCheck.checked = !REGULAR_RARITIES.has(card.rarity);
     }
 
     if (status) { status.textContent = '✓ Found'; status.style.color = 'var(--green)'; }
@@ -102,7 +107,7 @@ function initAcquisitions() {
     cardNumInput.addEventListener('input', acqDebounce(e => lookupCardByNumber(e.target.value), 600));
   }
 
-  // Source dropdown
+  // Source dropdown from Supabase
   initSourceDropdown();
 
   // Manual entry save
@@ -119,9 +124,10 @@ function initAcquisitions() {
 // ── Template Download ──────────────────────────────────────────────────────────
 function downloadTemplate() {
   const rows = [
-    'Card #,Card Name,Rarity,Edition,Condition,Purchased From,Quantity,Price Per Card',
-    'BLMM-EN001,Blue-Eyes White Dragon,Secret Rare,1st Edition,NM,Local Card Shop,3,4.50',
-    'MAZE-EN010,Pot of Prosperity,Ultra Rare,Unlimited,LP,eBay,2,12.00',
+    'Card #,Card Name,Rarity,Edition,High Rarity,Condition,Purchased From,Quantity,Price Per Card',
+    'BLMM-EN001,Blue-Eyes White Dragon,Secret Rare,1st Edition,No,NM,Local Card Shop,3,4.50',
+    'BLMM-EN001,Blue-Eyes White Dragon,Starlight Rare,Unlimited,Yes,NM,eBay,1,250.00',
+    'MAZE-EN010,Pot of Prosperity,Ultra Rare,Unlimited,No,LP,eBay,2,12.00',
   ];
   const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
@@ -150,7 +156,9 @@ function parseAcqCSV(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) throw new Error('CSV needs at least one data row');
 
-  const rawHeaders = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase().replace(/\s+/g, '_').replace('#', ''));
+  const rawHeaders = lines[0].split(',').map(h =>
+    h.trim().replace(/^"|"$/g, '').toLowerCase().replace(/\s+/g, '_').replace('#', '')
+  );
   const rows = [];
 
   for (let i = 1; i < lines.length; i++) {
@@ -160,15 +168,20 @@ function parseAcqCSV(text) {
     const raw = {};
     rawHeaders.forEach((h, idx) => raw[h] = vals[idx] || '');
 
+    const hrVal     = (raw['high_rarity'] || '').toLowerCase();
+    const isHighRar = hrVal === 'yes' || hrVal === 'true' || hrVal === '1';
+    const edition   = raw['edition'] || 'Unlimited';
+
     rows.push({
       card_number:    (raw['card_'] || raw['card_number'] || '').toUpperCase().trim(),
       card_name:      raw['card_name']      || '',
       rarity:         raw['rarity']         || '',
-      edition:        raw['edition']        || 'Unlimited',
+      edition:        edition,
+      is_high_rarity: isHighRar,
       condition:      (raw['condition']     || 'NM').toUpperCase().trim(),
       purchased_from: raw['purchased_from'] || '',
-      quantity:       Math.max(1, parseInt(raw['quantity'])          || 1),
-      price_per_card: parseFloat(raw['price_per_card'])              || 0,
+      quantity:       Math.max(1, parseInt(raw['quantity'])     || 1),
+      price_per_card: parseFloat(raw['price_per_card'])         || 0,
     });
   }
   return rows.filter(r => r.card_number);
@@ -190,7 +203,7 @@ function showImportPreview(rows) {
       <table class="acq-preview-table">
         <thead><tr>
           <th>Card #</th><th>Name</th><th>Rarity</th><th>Edition</th>
-          <th>Cond</th><th>Source</th><th>Qty</th><th>$/Card</th>
+          <th>HR</th><th>Cond</th><th>Source</th><th>Qty</th><th>$/Card</th>
         </tr></thead>
         <tbody>
           ${rows.map(r => `<tr>
@@ -198,6 +211,7 @@ function showImportPreview(rows) {
             <td>${r.card_name || '—'}</td>
             <td>${r.rarity   || '—'}</td>
             <td>${r.edition}</td>
+            <td style="text-align:center">${r.is_high_rarity ? '✓' : ''}</td>
             <td>${r.condition}</td>
             <td>${r.purchased_from || '—'}</td>
             <td style="text-align:center">${r.quantity}</td>
@@ -218,8 +232,8 @@ async function runBulkImport() {
   const bar    = document.getElementById('acq-progress-bar');
   const status = document.getElementById('acq-import-status');
 
-  btn.disabled    = true;
-  bar.style.display = 'block';
+  btn.disabled       = true;
+  bar.style.display  = 'block';
   status.textContent = '';
 
   const today = new Date().toISOString().split('T')[0];
@@ -236,7 +250,7 @@ async function runBulkImport() {
     }
   }
 
-  fill.style.width = '100%';
+  fill.style.width   = '100%';
   status.textContent = `Done — ${ok} imported, ${failed} failed`;
   status.style.color = failed > 0 ? 'var(--yellow)' : 'var(--green)';
 
@@ -245,7 +259,7 @@ async function runBulkImport() {
 
 // ── Core: process one acquisition row ─────────────────────────────────────────
 async function processAcquisitionRow(row, date) {
-  // 1. Look up card in Supabase by card_number
+  // 1. Look up card in DB by card_number
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/cards?card_number=eq.${encodeURIComponent(row.card_number)}&select=id,fe_nm,fe_lp,fe_mp,un_nm,un_lp,un_mp,hr_qty_nm,hr_qty_lp&limit=1`,
     { headers: DB_HEADERS }
@@ -255,8 +269,8 @@ async function processAcquisitionRow(row, date) {
   if (!cards.length) throw new Error(`Card not found: ${row.card_number}`);
   const card = cards[0];
 
-  // 2. Figure out which qty column to increment
-  const field      = getQtyField(row.edition, row.condition);
+  // 2. Determine which qty column to increment
+  const field      = getQtyField(row);
   const currentQty = Number(card[field]) || 0;
 
   // 3. Increment inventory quantity
@@ -273,16 +287,16 @@ async function processAcquisitionRow(row, date) {
       method: 'POST',
       headers: { ...DB_HEADERS, 'Prefer': 'return=minimal' },
       body: JSON.stringify({
-        card_id:         card.id,
-        card_number:     row.card_number,
-        card_name:       row.card_name      || null,
-        rarity:          row.rarity         || null,
-        edition:         row.edition,
-        condition:       row.condition,
-        purchased_from:  row.purchased_from || null,
-        quantity:        row.quantity,
-        price_per_card:  row.price_per_card,
-        total_cost:      +(row.quantity * row.price_per_card).toFixed(2),
+        card_id:          card.id,
+        card_number:      row.card_number,
+        card_name:        row.card_name       || null,
+        rarity:           row.rarity          || null,
+        edition:          row.is_high_rarity ? 'High Rarity' : row.edition,
+        condition:        row.condition,
+        purchased_from:   row.purchased_from  || null,
+        quantity:         row.quantity,
+        price_per_card:   row.price_per_card,
+        total_cost:       +(row.quantity * row.price_per_card).toFixed(2),
         acquisition_date: date,
       })
     }
@@ -290,12 +304,12 @@ async function processAcquisitionRow(row, date) {
   if (!logRes.ok) throw new Error(`Log failed: ${await logRes.text()}`);
 }
 
-// Maps edition + condition → DB column name
-function getQtyField(edition, condition) {
-  const e = (edition   || '').toLowerCase();
-  const c = (condition || 'NM').toUpperCase();
+// Maps row → correct DB qty column
+function getQtyField(row) {
+  const c  = (row.condition || 'NM').toUpperCase();
+  const e  = (row.edition   || '').toLowerCase();
 
-  if (e.includes('high') || e.includes('hr')) {
+  if (row.is_high_rarity) {
     return c === 'LP' ? 'hr_qty_lp' : 'hr_qty_nm';
   }
   if (e.includes('1st') || e.includes('first')) {
@@ -315,17 +329,22 @@ async function saveManualAcquisition() {
   if (!cardNum) { setAcqStatus('acq-manual-status', 'Card # is required', 'red'); return; }
 
   const purchasedFrom = document.getElementById('acq-source').value.trim();
-  saveSourceIfNew(purchasedFrom);   // persist new vendor to dropdown
+
+  // Save new vendor to Supabase vendors table
+  if (purchasedFrom) await saveVendorIfNew(purchasedFrom);
+  // Refresh datalist with any new entry
+  initSourceDropdown();
 
   const row = {
     card_number:    cardNum,
     card_name:      document.getElementById('acq-card-name').value.trim(),
     rarity:         document.getElementById('acq-rarity').value,
     edition:        document.getElementById('acq-edition').value,
+    is_high_rarity: document.getElementById('acq-hr-check').checked,
     condition:      document.getElementById('acq-condition').value,
     purchased_from: purchasedFrom,
     quantity:       Math.max(1, parseInt(document.getElementById('acq-qty').value) || 1),
-    price_per_card: parseFloat(document.getElementById('acq-price').value)         || 0,
+    price_per_card: parseFloat(document.getElementById('acq-price').value) || 0,
   };
 
   const btn = document.getElementById('acq-save-btn');
@@ -338,7 +357,9 @@ async function saveManualAcquisition() {
     ['acq-card-number','acq-card-name','acq-source','acq-price'].forEach(id =>
       document.getElementById(id).value = ''
     );
-    document.getElementById('acq-qty').value = '1';
+    document.getElementById('acq-qty').value     = '1';
+    document.getElementById('acq-hr-check').checked = false;
+    document.getElementById('acq-lookup-status').textContent = '';
     loadRecentAcquisitions();
   } catch (err) {
     setAcqStatus('acq-manual-status', 'Error: ' + err.message, 'red');
