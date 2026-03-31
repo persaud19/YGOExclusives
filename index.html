@@ -372,12 +372,17 @@
             </div>
           </div>
 
-          <!-- High Rarity checkbox row -->
-          <div style="margin-bottom:14px">
-            <label class="acq-hr-label">
+          <!-- Checkbox row: High Rarity + Skip Inventory -->
+          <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+            <label class="acq-hr-label" style="flex:1;min-width:200px">
               <input type="checkbox" id="acq-hr-check" class="acq-hr-checkbox">
               <span class="acq-hr-text">High Rarity card</span>
               <span class="acq-hr-hint">(auto-checked for non-standard rarities)</span>
+            </label>
+            <label class="acq-hr-label" style="flex:1;min-width:200px">
+              <input type="checkbox" id="acq-skip-inv" class="acq-hr-checkbox">
+              <span class="acq-hr-text">Exclude from inventory</span>
+              <span class="acq-hr-hint">(log purchase only, don't update qty)</span>
             </label>
           </div>
 

@@ -124,10 +124,10 @@ function initAcquisitions() {
 // ── Template Download ──────────────────────────────────────────────────────────
 function downloadTemplate() {
   const rows = [
-    'Card #,Card Name,Rarity,Edition,High Rarity,Condition,Purchased From,Quantity,Price Per Card',
-    'BLMM-EN001,Blue-Eyes White Dragon,Secret Rare,1st Edition,No,NM,Local Card Shop,3,4.50',
-    'BLMM-EN001,Blue-Eyes White Dragon,Starlight Rare,Unlimited,Yes,NM,eBay,1,250.00',
-    'MAZE-EN010,Pot of Prosperity,Ultra Rare,Unlimited,No,LP,eBay,2,12.00',
+    'Card #,Card Name,Rarity,Edition,High Rarity,Condition,Purchased From,Quantity,Price Per Card,Add to Inventory',
+    'BLMM-EN001,Blue-Eyes White Dragon,Secret Rare,1st Edition,No,NM,Local Card Shop,3,4.50,Yes',
+    'BLMM-EN001,Blue-Eyes White Dragon,Starlight Rare,1st Edition,Yes,NM,eBay,1,250.00,Yes',
+    'MAZE-EN010,Pot of Prosperity,Ultra Rare,Unlimited,No,LP,eBay,2,12.00,No',
   ];
   const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
@@ -168,9 +168,11 @@ function parseAcqCSV(text) {
     const raw = {};
     rawHeaders.forEach((h, idx) => raw[h] = vals[idx] || '');
 
-    const hrVal     = (raw['high_rarity'] || '').toLowerCase();
-    const isHighRar = hrVal === 'yes' || hrVal === 'true' || hrVal === '1';
-    const edition   = raw['edition'] || 'Unlimited';
+    const hrVal     = (raw['high_rarity']     || '').toLowerCase();
+    const addInvVal = (raw['add_to_inventory'] || 'yes').toLowerCase();
+    const isHighRar    = hrVal === 'yes' || hrVal === 'true'  || hrVal === '1';
+    const skipInventory = addInvVal === 'no' || addInvVal === 'false' || addInvVal === '0';
+    const edition   = raw['edition'] || '1st Edition';
 
     rows.push({
       card_number:    (raw['card_'] || raw['card_number'] || '').toUpperCase().trim(),
@@ -178,6 +180,7 @@ function parseAcqCSV(text) {
       rarity:         raw['rarity']         || '',
       edition:        edition,
       is_high_rarity: isHighRar,
+      skip_inventory: skipInventory,
       condition:      (raw['condition']     || 'NM').toUpperCase().trim(),
       purchased_from: raw['purchased_from'] || '',
       quantity:       Math.max(1, parseInt(raw['quantity'])     || 1),
@@ -203,7 +206,7 @@ function showImportPreview(rows) {
       <table class="acq-preview-table">
         <thead><tr>
           <th>Card #</th><th>Name</th><th>Rarity</th><th>Edition</th>
-          <th>HR</th><th>Cond</th><th>Source</th><th>Qty</th><th>$/Card</th>
+          <th>HR</th><th>Cond</th><th>Source</th><th>Qty</th><th>$/Card</th><th>Add to Inv</th>
         </tr></thead>
         <tbody>
           ${rows.map(r => `<tr>
@@ -216,6 +219,7 @@ function showImportPreview(rows) {
             <td>${r.purchased_from || '—'}</td>
             <td style="text-align:center">${r.quantity}</td>
             <td style="text-align:right">$${Number(r.price_per_card).toFixed(2)}</td>
+            <td style="text-align:center;color:${r.skip_inventory ? 'var(--muted)' : 'var(--green)'}">${r.skip_inventory ? 'No' : 'Yes'}</td>
           </tr>`).join('')}
         </tbody>
       </table>
@@ -259,41 +263,46 @@ async function runBulkImport() {
 
 // ── Core: process one acquisition row ─────────────────────────────────────────
 async function processAcquisitionRow(row, date) {
-  // 1. Look up card in DB by card_number
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/cards?card_number=eq.${encodeURIComponent(row.card_number)}&select=id,fe_nm,fe_lp,fe_mp,un_nm,un_lp,un_mp,hr_qty_nm,hr_qty_lp&limit=1`,
-    { headers: DB_HEADERS }
-  );
-  if (!res.ok) throw new Error(`DB lookup ${res.status}`);
-  const cards = await res.json();
-  if (!cards.length) throw new Error(`Card not found: ${row.card_number}`);
-  const card = cards[0];
+  let cardUUID = null;
 
-  // 2. Determine which qty column to increment
-  const field      = getQtyField(row);
-  const currentQty = Number(card[field]) || 0;
+  if (!row.skip_inventory) {
+    // 1. Look up card in DB by card_number
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/cards?card_number=eq.${encodeURIComponent(row.card_number)}&select=id,fe_nm,fe_lp,fe_mp,un_nm,un_lp,un_mp,hr_fe_nm,hr_fe_lp,hr_qty_nm,hr_qty_lp&limit=1`,
+      { headers: DB_HEADERS }
+    );
+    if (!res.ok) throw new Error(`DB lookup ${res.status}`);
+    const cards = await res.json();
+    if (!cards.length) throw new Error(`Card not found: ${row.card_number}`);
+    const card = cards[0];
+    cardUUID = toUUID(card.id);
 
-  // 3. Increment inventory quantity
-  const patchRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/cards?id=eq.${card.id}`,
-    { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify({ [field]: currentQty + row.quantity }) }
-  );
-  if (!patchRes.ok) throw new Error(`PATCH failed: ${await patchRes.text()}`);
+    // 2. Determine which qty column to increment
+    const field      = getQtyField(row);
+    const currentQty = Number(card[field]) || 0;
 
-  // 4. Log acquisition record
+    // 3. Increment inventory quantity
+    const patchRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/cards?id=eq.${card.id}`,
+      { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify({ [field]: currentQty + row.quantity }) }
+    );
+    if (!patchRes.ok) throw new Error(`PATCH failed: ${await patchRes.text()}`);
+  }
+
+  // 4. Always log acquisition record (skip_inventory = purchase log only)
   const logRes = await fetch(
     `${SUPABASE_URL}/rest/v1/acquisitions`,
     {
       method: 'POST',
       headers: { ...DB_HEADERS, 'Prefer': 'return=minimal' },
       body: JSON.stringify({
-        card_id:          toUUID(card.id),
+        card_id:          cardUUID,
         card_number:      row.card_number,
-        card_name:        row.card_name       || null,
-        rarity:           row.rarity          || null,
+        card_name:        row.card_name      || null,
+        rarity:           row.rarity         || null,
         edition:          row.is_high_rarity ? 'High Rarity' : row.edition,
         condition:        row.condition,
-        purchased_from:   row.purchased_from  || null,
+        purchased_from:   row.purchased_from || null,
         quantity:         row.quantity,
         price_per_card:   row.price_per_card,
         total_cost:       +(row.quantity * row.price_per_card).toFixed(2),
@@ -344,6 +353,7 @@ async function saveManualAcquisition() {
     rarity:         document.getElementById('acq-rarity').value,
     edition:        document.getElementById('acq-edition').value,
     is_high_rarity: document.getElementById('acq-hr-check').checked,
+    skip_inventory: document.getElementById('acq-skip-inv').checked,
     condition:      document.getElementById('acq-condition').value,
     purchased_from: purchasedFrom,
     quantity:       Math.max(1, parseInt(document.getElementById('acq-qty').value) || 1),
@@ -360,8 +370,9 @@ async function saveManualAcquisition() {
     ['acq-card-number','acq-card-name','acq-source','acq-price'].forEach(id =>
       document.getElementById(id).value = ''
     );
-    document.getElementById('acq-qty').value     = '1';
-    document.getElementById('acq-hr-check').checked = false;
+    document.getElementById('acq-qty').value          = '1';
+    document.getElementById('acq-hr-check').checked   = false;
+    document.getElementById('acq-skip-inv').checked   = false;
     document.getElementById('acq-lookup-status').textContent = '';
     loadRecentAcquisitions();
   } catch (err) {
