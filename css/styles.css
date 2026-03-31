@@ -1009,3 +1009,118 @@ tr:hover td { background: var(--surf2); }
   .qty-input { width: 48px; font-size: 1rem; }
   th, td { padding: 8px; }
 }
+
+/* ═══════════════════════════════════════════════════════
+   ACQUISITIONS TAB
+═══════════════════════════════════════════════════════ */
+.acq-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) { .acq-grid { grid-template-columns: 1fr; } }
+
+.acq-card {
+  background: var(--surf);
+  border: 1px solid var(--b1);
+  border-radius: 10px;
+  padding: 22px 20px;
+}
+
+.acq-section-title {
+  color: var(--gold2);
+  font-size: 1.05rem;
+  margin: 0 0 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--b1);
+}
+
+.acq-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+@media (max-width: 500px) { .acq-row { grid-template-columns: 1fr; } }
+
+.acq-group { display: flex; flex-direction: column; gap: 5px; }
+
+.acq-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.acq-input,
+.acq-select {
+  background: var(--surf2);
+  border: 1px solid var(--b2);
+  border-radius: 6px;
+  color: var(--txt);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.92rem;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color .15s;
+}
+.acq-input:focus,
+.acq-select:focus { border-color: var(--gold); }
+
+.acq-file-input {
+  display: block;
+  width: 100%;
+  color: var(--txt);
+  font-size: 0.88rem;
+  padding: 8px 0;
+}
+
+/* Preview table (inside bulk import card) */
+.acq-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.acq-preview-table th {
+  background: var(--b1);
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+.acq-preview-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--b1);
+  white-space: nowrap;
+}
+.acq-preview-table tr:last-child td { border-bottom: none; }
+
+/* Recent acquisitions log table */
+.acq-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.acq-log-table thead th {
+  background: var(--surf);
+  color: var(--muted);
+  font-size: 0.73rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  border-bottom: 2px solid var(--b2);
+}
+.acq-log-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--b1);
+  white-space: nowrap;
+}
+.acq-log-table tbody tr:hover td { background: var(--surf2); }

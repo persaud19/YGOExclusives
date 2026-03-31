@@ -84,6 +84,8 @@ function onTabActivated(tabId) {
     initInventory();
   } else if (tabId === 'collection' && typeof initCollection === 'function') {
     initCollection();
+  } else if (tabId === 'acquisitions' && typeof initAcquisitions === 'function') {
+    initAcquisitions();
   } else if (tabId === 'add-card' && typeof initAddCard === 'function') {
     initAddCard();
   } else if (tabId === 'sales' && typeof initSales === 'function') {

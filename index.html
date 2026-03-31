@@ -83,6 +83,9 @@
     <button class="tab-btn hidden" data-tab="collection" data-mode="owner">
       Collection
     </button>
+    <button class="tab-btn hidden" data-tab="acquisitions" data-mode="owner">
+      Acquisitions
+    </button>
     <button class="tab-btn hidden" data-tab="add-card" data-mode="owner">
       List Card
     </button>
@@ -324,6 +327,140 @@
 
         </div><!-- /.lc-right -->
       </div><!-- /.lc-columns -->
+
+    </div>
+  </div>
+
+  <!-- ─── ACQUISITIONS TAB ─────────────────────────────────────────────── -->
+  <div id="tab-acquisitions" class="tab-panel">
+    <div class="tab-content" style="max-width:100%">
+      <h2 class="cinzel" style="color:var(--gold);margin-bottom:24px">Card Acquisitions</h2>
+
+      <!-- ── Two-up: Manual + Bulk ── -->
+      <div class="acq-grid">
+
+        <!-- Manual Single Card -->
+        <div class="acq-card">
+          <h3 class="cinzel acq-section-title">Add Single Card</h3>
+
+          <div class="acq-row">
+            <div class="acq-group">
+              <label class="acq-label">Card # <span style="color:var(--red)">*</span></label>
+              <input id="acq-card-number" class="acq-input" type="text" inputmode="text"
+                     placeholder="e.g. BLMM-EN001" style="text-transform:uppercase">
+            </div>
+            <div class="acq-group">
+              <label class="acq-label">Card Name</label>
+              <input id="acq-card-name" class="acq-input" type="text" placeholder="e.g. Blue-Eyes White Dragon">
+            </div>
+          </div>
+
+          <div class="acq-row">
+            <div class="acq-group">
+              <label class="acq-label">Rarity</label>
+              <select id="acq-rarity" class="acq-select">
+                <option value="">— select —</option>
+              </select>
+            </div>
+            <div class="acq-group">
+              <label class="acq-label">Edition</label>
+              <select id="acq-edition" class="acq-select">
+                <option value="1st Edition">1st Edition</option>
+                <option value="Unlimited" selected>Unlimited</option>
+                <option value="High Rarity">High Rarity</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="acq-row">
+            <div class="acq-group">
+              <label class="acq-label">Condition</label>
+              <select id="acq-condition" class="acq-select">
+                <option value="NM" selected>NM — Near Mint</option>
+                <option value="LP">LP — Lightly Played</option>
+                <option value="MP">MP — Moderately Played</option>
+              </select>
+            </div>
+            <div class="acq-group">
+              <label class="acq-label">Purchased From</label>
+              <input id="acq-source" class="acq-input" type="text" placeholder="e.g. Local Card Shop, eBay">
+            </div>
+          </div>
+
+          <div class="acq-row">
+            <div class="acq-group">
+              <label class="acq-label">Quantity</label>
+              <input id="acq-qty" class="acq-input" type="text" inputmode="numeric" value="1">
+            </div>
+            <div class="acq-group">
+              <label class="acq-label">Price Per Card ($)</label>
+              <input id="acq-price" class="acq-input" type="text" inputmode="decimal" placeholder="0.00">
+            </div>
+          </div>
+
+          <button id="acq-save-btn" class="btn btn-primary" style="width:100%;margin-top:8px">
+            Save &amp; Update Inventory
+          </button>
+          <div id="acq-manual-status" style="margin-top:10px;min-height:1.2em;font-size:0.9rem"></div>
+        </div>
+
+        <!-- Bulk CSV Import -->
+        <div class="acq-card">
+          <h3 class="cinzel acq-section-title">Bulk Import (CSV)</h3>
+
+          <button id="acq-template-btn" class="btn btn-ghost" style="margin-bottom:14px">
+            ⬇ Download Template CSV
+          </button>
+
+          <p class="muted small" style="margin:0 0 14px;line-height:1.6">
+            Required columns: <strong style="color:var(--txt)">Card #</strong>,
+            <strong style="color:var(--txt)">Edition</strong>,
+            <strong style="color:var(--txt)">Condition</strong>,
+            <strong style="color:var(--txt)">Quantity</strong>.<br>
+            Optional: Card Name, Rarity, Purchased From, Price Per Card.
+          </p>
+
+          <label class="acq-label">Select CSV File</label>
+          <input id="acq-file-input" type="file" accept=".csv" class="acq-file-input">
+
+          <div id="acq-preview" style="margin-top:14px"></div>
+
+          <div id="acq-progress-bar" style="display:none;margin-top:12px;height:8px;background:var(--b1);border-radius:6px;overflow:hidden">
+            <div id="acq-bar-fill" style="height:100%;width:0;background:var(--gold);transition:width 0.25s ease"></div>
+          </div>
+          <div id="acq-import-status" style="margin-top:8px;min-height:1.2em;font-size:0.9rem;color:var(--muted)"></div>
+
+          <button id="acq-import-btn" class="btn btn-primary" disabled style="width:100%;margin-top:14px">
+            Import
+          </button>
+        </div>
+
+      </div><!-- /.acq-grid -->
+
+      <!-- ── Recent Acquisitions Log ── -->
+      <div style="margin-top:36px">
+        <h3 class="cinzel" style="color:var(--gold2);margin-bottom:14px">Recent Acquisitions</h3>
+        <div style="overflow-x:auto">
+          <table class="acq-log-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Card #</th>
+                <th>Name</th>
+                <th>Rarity</th>
+                <th>Edition</th>
+                <th>Cond</th>
+                <th>Source</th>
+                <th>Qty</th>
+                <th>Total Cost</th>
+              </tr>
+            </thead>
+            <tbody id="acq-log-tbody">
+              <tr><td colspan="9" class="muted" style="text-align:center;padding:20px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -715,6 +852,7 @@
 <script src="js/inventory.js"></script>
 <script src="js/collection.js"></script>
 <script src="js/add-card.js"></script>
+<script src="js/acquisitions.js"></script>
 <script src="js/sales.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/listing.js"></script>
