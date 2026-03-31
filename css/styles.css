@@ -1146,3 +1146,91 @@ tr:hover td { background: var(--surf2); }
   white-space: nowrap;
 }
 .acq-log-table tbody tr:hover td { background: var(--surf2); }
+
+/* ─── Rarity Sets Tab ────────────────────────────────────────────────────── */
+.rs-header-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 14px;
+}
+.rs-header-right { display: flex; align-items: center; gap: 10px; }
+.rs-set-select {
+  background: var(--surf2); color: var(--txt); border: 1px solid var(--b2);
+  border-radius: 7px; padding: 8px 14px; font-size: 0.95rem; min-width: 280px;
+}
+.rs-import-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--surf); border: 1px solid var(--b1); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 14px;
+}
+.rs-import-btn {
+  cursor: pointer; background: var(--b2); color: var(--txt);
+  border: 1px solid var(--b2); border-radius: 6px;
+  padding: 6px 14px; font-size: 0.85rem; white-space: nowrap;
+  transition: background .15s;
+}
+.rs-import-btn:hover { background: var(--surf2); }
+.rs-table-wrap { overflow-x: auto; }
+.rs-loading { color: var(--muted); padding: 24px; font-size: 0.95rem; }
+
+.rs-table {
+  width: 100%; border-collapse: collapse; white-space: nowrap;
+  font-size: 0.88rem;
+}
+/* Group header row */
+.rs-group-row th { padding: 6px 10px; font-size: 0.78rem; font-weight: 700; }
+.rs-group-label {
+  text-align: center; background: var(--b1);
+  color: var(--gold); border-bottom: 2px solid var(--b2);
+  letter-spacing: .04em; text-transform: uppercase; font-size: 0.72rem !important;
+}
+.rs-group-hr {
+  color: var(--purple) !important;
+}
+/* Rarity sub-headers */
+.rs-th-rarity {
+  text-align: center; padding: 5px 8px;
+  background: var(--surf); color: var(--muted);
+  font-size: 0.72rem; font-weight: 600;
+  border-bottom: 2px solid var(--b2);
+}
+.rs-th-hr { color: var(--purple) !important; }
+.rs-th-num  { text-align: left; padding: 6px 10px; width: 110px; color: var(--gold2); font-size: 0.8rem; }
+.rs-th-name { text-align: left; padding: 6px 10px; min-width: 180px; }
+.rs-th-total {
+  text-align: center; color: var(--gold2) !important;
+  font-weight: 700; font-size: 0.82rem; padding: 6px 10px;
+}
+/* Column separators */
+.rs-col-sep    { border-left: 2px solid var(--b2) !important; }
+.rs-col-hr-sep { border-left: 4px solid var(--purple) !important; }
+
+/* Data rows */
+.rs-table tbody tr { border-bottom: 1px solid var(--b1); }
+.rs-table tbody tr:hover td { background: var(--surf2); }
+.rs-td-num  { color: var(--gold2); font-size: 0.82rem; padding: 4px 8px; }
+.rs-td-name { color: var(--txt);   font-size: 0.88rem; padding: 4px 8px; }
+.rs-td-total {
+  text-align: center; font-weight: 700; font-size: 1rem;
+  color: var(--gold2); padding: 4px 10px;
+}
+/* Qty cells */
+.rs-qty-cell { text-align: center; padding: 3px 4px; }
+.rs-hr-cell  { background: rgba(130,80,200,0.05); }
+.rs-qty-na   { color: var(--dim); font-size: 0.8rem; }
+.rs-qty-input {
+  width: 52px; height: 32px; text-align: center;
+  background: var(--b1); color: var(--txt);
+  border: 1px solid var(--b2); border-radius: 5px;
+  font-size: 0.95rem; font-weight: 600;
+  transition: border-color .15s, background .15s;
+}
+.rs-qty-input:focus {
+  outline: none; border-color: var(--gold); background: var(--surf2);
+}
+.rs-qty-hr {
+  border-color: rgba(130,80,200,0.4);
+  background: rgba(130,80,200,0.08);
+}
+.rs-qty-hr:focus { border-color: var(--purple); }
+.rs-qty-input.rs-saved  { background: rgba(39,174,96,.2);  border-color: var(--green); }
+.rs-qty-input.rs-error  { background: rgba(231,76,60,.2);  border-color: var(--red); }
