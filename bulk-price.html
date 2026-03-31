@@ -156,16 +156,18 @@ async function runBulkPrice() {
   log('Fetching all cards from YGOPRODeck…');
   setProgress(0, 1, 'Fetching YGOPRODeck database…');
 
-  let ygoMap;    // name_lower   → { id, price, ebay }  — fallback by name
-  let setNumMap; // set_num_lower → { id, price, ebay }  — preferred: rarity-specific price
+  let ygoMap;        // name_lower              → { id, price, ebay }  — fallback by name
+  let setCodeMap;    // set_code_lower          → { id, price, ebay }  — preferred: exact card# + rarity price
+  let nameRarityMap; // "name|rarity" lower     → price               — for HR pricing
   try {
     const res  = await fetch('https://db.ygoprodeck.com/api/v7/cardinfo.php?misc=yes');
     if (!res.ok) throw new Error('YGOPRODeck API returned ' + res.status);
     const data = await res.json();
     const cards = data.data || [];
 
-    ygoMap    = new Map();
-    setNumMap = new Map();
+    ygoMap        = new Map();
+    setCodeMap    = new Map();
+    nameRarityMap = new Map();
     cards.forEach(c => {
       const price = parseFloat(c.card_prices?.[0]?.tcgplayer_price) || 0;
       const ebay  = parseFloat(c.card_prices?.[0]?.ebay_price)      || 0;
@@ -173,15 +175,20 @@ async function runBulkPrice() {
       ygoMap.set(c.name.toLowerCase().trim(), { id: c.id, price, ebay });
       // Card-number map — rarity-specific set price (e.g. BLMM-EN001 Secret Rare = $13.60)
       (c.card_sets || []).forEach(s => {
-        const setNum   = s.set_num?.toLowerCase().trim();
+        const setCode  = s.set_code?.toLowerCase().trim();   // ← was s.set_num (wrong field)
         const setPrice = parseFloat(s.set_price) || 0;
-        if (setNum && setPrice > 0) {
-          setNumMap.set(setNum, { id: c.id, price: setPrice, ebay });
+        if (setCode && setPrice > 0) {
+          setCodeMap.set(setCode, { id: c.id, price: setPrice, ebay });
+        }
+        // Name+rarity map for HR pricing (e.g. "blue-eyes white dragon|starlight rare" → price)
+        if (setPrice > 0 && s.set_rarity) {
+          const nrKey = `${c.name.toLowerCase().trim()}|${s.set_rarity.toLowerCase().trim()}`;
+          if (!nameRarityMap.has(nrKey)) nameRarityMap.set(nrKey, setPrice);
         }
       });
     });
     setStat('s-ygo', ygoMap.size);
-    log(`✓ Loaded ${ygoMap.size.toLocaleString()} cards · ${setNumMap.size.toLocaleString()} set printings from YGOPRODeck`, 'ok');
+    log(`✓ Loaded ${ygoMap.size.toLocaleString()} cards · ${setCodeMap.size.toLocaleString()} set printings from YGOPRODeck`, 'ok');
   } catch (e) {
     log('✗ Failed to fetch YGOPRODeck: ' + e.message, 'err');
     btn.disabled = false;
@@ -205,7 +212,7 @@ async function runBulkPrice() {
 
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?select=id,card_number,card_name,api_id,tcg_market_price&limit=${PAGE}&offset=${offset}`,
+      `${SUPABASE_URL}/rest/v1/cards?select=id,card_number,card_name,rarity,higher_rarity,api_id,tcg_market_price&limit=${PAGE}&offset=${offset}`,
       { headers: DB_HEADERS_RETURN }
     );
     if (!res.ok) { log('✗ DB fetch failed at offset ' + offset, 'err'); break; }
@@ -227,9 +234,9 @@ async function runBulkPrice() {
     if (!optOverwrite && card.tcg_market_price > 0) return;
 
     // Match by card_number first (rarity-specific price), fall back to name
-    const numKey  = (card.card_number || '').toLowerCase().trim();
+    const codeKey = (card.card_number || '').toLowerCase().trim();
     const nameKey = (card.card_name   || '').toLowerCase().trim();
-    const match   = setNumMap.get(numKey) || ygoMap.get(nameKey);
+    const match   = setCodeMap.get(codeKey) || ygoMap.get(nameKey);
 
     if (!match || match.price <= 0) {
       totalSkipped++;
@@ -243,6 +250,13 @@ async function runBulkPrice() {
 
     if (optSetApiId && !card.api_id && match.id) {
       patch.api_id = match.id;
+    }
+
+    // HR pricing — look up by card name + higher_rarity type
+    if (card.higher_rarity) {
+      const hrKey   = `${nameKey}|${card.higher_rarity.toLowerCase().trim()}`;
+      const hrPrice = nameRarityMap.get(hrKey);
+      if (hrPrice > 0) patch.hr_tcg_price = +hrPrice.toFixed(2);
     }
 
     if (optListPrices) {
