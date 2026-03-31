@@ -345,9 +345,10 @@
 
           <div class="acq-row">
             <div class="acq-group">
-              <label class="acq-label">Card # <span style="color:var(--red)">*</span></label>
+              <label class="acq-label">Card # <span style="color:var(--red)">*</span> <span id="acq-lookup-status" style="font-size:0.8rem;margin-left:6px;font-weight:600"></span></label>
               <input id="acq-card-number" class="acq-input" type="text" inputmode="text"
-                     placeholder="e.g. BLMM-EN001" style="text-transform:uppercase">
+                     placeholder="e.g. BLMM-EN001" style="text-transform:uppercase"
+                     autocomplete="off">
             </div>
             <div class="acq-group">
               <label class="acq-label">Card Name</label>
@@ -383,7 +384,10 @@
             </div>
             <div class="acq-group">
               <label class="acq-label">Purchased From</label>
-              <input id="acq-source" class="acq-input" type="text" placeholder="e.g. Local Card Shop, eBay">
+              <input id="acq-source" class="acq-input" type="text"
+                     list="acq-source-list" placeholder="Select or type a vendor…"
+                     autocomplete="off">
+              <datalist id="acq-source-list"></datalist>
             </div>
           </div>
 

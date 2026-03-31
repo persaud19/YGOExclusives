@@ -3,23 +3,109 @@
 let acqInitialised = false;
 let acqImportRows  = [];
 
+// Rarities treated as normal (non-High-Rarity) cards
+const REGULAR_RARITIES = new Set([
+  'Common', 'Rare', 'Short Print', 'Super Rare', 'Ultra Rare', 'Secret Rare'
+]);
+
+// ── Source Dropdown (localStorage-backed) ─────────────────────────────────────
+const ACQ_SOURCES_KEY     = 'acq_sources';
+const ACQ_DEFAULT_SOURCES = ['eBay', 'Local Card Shop', 'Facebook Marketplace', 'TCGPlayer', 'Cash'];
+
+function initSourceDropdown() {
+  const stored = JSON.parse(localStorage.getItem(ACQ_SOURCES_KEY) || '[]');
+  const all    = [...new Set([...ACQ_DEFAULT_SOURCES, ...stored])];
+  const dl     = document.getElementById('acq-source-list');
+  if (!dl) return;
+  dl.innerHTML = all.map(s => `<option value="${s}">`).join('');
+}
+
+function saveSourceIfNew(val) {
+  if (!val) return;
+  const stored = JSON.parse(localStorage.getItem(ACQ_SOURCES_KEY) || '[]');
+  if (!ACQ_DEFAULT_SOURCES.includes(val) && !stored.includes(val)) {
+    stored.push(val);
+    localStorage.setItem(ACQ_SOURCES_KEY, JSON.stringify(stored));
+    initSourceDropdown();
+  }
+}
+
+// ── Card Number Auto-Lookup ────────────────────────────────────────────────────
+function acqDebounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+async function lookupCardByNumber(raw) {
+  const num    = raw.trim().toUpperCase();
+  const status = document.getElementById('acq-lookup-status');
+  if (!num || num.length < 4) { if (status) status.textContent = ''; return; }
+
+  if (status) { status.textContent = '🔍'; status.style.color = 'var(--muted)'; }
+
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/cards?card_number=eq.${encodeURIComponent(num)}&select=card_name,rarity&limit=1`,
+      { headers: DB_HEADERS }
+    );
+    if (!res.ok) throw new Error(res.status);
+    const cards = await res.json();
+
+    if (!cards.length) {
+      if (status) { status.textContent = '✗ Not found'; status.style.color = 'var(--muted)'; }
+      return;
+    }
+
+    const card = cards[0];
+
+    // Auto-fill name (only if blank)
+    const nameEl = document.getElementById('acq-card-name');
+    if (nameEl && !nameEl.value) nameEl.value = card.card_name || '';
+
+    // Auto-fill rarity
+    if (card.rarity) {
+      const rarSel = document.getElementById('acq-rarity');
+      if (rarSel) rarSel.value = card.rarity;
+
+      // Auto-set edition: non-standard rarity → High Rarity
+      const edSel = document.getElementById('acq-edition');
+      if (edSel && !REGULAR_RARITIES.has(card.rarity)) {
+        edSel.value = 'High Rarity';
+      }
+    }
+
+    if (status) { status.textContent = '✓ Found'; status.style.color = 'var(--green)'; }
+  } catch (err) {
+    console.warn('Card lookup failed:', err);
+    if (status) status.textContent = '';
+  }
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 function initAcquisitions() {
   if (acqInitialised) { loadRecentAcquisitions(); return; }
   acqInitialised = true;
 
-  // Populate rarity dropdowns from config
-  ['acq-rarity'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
+  // Populate rarity select from config
+  const rarSel = document.getElementById('acq-rarity');
+  if (rarSel) {
     RARITIES.forEach(r => {
       const o = document.createElement('option');
       o.value = o.textContent = r;
-      sel.appendChild(o);
+      rarSel.appendChild(o);
     });
-  });
+  }
 
-  // Manual entry
+  // Card number → auto-lookup (debounced 600ms)
+  const cardNumInput = document.getElementById('acq-card-number');
+  if (cardNumInput) {
+    cardNumInput.addEventListener('input', acqDebounce(e => lookupCardByNumber(e.target.value), 600));
+  }
+
+  // Source dropdown
+  initSourceDropdown();
+
+  // Manual entry save
   document.getElementById('acq-save-btn').addEventListener('click', saveManualAcquisition);
 
   // Bulk import
@@ -228,13 +314,16 @@ async function saveManualAcquisition() {
   const cardNum = document.getElementById('acq-card-number').value.trim().toUpperCase();
   if (!cardNum) { setAcqStatus('acq-manual-status', 'Card # is required', 'red'); return; }
 
+  const purchasedFrom = document.getElementById('acq-source').value.trim();
+  saveSourceIfNew(purchasedFrom);   // persist new vendor to dropdown
+
   const row = {
     card_number:    cardNum,
     card_name:      document.getElementById('acq-card-name').value.trim(),
     rarity:         document.getElementById('acq-rarity').value,
     edition:        document.getElementById('acq-edition').value,
     condition:      document.getElementById('acq-condition').value,
-    purchased_from: document.getElementById('acq-source').value.trim(),
+    purchased_from: purchasedFrom,
     quantity:       Math.max(1, parseInt(document.getElementById('acq-qty').value) || 1),
     price_per_card: parseFloat(document.getElementById('acq-price').value)         || 0,
   };
