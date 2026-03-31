@@ -84,8 +84,11 @@ function buildCardRow(card) {
   const unNm = card.un_nm     || 0;
   const unLp = card.un_lp     || 0;
   const unMp = card.un_mp     || 0;
-  const hrNm = card.hr_qty_nm || 0;
-  const hrLp = card.hr_qty_lp || 0;
+  const hrFeNm = card.hr_fe_nm   || 0;
+  const hrFeLp = card.hr_fe_lp   || 0;
+  const hrNm   = card.hr_qty_nm  || 0;
+  const hrLp   = card.hr_qty_lp  || 0;
+  const hrLoc  = card.hr_location || 'Basement';
 
   tr.innerHTML = `
     <td class="inv-td-img">
@@ -114,9 +117,16 @@ function buildCardRow(card) {
         ${HR_OPTIONS.map(r => `<option value="${r === 'None' ? '' : r}" ${(card.higher_rarity || '') === (r === 'None' ? '' : r) ? 'selected' : ''}>${r}</option>`).join('')}
       </select>
     </td>
-    ${buildQtyCell('hr_qty_nm', hrNm, card.id, 6, true,  !hasHR)}
-    ${buildQtyCell('hr_qty_lp', hrLp, card.id, 7, false, !hasHR)}
-    <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + hrNm + hrLp}</td>
+    ${buildQtyCell('hr_fe_nm',  hrFeNm, card.id, 6, true,  !hasHR)}
+    ${buildQtyCell('hr_fe_lp',  hrFeLp, card.id, 7, false, !hasHR)}
+    ${buildQtyCell('hr_qty_nm', hrNm,   card.id, 8, true,  !hasHR)}
+    ${buildQtyCell('hr_qty_lp', hrLp,   card.id, 9, false, !hasHR)}
+    <td class="inv-td-select${!hasHR ? ' inv-qty-disabled' : ''}" id="hr-loc-cell-${card.id}">
+      <select class="inv-select" data-field="hr_location" data-card="${card.id}" ${!hasHR ? 'disabled' : ''}>
+        ${LOCATIONS.map(l => `<option value="${l}" ${hrLoc === l ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+    </td>
+    <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + hrFeNm + hrFeLp + hrNm + hrLp}</td>
     <td class="inv-td-review">
       <input type="checkbox" class="inv-review-check" data-card="${card.id}" ${card.needs_review ? 'checked' : ''} title="Flag for review">
     </td>
@@ -186,12 +196,18 @@ function wireRowEvents(tr, cardId) {
 }
 
 function toggleHrCells(tr, enabled) {
-  ['hr_qty_nm', 'hr_qty_lp'].forEach(field => {
+  ['hr_fe_nm', 'hr_fe_lp', 'hr_qty_nm', 'hr_qty_lp'].forEach(field => {
     const cell  = tr.querySelector(`.inv-qty-input[data-field="${field}"]`)?.closest('td');
     const input = tr.querySelector(`.inv-qty-input[data-field="${field}"]`);
     if (cell)  cell.classList.toggle('inv-qty-disabled', !enabled);
     if (input) input.disabled = !enabled;
   });
+  // HR location select
+  const cardId = tr.dataset.cardId;
+  const hrLocCell = document.getElementById(`hr-loc-cell-${cardId}`);
+  const hrLocSel  = tr.querySelector('select[data-field="hr_location"]');
+  if (hrLocCell) hrLocCell.classList.toggle('inv-qty-disabled', !enabled);
+  if (hrLocSel)  hrLocSel.disabled = !enabled;
 }
 
 function updateRowTotals(tr, cardId) {
@@ -201,7 +217,7 @@ function updateRowTotals(tr, cardId) {
   const allEl = document.getElementById(`all-total-${cardId}`);
   const feSum = v('fe_nm') + v('fe_lp') + v('fe_mp');
   const unSum = v('un_nm') + v('un_lp') + v('un_mp');
-  const hrSum = v('hr_qty_nm') + v('hr_qty_lp');
+  const hrSum = v('hr_fe_nm') + v('hr_fe_lp') + v('hr_qty_nm') + v('hr_qty_lp');
   if (feEl)  feEl.textContent  = feSum;
   if (unEl)  unEl.textContent  = unSum;
   if (allEl) allEl.textContent = feSum + unSum + hrSum;
@@ -231,10 +247,13 @@ async function doSave(cardId, tr) {
     un_nm:         getVal('un_nm'),
     un_lp:         getVal('un_lp'),
     un_mp:         getVal('un_mp'),
+    hr_fe_nm:      getVal('hr_fe_nm'),
+    hr_fe_lp:      getVal('hr_fe_lp'),
     hr_qty_nm:     getVal('hr_qty_nm'),
     hr_qty_lp:     getVal('hr_qty_lp'),
     location:      getSel('location'),
     higher_rarity: getSel('higher_rarity'),
+    hr_location:   getSel('hr_location') || 'Basement',
     updated_at:    new Date().toISOString(),
   };
 
