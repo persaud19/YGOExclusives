@@ -287,7 +287,7 @@ async function processAcquisitionRow(row, date) {
       method: 'POST',
       headers: { ...DB_HEADERS, 'Prefer': 'return=minimal' },
       body: JSON.stringify({
-        card_id:          card.id,
+        card_id:          toUUID(card.id),
         card_number:      row.card_number,
         card_name:        row.card_name       || null,
         rarity:           row.rarity          || null,
@@ -404,6 +404,9 @@ async function loadRecentAcquisitions() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function toUUID(val) { return UUID_RE.test(String(val || '')) ? val : null; }
+
 function setAcqStatus(id, msg, type) {
   const el = document.getElementById(id);
   if (!el) return;
