@@ -112,7 +112,7 @@ function buildCardRow(card) {
         ${LOCATIONS.map(l => `<option value="${l}" ${card.location === l ? 'selected' : ''}>${l}</option>`).join('')}
       </select>
     </td>
-    <td class="inv-td-select">
+    <td class="inv-td-select inv-td-hr-sep">
       <select class="inv-select" data-field="higher_rarity" data-card="${card.id}">
         ${HR_OPTIONS.map(r => `<option value="${r === 'None' ? '' : r}" ${(card.higher_rarity || '') === (r === 'None' ? '' : r) ? 'selected' : ''}>${r}</option>`).join('')}
       </select>

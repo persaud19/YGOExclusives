@@ -639,6 +639,10 @@ select.input { cursor: pointer; appearance: none;
 }
 .inv-table thead th:first-child { text-align: left; }
 .inv-th-group-start  { border-left: 2px solid var(--b2) !important; }
+.inv-th-hr-sep       { border-left: 5px solid var(--purple) !important;
+                       background: rgba(120,0,220,0.12) !important; }
+.inv-td-hr-sep       { border-left: 5px solid var(--purple) !important;
+                       background: rgba(120,0,220,0.07); }
 .inv-th-total        { color: var(--gold2) !important; font-size: 1.05rem !important; }
 .inv-th-img          { width: 136px; }
 .inv-th-status       { width: 40px; }
