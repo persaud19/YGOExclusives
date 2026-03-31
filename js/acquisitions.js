@@ -306,13 +306,16 @@ async function processAcquisitionRow(row, date) {
 
 // Maps row → correct DB qty column
 function getQtyField(row) {
-  const c  = (row.condition || 'NM').toUpperCase();
-  const e  = (row.edition   || '').toLowerCase();
+  const c       = (row.condition || 'NM').toUpperCase();
+  const e       = (row.edition   || '').toLowerCase();
+  const is1st   = e.includes('1st') || e.includes('first');
 
   if (row.is_high_rarity) {
+    // HR respects edition: 1st Edition vs Unlimited
+    if (is1st) return c === 'LP' ? 'hr_fe_lp' : 'hr_fe_nm';
     return c === 'LP' ? 'hr_qty_lp' : 'hr_qty_nm';
   }
-  if (e.includes('1st') || e.includes('first')) {
+  if (is1st) {
     if (c === 'LP') return 'fe_lp';
     if (c === 'MP') return 'fe_mp';
     return 'fe_nm';
