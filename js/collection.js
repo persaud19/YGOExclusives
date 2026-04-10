@@ -118,9 +118,19 @@ function renderCollectionRows(rows, tbody) {
       </td>
       <td><span class="cinzel" style="font-size:0.72rem;color:var(--muted);white-space:nowrap">${escHtml(card.card_number)}</span></td>
       <td style="max-width:200px;font-weight:500">${escHtml(card.card_name)}</td>
-      <td><span class="badge ${getRarityBadgeClass(card.rarity)}">${escHtml(card.rarity||'')}</span></td>
+      <td>
+        <span class="badge ${getRarityBadgeClass(card.rarity)}">${escHtml(card.rarity||'')}</span>
+        ${(card.higher_rarity && card.higher_rarity !== card.rarity)
+          ? `<br><span class="badge badge-purple" style="font-size:0.68rem;margin-top:3px">★ ${escHtml(card.higher_rarity)}</span>`
+          : ''}
+      </td>
       <td class="small muted" style="white-space:nowrap">${escHtml(card.set_name||'')}</td>
-      <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${(card.tcg_market_price > 0) ? '$'+Number(card.tcg_market_price).toFixed(2) : '—'}</td>
+      <td style="white-space:nowrap;vertical-align:middle">
+        <div class="cinzel" style="color:var(--gold2)">${(card.tcg_market_price > 0) ? '$'+Number(card.tcg_market_price).toFixed(2) : '—'}</div>
+        ${card.hr_tcg_price > 0
+          ? `<div class="cinzel" style="color:var(--purple);font-size:0.78rem;margin-top:2px">★ $${Number(card.hr_tcg_price).toFixed(2)}</div>`
+          : ''}
+      </td>
       <td class="small muted" style="white-space:nowrap">${(card.ebay_low_price > 0) ? '$'+Number(card.ebay_low_price).toFixed(2) : '—'}</td>
       <td class="small muted">${(card.acquisition_cost > 0) ? '$'+Number(card.acquisition_cost).toFixed(2) : '—'}</td>
       <td class="small muted">${escHtml(card.location||'')}</td>

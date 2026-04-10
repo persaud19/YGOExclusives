@@ -259,11 +259,14 @@ async function runBulkPrice() {
       patch.api_id = match.id;
     }
 
-    // HR pricing — look up by card name + higher_rarity type
+    // HR pricing — try card_number|hr_rarity first (exact printing), then name|hr_rarity as fallback
     if (card.higher_rarity) {
-      const hrKey   = `${nameKey}|${card.higher_rarity.toLowerCase().trim()}`;
-      const hrPrice = nameRarityMap.get(hrKey);
-      if (hrPrice > 0) patch.hr_tcg_price = +hrPrice.toFixed(2);
+      const hrRarLower  = card.higher_rarity.toLowerCase().trim();
+      const hrCodeMatch = setCodeMap.get(`${codeKey}|${hrRarLower}`);
+      const hrPrice     = hrCodeMatch
+        ? hrCodeMatch.price
+        : (nameRarityMap.get(`${nameKey}|${hrRarLower}`) || 0);
+      if (hrPrice > 0) patch.hr_tcg_price = +parseFloat(hrPrice).toFixed(2);
     }
 
     if (optListPrices) {
