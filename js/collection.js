@@ -125,17 +125,14 @@ function renderCollectionRows(rows, tbody) {
           : ''}
       </td>
       <td class="small muted" style="white-space:nowrap">${escHtml(card.set_name||'')}</td>
-      <td style="white-space:nowrap;vertical-align:middle">
-        <div class="cinzel" style="color:var(--gold2)">${(card.tcg_market_price > 0) ? '$'+Number(card.tcg_market_price).toFixed(2) : '—'}</div>
-        ${card.hr_tcg_price > 0
-          ? `<div class="cinzel" style="color:var(--purple);font-size:0.78rem;margin-top:2px">★ $${Number(card.hr_tcg_price).toFixed(2)}</div>`
-          : ''}
-      </td>
+      <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${card.tcg_market_price > 0 ? '$'+Number(card.tcg_market_price).toFixed(2) : '—'}</td>
       <td class="small muted" style="white-space:nowrap">${(card.ebay_low_price > 0) ? '$'+Number(card.ebay_low_price).toFixed(2) : '—'}</td>
       <td class="small muted">${(card.acquisition_cost > 0) ? '$'+Number(card.acquisition_cost).toFixed(2) : '—'}</td>
       <td class="small muted">${escHtml(card.location||'')}</td>
       <td class="cinzel" style="color:var(--gold2);text-align:center;font-weight:700">${(card.fe_nm||0)+(card.fe_lp||0)+(card.fe_mp||0)+(card.un_nm||0)+(card.un_lp||0)+(card.un_mp||0)}</td>
       <td class="cinzel" style="color:var(--purple);text-align:center;font-weight:700">${((card.hr_qty_nm||0)+(card.hr_qty_lp||0)) || '—'}</td>
+      <td class="cinzel" style="color:var(--purple);white-space:nowrap">${card.hr_tcg_price > 0 ? '$'+Number(card.hr_tcg_price).toFixed(2) : '—'}</td>
+      <td class="small muted" style="white-space:nowrap;color:var(--purple)">${card.hr_ebay_price > 0 ? '$'+Number(card.hr_ebay_price).toFixed(2) : '—'}</td>
       <td>
         <span class="badge ${listed ? 'badge-green' : 'badge-muted'}"
               style="cursor:pointer" id="listed-badge-${card.id}"

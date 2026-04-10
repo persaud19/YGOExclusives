@@ -267,6 +267,8 @@ async function runBulkPrice() {
         ? hrCodeMatch.price
         : (nameRarityMap.get(`${nameKey}|${hrRarLower}`) || 0);
       if (hrPrice > 0) patch.hr_tcg_price = +parseFloat(hrPrice).toFixed(2);
+      // HR eBay price — only available from set code match
+      if (hrCodeMatch && hrCodeMatch.ebay > 0) patch.hr_ebay_price = +hrCodeMatch.ebay.toFixed(2);
     }
 
     if (optListPrices) {
