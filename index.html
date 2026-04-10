@@ -118,10 +118,20 @@
         >
         <div class="inv-card-count" id="inv-card-count"></div>
       </div>
+      <div id="inv-bulk-bar" class="inv-bulk-bar" style="display:none">
+        <span id="inv-bulk-count" class="inv-bulk-count"></span>
+        <label class="inv-bulk-label">Change rarity to:</label>
+        <select id="inv-bulk-rarity" class="inv-select inv-bulk-select">
+          <option value="">— pick rarity —</option>
+        </select>
+        <button id="inv-bulk-apply" class="btn btn-gold inv-bulk-btn">Apply</button>
+        <button id="inv-bulk-clear" class="btn inv-bulk-clear-btn">Clear selection</button>
+      </div>
       <div class="inv-table-wrap">
         <table class="inv-table" id="inv-table" style="display:none">
           <thead>
             <tr class="inv-thead-group">
+              <th class="inv-th-check" rowspan="2"><input type="checkbox" id="inv-select-all" title="Select all visible rows"></th>
               <th class="inv-th-img" rowspan="2"></th>
               <th rowspan="2" style="white-space:nowrap">Card #</th>
               <th rowspan="2">Name</th>

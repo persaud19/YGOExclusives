@@ -12,6 +12,45 @@ function initInventory() {
 
   searchInput.focus();
 
+  // Populate bulk rarity dropdown from RARITIES constant
+  const bulkRarSel = document.getElementById('inv-bulk-rarity');
+  if (bulkRarSel && bulkRarSel.options.length <= 1) {
+    RARITIES.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r; o.textContent = r;
+      bulkRarSel.appendChild(o);
+    });
+  }
+
+  // Select-all checkbox
+  const selectAll = document.getElementById('inv-select-all');
+  if (selectAll) {
+    selectAll.addEventListener('change', () => {
+      document.querySelectorAll('.inv-row-check').forEach(cb => {
+        cb.checked = selectAll.checked;
+        cb.closest('tr').classList.toggle('inv-row-selected', selectAll.checked);
+      });
+      updateBulkBar();
+    });
+  }
+
+  // Bulk apply button
+  const bulkApply = document.getElementById('inv-bulk-apply');
+  if (bulkApply) bulkApply.addEventListener('click', bulkApplyRarity);
+
+  // Bulk clear button
+  const bulkClear = document.getElementById('inv-bulk-clear');
+  if (bulkClear) {
+    bulkClear.addEventListener('click', () => {
+      document.querySelectorAll('.inv-row-check').forEach(cb => {
+        cb.checked = false;
+        cb.closest('tr').classList.remove('inv-row-selected');
+      });
+      if (selectAll) selectAll.checked = false;
+      updateBulkBar();
+    });
+  }
+
   let searchDebounce;
   searchInput.addEventListener('input', () => {
     clearTimeout(searchDebounce);
@@ -27,6 +66,53 @@ function initInventory() {
       }
     }, 300);
   });
+}
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.inv-row-check:checked');
+  const bar     = document.getElementById('inv-bulk-bar');
+  const countEl = document.getElementById('inv-bulk-count');
+  if (!bar) return;
+  if (checked.length > 0) {
+    bar.style.display = '';
+    countEl.textContent = `${checked.length} card${checked.length !== 1 ? 's' : ''} selected`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+async function bulkApplyRarity() {
+  const checked  = [...document.querySelectorAll('.inv-row-check:checked')];
+  const newRarity = document.getElementById('inv-bulk-rarity').value;
+  if (!newRarity) { showToast('Pick a rarity first'); return; }
+  if (!checked.length) return;
+
+  const applyBtn = document.getElementById('inv-bulk-apply');
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Saving…';
+
+  let ok = 0, fail = 0;
+  for (const cb of checked) {
+    const cardId = cb.dataset.card;
+    const tr     = cb.closest('tr');
+    try {
+      await updateCard({ id: cardId, rarity: newRarity, updated_at: new Date().toISOString() });
+      // Update the inline dropdown to reflect the new value
+      const rarSel = tr.querySelector('select[data-field="rarity"]');
+      if (rarSel) rarSel.value = newRarity;
+      setRowStatus(cardId, 'saved');
+      setTimeout(() => setRowStatus(cardId, ''), 1800);
+      ok++;
+    } catch (e) {
+      fail++;
+    }
+  }
+
+  applyBtn.disabled = false;
+  applyBtn.textContent = 'Apply';
+  showToast(fail === 0
+    ? `Updated rarity on ${ok} card${ok !== 1 ? 's' : ''}`
+    : `${ok} updated, ${fail} failed`);
 }
 
 async function loadInventoryCards(setCode, countEl) {
@@ -91,6 +177,9 @@ function buildCardRow(card) {
   const hrLoc  = card.hr_location || 'Basement';
 
   tr.innerHTML = `
+    <td class="inv-td-check">
+      <input type="checkbox" class="inv-row-check" data-card="${card.id}" title="Select for bulk edit">
+    </td>
     <td class="inv-td-img">
       ${card.api_id
         ? `<img class="inv-thumb" src="${CARD_IMG(card.api_id)}" alt="" loading="lazy" onerror="this.style.opacity=0">`
@@ -185,6 +274,15 @@ function wireRowEvents(tr, cardId) {
     });
   });
 
+  // Row selection checkbox (for bulk rarity edit)
+  const rowCheck = tr.querySelector('.inv-row-check');
+  if (rowCheck) {
+    rowCheck.addEventListener('change', () => {
+      tr.classList.toggle('inv-row-selected', rowCheck.checked);
+      updateBulkBar();
+    });
+  }
+
   // Needs Review checkbox
   const reviewCheck = tr.querySelector('.inv-review-check');
   if (reviewCheck) {
@@ -255,6 +353,7 @@ async function doSave(cardId, tr) {
     hr_fe_lp:      getVal('hr_fe_lp'),
     hr_qty_nm:     getVal('hr_qty_nm'),
     hr_qty_lp:     getVal('hr_qty_lp'),
+    rarity:        getSel('rarity'),
     location:      getSel('location'),
     higher_rarity: getSel('higher_rarity'),
     hr_location:   getSel('hr_location') || 'Basement',

@@ -31,10 +31,12 @@ D:\CoworkOS\YGO Project\
 │   ├── listing.js          ← eBay title/desc + FB post generators
 │   └── rarity-sets.js      ← RA01/RA02+ horizontal rarity grid
 ├── backups/
-│   ├── config.json         ← Supabase service role key (NEVER commit)
+│   ├── config.json         ← Supabase service role key + Anthropic key (NEVER commit)
 │   ├── backup.ps1          ← runs on Windows login via Task Scheduler
 │   ├── restore.ps1         ← manual restore: .\restore.ps1 -Date 2026-04-07
-│   └── setup-task.ps1      ← run once as admin to register Task Scheduler
+│   ├── setup-task.ps1      ← run once as admin to register Task Scheduler
+│   ├── process-photos.ps1  ← Google Drive → Claude Vision → Card Photos\ + listing_queue
+│   └── mark-listed.ps1     ← mark queue entry as pushed to eBay
 └── importer/importer.js    ← CSV processing logic
 ```
 
@@ -165,7 +167,7 @@ Google Drive desktop app needed on Ryan's machine.
 - `needs_review` already exists on cards
 - `hr_fe_nm`, `hr_fe_lp` already exist on cards
 
-### listing_queue table (not yet created):
+### listing_queue table (NOT YET CREATED -- run SQL below in Supabase SQL Editor before using process-photos.ps1):
 ```sql
 CREATE TABLE listing_queue (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),

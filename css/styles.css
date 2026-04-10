@@ -761,6 +761,69 @@ select.input { cursor: pointer; appearance: none;
 .inv-status-dot.saving { color: var(--gold); }
 .inv-status-dot.saved  { color: var(--green); }
 
+/* ─── Inventory — row selection checkbox ───────────────────────────────────── */
+.inv-th-check {
+  width: 32px;
+  text-align: center;
+  padding: 0 4px;
+}
+.inv-td-check {
+  text-align: center;
+  padding: 0 4px;
+}
+.inv-row-check, #inv-select-all {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--gold);
+}
+.inv-row.inv-row-selected {
+  background: rgba(212, 175, 55, 0.10) !important;
+}
+
+/* ─── Inventory — bulk rarity action bar ───────────────────────────────────── */
+.inv-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin-bottom: 10px;
+  background: var(--surf2);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+.inv-bulk-count {
+  font-weight: 600;
+  color: var(--gold);
+  white-space: nowrap;
+  min-width: 100px;
+}
+.inv-bulk-label {
+  color: var(--txt);
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+.inv-bulk-select {
+  min-width: 200px;
+  max-width: 280px;
+}
+.inv-bulk-btn {
+  padding: 6px 18px;
+  font-size: 0.9rem;
+}
+.inv-bulk-clear-btn {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid var(--b2);
+  color: var(--muted);
+}
+.inv-bulk-clear-btn:hover {
+  border-color: var(--txt);
+  color: var(--txt);
+}
+
 /* ─── Collection Table ─────────────────────────────────────────────────────── */
 .collection-toolbar {
   display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
