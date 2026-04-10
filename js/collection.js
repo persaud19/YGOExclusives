@@ -258,6 +258,12 @@ function populateEditModal(card) {
   sv('edit-unlimited-lp', card.unlimited_lp || '');
   sv('edit-unlimited-mp', card.unlimited_mp || '');
 
+  // HR prices — show section only when higher_rarity is set
+  const hrPriceRow = document.getElementById('edit-hr-prices-row');
+  if (hrPriceRow) hrPriceRow.style.display = card.higher_rarity ? '' : 'none';
+  sv('edit-hr-tcg',  card.hr_tcg_price  || '');
+  sv('edit-hr-ebay', card.hr_ebay_price || '');
+
   // Higher rarity
   sv('edit-higher-rarity', card.higher_rarity || '');
   document.getElementById('edit-hr-qty-row').style.display = card.higher_rarity ? '' : 'none';
@@ -315,6 +321,8 @@ async function saveEditModal() {
     location:                 gv('edit-location'),
     listed:                   document.getElementById('edit-listed')?.checked || false,
     tcg_market_price:         gn('edit-tcg-market'),
+    hr_tcg_price:             gn('edit-hr-tcg'),
+    hr_ebay_price:            gn('edit-hr-ebay'),
     first_ed_nm:              gn('edit-first-ed-nm'),
     first_ed_lp:              gn('edit-first-ed-lp'),
     first_ed_mp:              gn('edit-first-ed-mp'),

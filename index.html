@@ -771,7 +771,7 @@
           <div class="form-label" style="color:var(--gold2)">Market Prices</div>
           <button id="edit-fetch-btn" class="btn btn-ghost btn-sm" onclick="fetchEditPrices()">Fetch ↑</button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <div class="form-group">
             <label class="form-label">TCGPlayer Low $</label>
             <input id="edit-tcg-low" class="input" type="number" step="0.01" min="0" placeholder="0.00">
@@ -787,6 +787,20 @@
           <div class="form-group">
             <label class="form-label">eBay Last Sold $</label>
             <input id="edit-ebay-sold" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+        <!-- HR prices — manual entry since YGOPRODeck doesn't carry set-level prices for high-value rarities -->
+        <div id="edit-hr-prices-row" style="display:none;margin-bottom:14px">
+          <div class="form-label" style="color:var(--purple);margin-bottom:6px">★ High Rarity Prices <span style="font-weight:400;font-size:0.75rem;color:var(--muted)">(enter manually from TCGPlayer)</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="form-group">
+              <label class="form-label">HR TCGPlayer Market $</label>
+              <input id="edit-hr-tcg" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">HR eBay Low $</label>
+              <input id="edit-hr-ebay" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+            </div>
           </div>
         </div>
         <!-- Listing condition prices -->
