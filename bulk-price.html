@@ -235,55 +235,77 @@ async function runBulkPrice() {
   log('Matching prices…');
   const updates = [];
 
+  let hrCardsFound = 0;
+  let hrMatched    = 0;
+  let hrMissed     = 0;
+
   allCards.forEach(card => {
-    // Skip if not overwriting and price already set
-    if (!optOverwrite && card.tcg_market_price > 0) return;
+    const codeKey   = (card.card_number || '').toLowerCase().trim();
+    const rarityKey = `${codeKey}|${(card.rarity || '').toLowerCase().trim()}`;
+    const nameKey   = (card.card_name   || '').toLowerCase().trim();
 
-    // Match by card_number + rarity first (exact), then card_number only, then name
-    const codeKey     = (card.card_number || '').toLowerCase().trim();
-    const rarityKey   = `${codeKey}|${(card.rarity || '').toLowerCase().trim()}`;
-    const nameKey     = (card.card_name   || '').toLowerCase().trim();
-    const match       = setCodeMap.get(rarityKey) || setCodeMap.get(codeKey) || ygoMap.get(nameKey);
+    // ── Base price ──────────────────────────────────────────────────────────
+    const baseNeeded = optOverwrite || !(card.tcg_market_price > 0);
+    const match      = setCodeMap.get(rarityKey) || setCodeMap.get(codeKey) || ygoMap.get(nameKey);
 
-    if (!match || match.price <= 0) {
+    if (baseNeeded && (!match || match.price <= 0)) {
       totalSkipped++;
-      return;
+      // Still attempt HR price update below even if base price missed
     }
 
-    const p     = match.price;
-    const patch = { id: card.id, tcg_market_price: p, updated_at: new Date().toISOString() };
+    const patch = { id: card.id, updated_at: new Date().toISOString() };
+    let hasUpdate = false;
 
-    if (match.ebay > 0) patch.ebay_low_price = +match.ebay.toFixed(2);
-
-    if (optSetApiId && !card.api_id && match.id) {
-      patch.api_id = match.id;
+    if (baseNeeded && match && match.price > 0) {
+      const p = match.price;
+      patch.tcg_market_price = p;
+      if (match.ebay > 0) patch.ebay_low_price = +match.ebay.toFixed(2);
+      if (optSetApiId && !card.api_id && match.id) patch.api_id = match.id;
+      if (optListPrices) {
+        patch.first_ed_nm  = +(p * PRICE_MULT.first_ed_nm).toFixed(2);
+        patch.first_ed_lp  = +(p * PRICE_MULT.first_ed_lp).toFixed(2);
+        patch.first_ed_mp  = +(p * PRICE_MULT.first_ed_mp).toFixed(2);
+        patch.unlimited_nm = +(p * PRICE_MULT.unlimited_nm).toFixed(2);
+        patch.unlimited_lp = +(p * PRICE_MULT.unlimited_lp).toFixed(2);
+        patch.unlimited_mp = +(p * PRICE_MULT.unlimited_mp).toFixed(2);
+      }
+      hasUpdate = true;
     }
 
-    // HR pricing — try card_number|hr_rarity first (exact printing), then name|hr_rarity as fallback
-    if (card.higher_rarity) {
+    // ── HR price — runs independently of base price result ──────────────────
+    // Always attempt when higher_rarity is set and either overwriting or hr_tcg_price is blank
+    const hrNeeded = card.higher_rarity && (optOverwrite || !(card.hr_tcg_price > 0));
+    if (hrNeeded) {
+      hrCardsFound++;
       const hrRarLower  = card.higher_rarity.toLowerCase().trim();
-      const hrCodeMatch = setCodeMap.get(`${codeKey}|${hrRarLower}`);
+      const hrCodeKey   = `${codeKey}|${hrRarLower}`;
+      const hrCodeMatch = setCodeMap.get(hrCodeKey);
       const hrPrice     = hrCodeMatch
         ? hrCodeMatch.price
         : (nameRarityMap.get(`${nameKey}|${hrRarLower}`) || 0);
-      if (hrPrice > 0) patch.hr_tcg_price = +parseFloat(hrPrice).toFixed(2);
-      // HR eBay price — only available from set code match
-      if (hrCodeMatch && hrCodeMatch.ebay > 0) patch.hr_ebay_price = +hrCodeMatch.ebay.toFixed(2);
+
+      if (hrPrice > 0) {
+        patch.hr_tcg_price = +parseFloat(hrPrice).toFixed(2);
+        if (hrCodeMatch && hrCodeMatch.ebay > 0) patch.hr_ebay_price = +hrCodeMatch.ebay.toFixed(2);
+        hrMatched++;
+        hasUpdate = true;
+      } else {
+        hrMissed++;
+        // Log first 5 misses so we can diagnose rarity name mismatches
+        if (hrMissed <= 5) {
+          log(`HR miss: ${card.card_number} | looking for "${hrCodeKey}" — not in setCodeMap`, 'warn');
+          // Show what rarities ARE available for this card number
+          const available = [...setCodeMap.keys()].filter(k => k.startsWith(codeKey + '|'));
+          if (available.length) log(`  Available keys: ${available.join(', ')}`, 'warn');
+        }
+      }
     }
 
-    if (optListPrices) {
-      patch.first_ed_nm  = +(p * PRICE_MULT.first_ed_nm).toFixed(2);
-      patch.first_ed_lp  = +(p * PRICE_MULT.first_ed_lp).toFixed(2);
-      patch.first_ed_mp  = +(p * PRICE_MULT.first_ed_mp).toFixed(2);
-      patch.unlimited_nm = +(p * PRICE_MULT.unlimited_nm).toFixed(2);
-      patch.unlimited_lp = +(p * PRICE_MULT.unlimited_lp).toFixed(2);
-      patch.unlimited_mp = +(p * PRICE_MULT.unlimited_mp).toFixed(2);
-    }
-
-    updates.push(patch);
+    if (hasUpdate) updates.push(patch);
   });
 
-  log(`${updates.length.toLocaleString()} cards to update · ${totalSkipped.toLocaleString()} skipped (no price match)`);
+  log(`${updates.length.toLocaleString()} cards to update · ${totalSkipped.toLocaleString()} skipped (no base match)`);
+  log(`HR cards found: ${hrCardsFound} · matched: ${hrMatched} · missed: ${hrMissed}`, hrMissed > 0 ? 'warn' : 'ok');
   setStat('s-skipped', totalSkipped);
 
   if (!updates.length) {
