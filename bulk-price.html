@@ -171,18 +171,24 @@ async function runBulkPrice() {
     cards.forEach(c => {
       const price = parseFloat(c.card_prices?.[0]?.tcgplayer_price) || 0;
       const ebay  = parseFloat(c.card_prices?.[0]?.ebay_price)      || 0;
-      // Name fallback (generic price — may not match rarity)
+      // Name fallback (generic price — last resort only)
       ygoMap.set(c.name.toLowerCase().trim(), { id: c.id, price, ebay });
-      // Card-number map — rarity-specific set price (e.g. BLMM-EN001 Secret Rare = $13.60)
+      // Card-number + rarity map — exact rarity-specific price
       (c.card_sets || []).forEach(s => {
-        const setCode  = s.set_code?.toLowerCase().trim();   // ← was s.set_num (wrong field)
+        const setCode  = s.set_code?.toLowerCase().trim();
         const setPrice = parseFloat(s.set_price) || 0;
+        const rarity   = s.set_rarity?.toLowerCase().trim() || '';
         if (setCode && setPrice > 0) {
-          setCodeMap.set(setCode, { id: c.id, price: setPrice, ebay });
+          // Primary key: card_number|rarity — exact match
+          setCodeMap.set(`${setCode}|${rarity}`, { id: c.id, price: setPrice, ebay });
+          // Secondary key: card_number only — only set if not already set (first rarity wins as fallback)
+          if (!setCodeMap.has(setCode)) {
+            setCodeMap.set(setCode, { id: c.id, price: setPrice, ebay });
+          }
         }
-        // Name+rarity map for HR pricing (e.g. "blue-eyes white dragon|starlight rare" → price)
-        if (setPrice > 0 && s.set_rarity) {
-          const nrKey = `${c.name.toLowerCase().trim()}|${s.set_rarity.toLowerCase().trim()}`;
+        // Name+rarity map for HR pricing
+        if (setPrice > 0 && rarity) {
+          const nrKey = `${c.name.toLowerCase().trim()}|${rarity}`;
           if (!nameRarityMap.has(nrKey)) nameRarityMap.set(nrKey, setPrice);
         }
       });
@@ -233,10 +239,11 @@ async function runBulkPrice() {
     // Skip if not overwriting and price already set
     if (!optOverwrite && card.tcg_market_price > 0) return;
 
-    // Match by card_number first (rarity-specific price), fall back to name
-    const codeKey = (card.card_number || '').toLowerCase().trim();
-    const nameKey = (card.card_name   || '').toLowerCase().trim();
-    const match   = setCodeMap.get(codeKey) || ygoMap.get(nameKey);
+    // Match by card_number + rarity first (exact), then card_number only, then name
+    const codeKey     = (card.card_number || '').toLowerCase().trim();
+    const rarityKey   = `${codeKey}|${(card.rarity || '').toLowerCase().trim()}`;
+    const nameKey     = (card.card_name   || '').toLowerCase().trim();
+    const match       = setCodeMap.get(rarityKey) || setCodeMap.get(codeKey) || ygoMap.get(nameKey);
 
     if (!match || match.price <= 0) {
       totalSkipped++;

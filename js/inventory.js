@@ -98,7 +98,11 @@ function buildCardRow(card) {
     </td>
     <td class="inv-td-num">${escHtml(card.card_number)}</td>
     <td class="inv-td-name">${escHtml(card.card_name)}</td>
-    <td class="inv-td-rarity"><span class="badge ${rarityBadge}">${escHtml(card.rarity || '')}</span></td>
+    <td class="inv-td-rarity">
+      <select class="inv-select inv-rarity-select" data-field="rarity" data-card="${card.id}">
+        ${RARITIES.map(r => `<option value="${r}" ${card.rarity === r ? 'selected' : ''}>${r}</option>`).join('')}
+      </select>
+    </td>
     ${buildQtyCell('fe_nm',     feNm, card.id, 0, true)}
     ${buildQtyCell('fe_lp',     feLp, card.id, 1, false)}
     ${buildQtyCell('fe_mp',     feMp, card.id, 2, false)}
