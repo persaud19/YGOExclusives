@@ -17,6 +17,35 @@ const CORS_HEADERS = {
   'Content-Type':                 'application/json',
 };
 
+// Map DB rarity names → eBay-friendly search keywords
+// Rules: no apostrophes (break eBay search), no quotes, use distinctive keyword only
+function getRarityKeyword(rarity) {
+  const r = (rarity || '').toLowerCase().trim();
+  if (r.includes('starlight'))            return 'starlight';
+  if (r.includes('quarter century'))      return 'quarter century';
+  if (r.includes('prismatic secret'))     return 'prismatic secret';
+  if (r.includes("collector"))            return 'collectors rare';   // strips apostrophe
+  if (r.includes('pharaoh'))              return 'pharaohs rare';     // strips apostrophe
+  if (r.includes('prismatic ultimate'))   return 'prismatic ultimate';
+  if (r.includes("prismatic collector"))  return 'prismatic collectors';
+  if (r.includes('ghost/gold'))           return 'ghost gold rare';
+  if (r.includes('platinum secret'))      return 'platinum secret';
+  if (r.includes('premium gold'))         return 'premium gold';
+  if (r.includes('gold secret'))          return 'gold secret rare';
+  if (r.includes('gold'))                 return 'gold rare';
+  if (r.includes('ultimate'))             return 'ultimate rare';
+  if (r.includes('ghost'))                return 'ghost rare';
+  if (r.includes('starfoil'))             return 'starfoil';
+  if (r.includes('shatterfoil'))          return 'shatterfoil';
+  if (r.includes('mosaic'))               return 'mosaic rare';
+  if (r.includes('10000'))                return '10000 secret';
+  if (r.includes('secret'))               return 'secret rare';
+  if (r.includes('ultra'))                return 'ultra rare';
+  if (r.includes('super'))                return 'super rare';
+  // Fallback — strip apostrophes and return as-is
+  return rarity.replace(/'/g, '').toLowerCase();
+}
+
 exports.handler = async (event) => {
   // Preflight
   if (event.httpMethod === 'OPTIONS') {
@@ -73,8 +102,14 @@ exports.handler = async (event) => {
       };
     }
 
-    // Search query — both card number AND rarity must appear in title
-    const query = `"${card_number}" "${rarity}"`;
+    // Build search query:
+    // - Card number in quotes (exact — this is unique enough to anchor the search)
+    // - Rarity as a keyword (no quotes, no apostrophes) so eBay fuzzy-matches it
+    //   e.g. "Collector's Rare" → collectors rare  (apostrophe breaks eBay search)
+    //        "Quarter Century Secret Rare" → quarter century
+    //        "Starlight Rare" → starlight
+    const rarityKeyword = getRarityKeyword(rarity);
+    const query = `"${card_number}" ${rarityKeyword}`;
 
     const BROWSE_HEADERS = {
       'Authorization':           `Bearer ${access_token}`,
