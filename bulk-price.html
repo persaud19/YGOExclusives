@@ -227,7 +227,7 @@ async function runBulkPrice() {
 
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?select=id,card_number,card_name,rarity,higher_rarity,api_id,tcg_market_price&limit=${PAGE}&offset=${offset}`,
+      `${SUPABASE_URL}/rest/v1/cards?select=id,card_number,card_name,rarity,higher_rarity,hr_qty_nm,hr_qty_lp,hr_tcg_price,api_id,tcg_market_price&limit=${PAGE}&offset=${offset}`,
       { headers: DB_HEADERS_RETURN }
     );
     if (!res.ok) { log('✗ DB fetch failed at offset ' + offset, 'err'); break; }
@@ -282,9 +282,11 @@ async function runBulkPrice() {
       hasUpdate = true;
     }
 
-    // ── HR price — runs independently of base price result ──────────────────
-    // Always attempt when higher_rarity is set and either overwriting or hr_tcg_price is blank
-    const hrNeeded = card.higher_rarity && (optOverwrite || !(card.hr_tcg_price > 0));
+    // ── HR price — only for cards you physically own as HR ───────────────────
+    // Guard: skip if no HR qty in inventory — avoids thousands of eBay calls
+    // for cards where higher_rarity is set but you own zero HR copies
+    const hasHrQty = (card.hr_qty_nm > 0 || card.hr_qty_lp > 0);
+    const hrNeeded = hasHrQty && card.higher_rarity && (optOverwrite || !(card.hr_tcg_price > 0));
     if (hrNeeded) {
       hrCardsFound++;
       const hrRarLower  = card.higher_rarity.toLowerCase().trim();
