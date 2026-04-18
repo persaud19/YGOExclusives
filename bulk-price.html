@@ -79,6 +79,13 @@
         <span class="muted small" style="display:block">1st NM ×1.2 · 1st LP ×0.9 · 1st MP ×0.6 · Un NM ×1.0 · Un LP ×0.75 · Un MP ×0.5</span>
       </span>
     </label>
+    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--txt)">
+      <input type="checkbox" id="opt-ebay-hr" checked style="margin-top:2px">
+      <span>
+        <strong style="color:var(--purple)">★ Fetch HR prices from eBay</strong>
+        <span class="muted small" style="display:block">Looks up recently sold + lowest listed (price + shipping) for each card with a High Rarity type set. Slower — one eBay call per unique HR card.</span>
+      </span>
+    </label>
   </div>
   <button id="run-btn" class="btn btn-primary" style="width:100%" onclick="runBulkPrice()">
     Fetch &amp; Update All Prices
@@ -93,6 +100,7 @@
     <div class="stat-box"><div class="val" id="s-db">—</div><div class="lbl">DB Cards Scanned</div></div>
     <div class="stat-box"><div class="val green" id="s-updated">0</div><div class="lbl">Updated</div></div>
     <div class="stat-box"><div class="val muted" id="s-skipped">0</div><div class="lbl">Skipped (no match)</div></div>
+    <div class="stat-box"><div class="val" id="s-hr" style="color:var(--purple)">—</div><div class="lbl">HR eBay Fetched</div></div>
     <div class="stat-box"><div class="val red" id="s-errors">0</div><div class="lbl">Errors</div></div>
   </div>
   <div class="progress-wrap">
@@ -143,6 +151,7 @@ async function runBulkPrice() {
   const optOverwrite   = document.getElementById('opt-overwrite').checked;
   const optSetApiId    = document.getElementById('opt-set-api-id').checked;
   const optListPrices  = document.getElementById('opt-listing-prices').checked;
+  const optEbayHr      = document.getElementById('opt-ebay-hr').checked;
 
   btn.disabled = true;
   document.getElementById('progress-card').style.display = '';
@@ -238,6 +247,7 @@ async function runBulkPrice() {
   let hrCardsFound = 0;
   let hrMatched    = 0;
   let hrMissed     = 0;
+  const hrEbayQueue = []; // cards needing eBay HR lookup (YGOPRODeck had no set price)
 
   allCards.forEach(card => {
     const codeKey   = (card.card_number || '').toLowerCase().trim();
@@ -290,37 +300,88 @@ async function runBulkPrice() {
         hrMatched++;
         hasUpdate = true;
       } else {
+        // YGOPRODeck has no set-level price for this HR variant — queue for eBay lookup
         hrMissed++;
-        // Log first 5 misses so we can diagnose rarity name mismatches
-        if (hrMissed <= 5) {
-          log(`HR miss: ${card.card_number} | looking for "${hrCodeKey}" — not in setCodeMap`, 'warn');
-          // Show what rarities ARE available for this card number
-          const available = [...setCodeMap.keys()].filter(k => k.startsWith(codeKey + '|'));
-          if (available.length) log(`  Available keys: ${available.join(', ')}`, 'warn');
-        }
+        hrEbayQueue.push({ patchRef: patch, card_number: card.card_number, rarity: card.higher_rarity });
       }
     }
 
     if (hasUpdate) updates.push(patch);
+    else if (hrEbayQueue.length && hrEbayQueue[hrEbayQueue.length - 1].patchRef === patch) {
+      // patch was created but has no base update yet — still add so eBay results have somewhere to land
+      updates.push(patch);
+    }
   });
 
-  log(`${updates.length.toLocaleString()} cards to update · ${totalSkipped.toLocaleString()} skipped (no base match)`);
-  log(`HR cards found: ${hrCardsFound} · matched: ${hrMatched} · missed: ${hrMissed}`, hrMissed > 0 ? 'warn' : 'ok');
+  log(`${updates.length.toLocaleString()} cards staged · ${totalSkipped.toLocaleString()} skipped (no base match)`);
+  log(`HR (YGOPRODeck): ${hrCardsFound} found · ${hrMatched} priced · ${hrMissed} queued for eBay`, hrMissed > 0 ? 'warn' : 'ok');
   setStat('s-skipped', totalSkipped);
 
-  if (!updates.length) {
+  // ── Step 4: eBay HR price lookup ─────────────────────────────────────────────
+  if (optEbayHr && hrEbayQueue.length > 0) {
+    // Deduplicate by card_number|rarity so we only make one eBay call per unique printing
+    const seen      = new Map(); // "card_number|rarity" → { sold, listed }
+    const deduped   = [];
+    hrEbayQueue.forEach(item => {
+      const key = `${item.card_number}|${item.rarity}`.toLowerCase();
+      if (!seen.has(key)) { seen.set(key, null); deduped.push({ ...item, key }); }
+    });
+
+    log(`Fetching eBay prices for ${deduped.length} unique HR printing(s)… (one call each, ~0.3s apart)`);
+    setStat('s-hr', `0/${deduped.length}`);
+    let hrFetched = 0;
+
+    for (const item of deduped) {
+      const url = `/.netlify/functions/ebay-prices` +
+        `?card_number=${encodeURIComponent(item.card_number)}` +
+        `&rarity=${encodeURIComponent(item.rarity)}`;
+      try {
+        const res  = await fetch(url);
+        const data = res.ok ? await res.json() : {};
+
+        if (data.recentSoldMedian > 0 || data.lowestListed > 0) {
+          // Apply result to ALL patches that matched this card_number|rarity
+          hrEbayQueue
+            .filter(q => `${q.card_number}|${q.rarity}`.toLowerCase() === item.key)
+            .forEach(q => {
+              if (data.recentSoldMedian > 0) q.patchRef.hr_tcg_price  = data.recentSoldMedian;
+              if (data.lowestListed     > 0) q.patchRef.hr_ebay_price = data.lowestListed;
+            });
+          log(
+            `★ ${item.card_number} ${item.rarity}: ` +
+            `sold ~$${data.recentSoldMedian ?? '—'} · ` +
+            `listed from $${data.lowestListed ?? '—'} ` +
+            `(${data.soldCount} sold, ${data.activeCount} active)`,
+            'ok'
+          );
+        } else {
+          log(`○ ${item.card_number} ${item.rarity}: no eBay results found`, 'warn');
+        }
+        hrFetched++;
+        setStat('s-hr', `${hrFetched}/${deduped.length}`);
+      } catch (e) {
+        log(`✗ eBay lookup failed for ${item.card_number}: ${e.message}`, 'err');
+      }
+      // Throttle — avoid hitting eBay rate limits
+      await new Promise(r => setTimeout(r, 300));
+    }
+    log(`eBay HR lookup complete: ${hrFetched} / ${deduped.length}`, 'ok');
+  }
+
+  const realUpdates = updates.filter(p => Object.keys(p).length > 2); // more than just id + updated_at
+  if (!realUpdates.length) {
     log('Nothing to update.', 'warn');
     setProgress(1, 1, 'Done — nothing to update');
     btn.disabled = false;
     return;
   }
 
-  // ── Step 4: Batch PATCH (concurrent per batch) ───────────────────────────────
+  // ── Step 5: Batch PATCH (concurrent per batch) ───────────────────────────────
   // Use PATCH per card (not upsert/POST) so Supabase only updates existing rows
   // without triggering NOT NULL constraints on columns we're not touching.
   const BATCH = 100;
-  const totalBatches = Math.ceil(updates.length / BATCH);
-  log(`Uploading ${updates.length.toLocaleString()} updates in ${totalBatches} batches of ${BATCH}…`);
+  const totalBatches = Math.ceil(realUpdates.length / BATCH);
+  log(`Uploading ${realUpdates.length.toLocaleString()} updates in ${totalBatches} batches of ${BATCH}…`);
 
   async function patchCard(row) {
     const { id, ...fields } = row;
@@ -331,8 +392,8 @@ async function runBulkPrice() {
     if (!res.ok) throw new Error(await res.text());
   }
 
-  for (let i = 0; i < updates.length; i += BATCH) {
-    const batch    = updates.slice(i, i + BATCH);
+  for (let i = 0; i < realUpdates.length; i += BATCH) {
+    const batch    = realUpdates.slice(i, i + BATCH);
     const batchNum = Math.floor(i / BATCH) + 1;
     const results  = await Promise.allSettled(batch.map(patchCard));
     let batchErrors = 0;
@@ -345,7 +406,7 @@ async function runBulkPrice() {
     if (batchErrors) log(`✗ Batch ${batchNum}: ${batchErrors} failed`, 'err');
     setProgress(
       i + batch.length,
-      updates.length,
+      realUpdates.length,
       `Batch ${batchNum} / ${totalBatches} — ${totalUpdated.toLocaleString()} updated`
     );
     await new Promise(r => setTimeout(r, 0));
