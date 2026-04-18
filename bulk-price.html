@@ -339,7 +339,14 @@ async function runBulkPrice() {
         `&rarity=${encodeURIComponent(item.rarity)}`;
       try {
         const res  = await fetch(url);
-        const data = res.ok ? await res.json() : {};
+        const data = await res.json().catch(() => ({}));
+
+        // Rate limit hit — stop all remaining eBay calls immediately
+        if (res.status === 429 || data.error === 'rate_limit') {
+          log('⚠ eBay rate limit reached — quota resets at midnight PT. Stopping HR lookup early.', 'warn');
+          log(`  Completed ${hrFetched} / ${deduped.length} before limit hit.`, 'warn');
+          break;
+        }
 
         if (data.recentSoldMedian > 0 || data.lowestListed > 0) {
           // Apply result to ALL patches that matched this card_number|rarity

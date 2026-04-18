@@ -128,6 +128,16 @@ exports.handler = async (event) => {
     try { activeRaw = JSON.parse(activeText); } catch(e) {}
     const activeAck = activeRaw?.findItemsAdvancedResponse?.[0]?.ack?.[0] || 'NO_RESPONSE';
 
+    // Check for rate limit error (10001) before parsing results
+    const activeErrorId = activeRaw?.errorMessage?.[0]?.error?.[0]?.errorId?.[0];
+    if (activeErrorId === '10001') {
+      return {
+        statusCode: 429,
+        headers:    CORS_HEADERS,
+        body:       JSON.stringify({ error: 'rate_limit', message: 'eBay API daily call quota exceeded — resets at midnight PT. Try again tomorrow.' }),
+      };
+    }
+
     const activeItems  = activeRaw?.findItemsAdvancedResponse?.[0]?.searchResult?.[0]?.item || [];
     const activePrices = parseFindingPrices(activeItems);
     const lowestListed = activePrices.length > 0 ? +activePrices[0].toFixed(2) : null;
