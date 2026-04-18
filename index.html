@@ -98,6 +98,9 @@
     <button class="tab-btn hidden" data-tab="rarity-sets" data-mode="owner">
       Rarity Sets
     </button>
+    <button class="tab-btn hidden" data-tab="pricer" data-mode="owner">
+      Deal Check
+    </button>
   </nav>
 
   <!-- ─── INVENTORY TAB ──────────────────────────────────────────────────── -->
@@ -919,6 +922,139 @@
     </div>
   </div>
 
+  <!-- ─── DEAL CHECK TAB ─────────────────────────────────────────────────── -->
+  <div id="tab-pricer" class="tab-panel">
+    <div class="tab-content pricer-wrap">
+
+      <!-- ── Search bar ──────────────────────────────────────────────────── -->
+      <div class="pricer-search-panel">
+        <div class="pricer-search-row">
+
+          <div class="pricer-field">
+            <label class="pricer-label">Card Number</label>
+            <input id="pricer-card-number" class="input pricer-input" type="text"
+                   inputmode="text" autocomplete="off" autocorrect="off"
+                   autocapitalize="characters" spellcheck="false"
+                   placeholder="e.g. BLMM-EN001" style="text-transform:uppercase">
+          </div>
+
+          <div class="pricer-field pricer-field-rarity">
+            <label class="pricer-label">Rarity</label>
+            <select id="pricer-rarity" class="input pricer-select">
+              <option value="">— select —</option>
+            </select>
+          </div>
+
+          <button id="pricer-check-btn" class="btn btn-primary pricer-check-btn">
+            Check Deal
+          </button>
+
+        </div>
+      </div>
+
+      <!-- ── Loading ─────────────────────────────────────────────────────── -->
+      <div id="pricer-loading" class="pricer-loading" style="display:none">
+        <div class="pricer-spinner"></div>
+        <span>Fetching eBay market data…</span>
+      </div>
+
+      <!-- ── Error ───────────────────────────────────────────────────────── -->
+      <div id="pricer-error-box" class="pricer-error-box" style="display:none"></div>
+
+      <!-- ── Results ─────────────────────────────────────────────────────── -->
+      <div id="pricer-results" style="display:none">
+
+        <!-- Market stats row -->
+        <div class="pricer-market-panel">
+          <div class="pricer-market-header">
+            <h3 class="cinzel" style="color:var(--gold);font-size:1rem;margin:0">eBay Market Data</h3>
+            <span id="pricer-rate-badge" class="pricer-rate-badge"></span>
+          </div>
+          <div class="pricer-stat-grid">
+            <div class="pricer-stat">
+              <div class="pricer-stat-label">Lowest Listed (CAD)</div>
+              <div id="p-lowest" class="pricer-stat-value cinzel"></div>
+            </div>
+            <div class="pricer-stat">
+              <div class="pricer-stat-label">Recent Sold Median (CAD)</div>
+              <div id="p-median" class="pricer-stat-value cinzel"></div>
+            </div>
+            <div class="pricer-stat">
+              <div class="pricer-stat-label">Active Listings</div>
+              <div id="p-active" class="pricer-stat-value"></div>
+            </div>
+            <div class="pricer-stat">
+              <div class="pricer-stat-label">Sold (last ~20)</div>
+              <div id="p-sold" class="pricer-stat-value"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Acquisition cost + shipping — appears after market data loads -->
+        <div class="pricer-cost-section">
+          <div class="pricer-cost-left">
+            <div class="pricer-cost-label">What are they asking?</div>
+            <div class="pricer-cost-hint">Adjust to negotiate — everything recalculates live</div>
+          </div>
+          <div class="pricer-cost-inputs">
+            <div class="pricer-field pricer-field-sm">
+              <label class="pricer-label">Your Cost (CAD)</label>
+              <input id="pricer-cost" class="input pricer-cost-input" type="text"
+                     inputmode="decimal" placeholder="0.00">
+            </div>
+            <div class="pricer-field pricer-field-sm">
+              <label class="pricer-label">Ship To</label>
+              <select id="pricer-ship-dest" class="input pricer-select">
+                <option value="ontario">Ontario ($5 tracked)</option>
+                <option value="canada">Canada-wide ($12 tracked)</option>
+                <option value="usa">USA ($13.50 tracked)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Break-even highlight -->
+        <div id="pricer-breakeven" class="pricer-breakeven" style="display:none">
+          <div class="pricer-be-left">
+            <div class="pricer-be-label">Don't Pay More Than</div>
+            <div id="p-breakeven" class="pricer-be-value cinzel"></div>
+          </div>
+          <div class="pricer-be-right">
+            <div id="p-be-note" class="pricer-be-note muted small"></div>
+            <div class="muted small">After 15% eBay fee + shipping</div>
+          </div>
+        </div>
+
+        <!-- Profit breakdown table -->
+        <div class="pricer-table-panel">
+          <h3 class="cinzel" style="color:var(--gold2);font-size:0.9rem;margin-bottom:12px;letter-spacing:0.04em">PROFIT BREAKDOWN</h3>
+          <div style="overflow-x:auto">
+            <table class="pricer-table">
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Sell At</th>
+                  <th>eBay Fee</th>
+                  <th>Shipping</th>
+                  <th>Your Cost</th>
+                  <th>Net Profit</th>
+                  <th>Margin</th>
+                  <th>ROI</th>
+                </tr>
+              </thead>
+              <tbody id="pricer-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Verdict -->
+        <div id="pricer-verdict"></div>
+
+      </div><!-- /#pricer-results -->
+
+    </div>
+  </div>
+
 </div><!-- /#app -->
 
 <!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
@@ -935,6 +1071,7 @@
 <script src="js/reports.js"></script>
 <script src="js/listing.js"></script>
 <script src="js/rarity-sets.js"></script>
+<script src="js/pricer.js"></script>
 <script src="js/app.js"></script>
 
 </body>

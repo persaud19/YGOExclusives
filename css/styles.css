@@ -1297,3 +1297,174 @@ tr:hover td { background: var(--surf2); }
 .rs-qty-hr:focus { border-color: var(--purple); }
 .rs-qty-input.rs-saved  { background: rgba(39,174,96,.2);  border-color: var(--green); }
 .rs-qty-input.rs-error  { background: rgba(231,76,60,.2);  border-color: var(--red); }
+
+/* ─── Deal Check (Pricer) Tab ───────────────────────────────────────────────── */
+.pricer-wrap { max-width: 960px; }
+
+/* Search panel */
+.pricer-search-panel {
+  background: var(--surf);
+  border: 1px solid var(--b2);
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin-bottom: 24px;
+}
+.pricer-search-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.pricer-field        { display: flex; flex-direction: column; gap: 5px; flex: 1 1 160px; }
+.pricer-field-rarity { flex: 1 1 200px; }
+.pricer-field-sm     { flex: 0 1 140px; }
+.pricer-label        { font-size: 0.78rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.pricer-input        { background: var(--b1); }
+.pricer-select       { background: var(--b1); }
+.pricer-check-btn { flex: 0 0 auto; padding: 10px 24px; font-size: 0.95rem; align-self: flex-end; }
+
+/* Loading */
+.pricer-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.pricer-spinner {
+  width: 22px; height: 22px;
+  border: 3px solid var(--b2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: pricer-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes pricer-spin { to { transform: rotate(360deg); } }
+
+/* Error */
+.pricer-error-box {
+  background: rgba(224,72,72,0.08);
+  border: 1px solid rgba(224,72,72,0.3);
+  border-radius: 10px;
+  padding: 14px 18px;
+  color: var(--red);
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+/* Market panel */
+.pricer-market-panel {
+  background: var(--surf);
+  border: 1px solid var(--b2);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.pricer-market-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pricer-rate-badge {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--b1);
+  border: 1px solid var(--b2);
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+.pricer-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 600px) { .pricer-stat-grid { grid-template-columns: 1fr 1fr; } }
+.pricer-stat {
+  background: var(--b1);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.pricer-stat-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.pricer-stat-value {
+  font-size: 1.25rem;
+  color: var(--txt);
+  font-weight: 600;
+}
+
+/* Acquisition cost section (inside results) */
+.pricer-cost-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--surf2);
+  border: 1px solid var(--b2);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.pricer-cost-left      { display: flex; flex-direction: column; gap: 3px; }
+.pricer-cost-label     { font-family: 'Cinzel', serif; font-size: 0.95rem; color: var(--gold2); font-weight: 600; }
+.pricer-cost-hint      { font-size: 0.78rem; color: var(--muted); }
+.pricer-cost-inputs    { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.pricer-cost-input     { font-size: 1.1rem; font-weight: 600; color: var(--txt); background: var(--b1); max-width: 120px; }
+.pricer-cost-input:focus { border-color: var(--gold); outline: none; }
+
+/* Break-even box */
+.pricer-breakeven {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, rgba(200,149,12,0.12), rgba(200,149,12,0.05));
+  border: 1px solid rgba(200,149,12,0.4);
+  border-radius: 12px;
+  padding: 18px 24px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.pricer-be-left  { display: flex; flex-direction: column; gap: 4px; }
+.pricer-be-label { font-size: 0.72rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.pricer-be-value { font-size: 2rem; color: var(--gold2); font-weight: 700; letter-spacing: -0.01em; line-height: 1.1; }
+.pricer-be-right { display: flex; flex-direction: column; gap: 4px; }
+.pricer-be-note  { font-size: 0.85rem; }
+
+/* Breakdown table panel */
+.pricer-table-panel {
+  background: var(--surf);
+  border: 1px solid var(--b2);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.pricer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.pricer-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--b2);
+  white-space: nowrap;
+}
+.pricer-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--b1);
+  vertical-align: middle;
+}
+.pricer-table tbody tr:last-child td { border-bottom: none; }
+.pricer-table tbody tr:hover { background: rgba(255,255,255,0.02); }

@@ -94,6 +94,8 @@ function onTabActivated(tabId) {
     initReports();
   } else if (tabId === 'rarity-sets' && typeof initRaritySets === 'function') {
     initRaritySets();
+  } else if (tabId === 'pricer' && typeof initPricer === 'function') {
+    initPricer();
   }
 }
 
