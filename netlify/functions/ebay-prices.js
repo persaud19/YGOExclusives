@@ -121,9 +121,11 @@ exports.handler = async (event) => {
 
     // ── Active listings (Finding API — findItemsAdvanced) ────────────────────
     // No EPN required. Returns live listings sorted cheapest first.
-    const activeUrl = findingUrl(CLIENT_ID, 'findItemsAdvanced', query);
-    const activeRes = await fetch(activeUrl);
-    const activeRaw = activeRes.ok ? await activeRes.json() : null;
+    const activeUrl  = findingUrl(CLIENT_ID, 'findItemsAdvanced', query);
+    const activeRes  = await fetch(activeUrl);
+    const activeText = await activeRes.text();
+    let activeRaw = null;
+    try { activeRaw = JSON.parse(activeText); } catch(e) {}
     const activeAck = activeRaw?.findItemsAdvancedResponse?.[0]?.ack?.[0] || 'NO_RESPONSE';
 
     const activeItems  = activeRaw?.findItemsAdvancedResponse?.[0]?.searchResult?.[0]?.item || [];
@@ -138,7 +140,9 @@ exports.handler = async (event) => {
       '&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true'
     );
     const soldRes  = await fetch(soldUrl);
-    const soldRaw  = soldRes.ok ? await soldRes.json() : null;
+    const soldText = await soldRes.text();
+    let soldRaw = null;
+    try { soldRaw = JSON.parse(soldText); } catch(e) {}
     const soldAck  = soldRaw?.findCompletedItemsResponse?.[0]?.ack?.[0] || 'NO_RESPONSE';
 
     const soldItems  = soldRaw?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item || [];
@@ -158,6 +162,7 @@ exports.handler = async (event) => {
       result._activeUrl   = activeUrl.replace(CLIENT_ID, 'APP_ID_HIDDEN');
       result._activeStatus = activeRes.status;
       result._activeAck   = activeAck;
+      result._activeErrorBody = !activeRes.ok ? activeText.substring(0, 800) : undefined;
       result._activeRaw   = activeItems.slice(0, 2).map(i => ({
         title:    i.title?.[0],
         price:    i.sellingStatus?.[0]?.currentPrice?.[0]?.__value__,
@@ -165,6 +170,7 @@ exports.handler = async (event) => {
       }));
       result._soldStatus  = soldRes.status;
       result._soldAck     = soldAck;
+      result._soldErrorBody = !soldRes.ok ? soldText.substring(0, 800) : undefined;
       result._soldRaw     = soldItems.slice(0, 2).map(i => ({
         title:    i.title?.[0],
         price:    i.sellingStatus?.[0]?.currentPrice?.[0]?.__value__,
