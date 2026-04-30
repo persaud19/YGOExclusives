@@ -65,7 +65,6 @@ function wireCollectionControls() {
 
   document.getElementById('col-export-btn')?.addEventListener('click', exportCollectionCSV);
   document.getElementById('col-add-btn')?.addEventListener('click', openAddCardModal);
-  document.getElementById('col-import-btn')?.addEventListener('click', openImportModal);
   document.getElementById('col-sets-btn')?.addEventListener('click', openSetsModal);
 }
 
@@ -87,7 +86,7 @@ function updateSortArrows() {
 async function loadCollectionPage() {
   const tbody = document.getElementById('col-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="17" class="text-center muted" style="padding:24px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="16" class="text-center muted" style="padding:24px">Loading…</td></tr>';
   try {
     const { rows, total } = await getCardsPage({
       ...colFilters,
@@ -100,13 +99,13 @@ async function loadCollectionPage() {
     renderCollectionRows(rows, tbody);
     updateCollectionPagination(total);
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="17" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
   }
 }
 
 function renderCollectionRows(rows, tbody) {
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="17" class="text-center muted" style="padding:24px">No cards found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16" class="text-center muted" style="padding:24px">No cards found</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(card => {
@@ -135,7 +134,6 @@ function renderCollectionRows(rows, tbody) {
             : '<span class="muted">—</span>'}
       </td>
       <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${card.tcg_low_price > 0 ? '$'+Number(card.tcg_low_price).toFixed(2) : '—'}</td>
-      <td class="small muted" style="white-space:nowrap">${(card.ebay_low_price > 0) ? '$'+Number(card.ebay_low_price).toFixed(2) : '—'}</td>
       <td class="cinzel" style="color:var(--purple);white-space:nowrap">${card.hr_tcg_price > 0 ? '$'+Number(card.hr_tcg_price).toFixed(2) : '—'}</td>
       <td class="cinzel" style="color:var(--purple);white-space:nowrap">${card.hr_tcg_low_price > 0 ? '$'+Number(card.hr_tcg_low_price).toFixed(2) : '—'}</td>
       <td class="small muted" style="white-space:nowrap;color:var(--purple)">${card.hr_ebay_price > 0 ? '$'+Number(card.hr_ebay_price).toFixed(2) : '—'}</td>
@@ -595,158 +593,6 @@ async function saveNewCard() {
   }
 }
 
-// ─── Import Set Modal ─────────────────────────────────────────────────────────
-let _importRows = [];
-
-const IMPORT_TEMPLATE_HEADERS = ['Card #','Card Name','Type','ATR','Sub Type','LVL','ATK','DEF','Rarity','Set Name','Year'];
-
-function openImportModal() {
-  _importRows = [];
-  document.getElementById('import-file-input').value = '';
-  document.getElementById('import-preview').textContent = '';
-  document.getElementById('import-progress').style.display = 'none';
-  document.getElementById('import-go-btn').disabled = true;
-  document.getElementById('import-set-modal')?.classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeImportModal() {
-  document.getElementById('import-set-modal')?.classList.add('hidden');
-  document.body.style.overflow = '';
-}
-
-function downloadImportTemplate() {
-  const sample = [
-    IMPORT_TEMPLATE_HEADERS,
-    ['MAZE-EN001','Shadow Ghoul','Effect Monster','DARK','Zombie','5','1600','1300','Rare','Maze of Millennia','2024'],
-    ['MAZE-EN002','Labyrinth Wall','Spell','','Field','','','','Rare','Maze of Millennia','2024'],
-  ];
-  const csv = sample.map(r => r.map(v => `"${v}"`).join(',')).join('\r\n');
-  const a = Object.assign(document.createElement('a'), {
-    href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv),
-    download: 'import-template.csv',
-  });
-  a.click();
-}
-
-function previewImportFile(input) {
-  _importRows = [];
-  const previewEl = document.getElementById('import-preview');
-  const goBtn     = document.getElementById('import-go-btn');
-  goBtn.disabled  = true;
-
-  const file = input.files?.[0];
-  if (!file) { previewEl.textContent = ''; return; }
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    const text = e.target.result;
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length < 2) {
-      previewEl.textContent = 'File appears empty.';
-      return;
-    }
-
-    // Parse header row — find column indices
-    const headers = parseCSVRow(lines[0]).map(h => h.trim().toLowerCase());
-    const idx = {
-      card_number: findCol(headers, ['card #','card#']),
-      card_name:   findCol(headers, ['card name','cardname','name']),
-      rarity:      findCol(headers, ['rarity']),
-      set_name:    findCol(headers, ['set name','setname','set']),
-      year:        findCol(headers, ['year']),
-    };
-
-    if (idx.card_number < 0 || idx.card_name < 0) {
-      previewEl.innerHTML = '<span class="red">Missing required columns: "Card #" and "Card Name".</span>';
-      return;
-    }
-
-    _importRows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = parseCSVRow(lines[i]);
-      const num  = cols[idx.card_number]?.trim();
-      const name = cols[idx.card_name]?.trim();
-      if (!num && !name) continue;
-      _importRows.push({
-        id:          crypto.randomUUID(),
-        card_number: num  || '',
-        card_name:   name || '',
-        rarity:      idx.rarity  >= 0 ? (cols[idx.rarity]?.trim()   || '') : '',
-        set_name:    idx.set_name >= 0 ? (cols[idx.set_name]?.trim() || '') : '',
-        year:        idx.year     >= 0 ? (cols[idx.year]?.trim()     || null) : null,
-        fe_nm: 0, fe_lp: 0, fe_mp: 0,
-        un_nm: 0, un_lp: 0, un_mp: 0,
-        listed: false,
-      });
-    }
-
-    previewEl.innerHTML = `<span style="color:var(--green)">&#10003; ${_importRows.length} card${_importRows.length !== 1 ? 's' : ''} ready to import</span>`;
-    goBtn.disabled = _importRows.length === 0;
-  };
-  reader.readAsText(file);
-}
-
-function findCol(headers, aliases) {
-  for (const a of aliases) {
-    const i = headers.indexOf(a);
-    if (i >= 0) return i;
-  }
-  return -1;
-}
-
-function parseCSVRow(line) {
-  const result = [];
-  let cur = '', inQuote = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c === '"') {
-      if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
-      else inQuote = !inQuote;
-    } else if (c === ',' && !inQuote) {
-      result.push(cur); cur = '';
-    } else {
-      cur += c;
-    }
-  }
-  result.push(cur);
-  return result;
-}
-
-async function runImport() {
-  if (!_importRows.length) return;
-  const goBtn   = document.getElementById('import-go-btn');
-  const progEl  = document.getElementById('import-progress');
-  const barEl   = document.getElementById('import-bar');
-  const statEl  = document.getElementById('import-status');
-
-  goBtn.disabled    = true;
-  progEl.style.display = '';
-  const BATCH = 250;
-  let done = 0, errors = 0;
-
-  for (let i = 0; i < _importRows.length; i += BATCH) {
-    const batch = _importRows.slice(i, i + BATCH);
-    try {
-      await upsertCardsBatch(batch);
-      done += batch.length;
-    } catch (e) {
-      errors += batch.length;
-    }
-    const pct = Math.round(((i + batch.length) / _importRows.length) * 100);
-    barEl.style.width = pct + '%';
-    statEl.textContent = `${Math.min(i + batch.length, _importRows.length)} / ${_importRows.length} processed…`;
-  }
-
-  statEl.textContent = errors
-    ? `Done — ${done} imported, ${errors} failed.`
-    : `&#10003; All ${done} cards imported successfully.`;
-  showToast(`Import complete: ${done} cards added`);
-  colPage = 0;
-  loadCollectionPage();
-  goBtn.disabled = false;
-}
-
 // ─── Sets Modal ───────────────────────────────────────────────────────────────
 let _allSets = [];
 
@@ -760,6 +606,15 @@ async function openSetsModal() {
 
   document.getElementById('sets-search').addEventListener('input', onSetsSearch);
   setTimeout(() => document.getElementById('sets-search')?.focus(), 50);
+}
+
+async function refreshSets() {
+  const btn = document.getElementById('sets-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Loading…'; }
+  _allSets = [];
+  document.getElementById('sets-search').value = '';
+  await loadSets();
+  if (btn) { btn.disabled = false; btn.textContent = '⟳ Refresh'; }
 }
 
 function closeSetsModal() {

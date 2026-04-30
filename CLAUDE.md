@@ -1,4 +1,4 @@
-# Shadowrealm Emporium — Project Context
+# YGOExclusives — Project Context
 
 ## What This Is
 YuGiOh card resale business management app for Ryan Persaud. Replaces CSV spreadsheets with a live cloud-backed system. ~32,500 cards in inventory. Primary sales platform: eBay + Facebook Groups. Ships via Chit Chats (Guelph drop spot) for $5.50–6.50 CAD tracked US shipping.
@@ -203,7 +203,7 @@ Collection bulk import is broken — not yet diagnosed. Needs investigation.
 ## Business Context
 - Ryan = owner, Full Access mode
 - Senior helper = Inventory mode only (counts cards in binders)
-- Business name being rebranded from "Shadow Realm Emporium" to "The Apex Archive"
+- Business name: YGOExclusives (previously Shadow Realm Emporium / The Apex Archive)
 - Inventory segmentation: High-End (QCSR/1st Ed/$50+), Bread & Butter ($5-49), Bulk (<$5)
 - KPIs: Inventory Turnover, Net Realized Margin, Customer LTV
 - Chit Chats Guelph drop spot for US shipping ($5.50-6.50 CAD tracked)

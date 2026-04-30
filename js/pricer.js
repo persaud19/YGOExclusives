@@ -1,55 +1,70 @@
 // js/pricer.js — Deal Checker tab
-// Fetches live eBay data, converts USD→CAD, shows break-even + profit breakdown + verdict
+// Looks up TCG Low price from card_inventory, converts USD→CAD, applies negotiation scale %.
+// No eBay. No external market data. Just your database + a live exchange rate.
 
 let _pricerInitDone = false;
-let _pricerEbayData = null;   // { lowestCAD, medianCAD, activeCount, soldCount, usdRate }
+let _pricerTcgLow   = null;   // { usd, cad } | null
 let _usdCadRate     = null;
 let _usdCadRateTime = 0;
-const RATE_CACHE_MS = 60 * 60 * 1000; // 1 hour
+const RATE_CACHE_MS = 60 * 60 * 1000; // cache rate for 1 hour
 
-// ── USD → CAD ────────────────────────────────────────────────────────────────
+// ── USD → CAD ─────────────────────────────────────────────────────────────────
 async function getPricerUsdCadRate() {
   const now = Date.now();
   if (_usdCadRate && (now - _usdCadRateTime) < RATE_CACHE_MS) return _usdCadRate;
   try {
     const res  = await fetch('https://open.er-api.com/v6/latest/USD');
     const data = await res.json();
-    if (data?.rates?.CAD) {
-      _usdCadRate     = data.rates.CAD;
-      _usdCadRateTime = now;
-      return _usdCadRate;
-    }
+    if (data?.rates?.CAD) { _usdCadRate = data.rates.CAD; _usdCadRateTime = now; return _usdCadRate; }
   } catch (_) {}
-  return _usdCadRate || 1.38; // last cached or hardcoded fallback
+  try {
+    const res  = await fetch('https://api.frankfurter.app/latest?from=USD&to=CAD');
+    const data = await res.json();
+    if (data?.rates?.CAD) { _usdCadRate = data.rates.CAD; _usdCadRateTime = now; return _usdCadRate; }
+  } catch (_) {}
+  return (_usdCadRate || 1.38);
+}
+
+// ── DB lookup: TCG Low for card_number + rarity ───────────────────────────────
+async function lookupTcgLow(cardNumber, rarity, cadRate) {
+  const params = new URLSearchParams({
+    card_number: `eq.${cardNumber}`,
+    rarity:      `eq.${rarity}`,
+    select:      'tcg_low_price,tcg_price_cad',
+    limit:       1,
+  });
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/card_inventory?${params}`,
+    { headers: DB_HEADERS_RETURN }
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  const row  = rows[0];
+  if (!row || !(parseFloat(row.tcg_low_price) > 0)) return null;
+  const usd = parseFloat(row.tcg_low_price);
+  const cad = row.tcg_price_cad ? parseFloat(row.tcg_price_cad) : +(usd * cadRate).toFixed(2);
+  return { usd, cad };
 }
 
 // ── Shipping cost ─────────────────────────────────────────────────────────────
-// Under $30 CAD sale price: letter mail $2
-// $30+ CAD: tracked — Ontario $5 / Canada-wide $12 / USA $13.50
 function pricerShipping(sellPriceCAD, dest) {
   if (sellPriceCAD < 30) return 2.00;
-  const map = { ontario: 5.00, canada: 12.00, usa: 13.50 };
-  return map[dest] ?? 12.00;
+  return { ontario: 5.00, canada: 12.00, usa: 13.50 }[dest] ?? 12.00;
 }
 
 // ── Profit calculation ────────────────────────────────────────────────────────
 function calcDeal(sellPriceCAD, costCAD, dest) {
   if (!sellPriceCAD || sellPriceCAD <= 0) return null;
-  const ebayFee  = +(sellPriceCAD * 0.15).toFixed(2);
-  const shipping = +pricerShipping(sellPriceCAD, dest).toFixed(2);
-  const net      = +(sellPriceCAD - ebayFee - shipping - costCAD).toFixed(2);
-  const margin   = +((net / sellPriceCAD) * 100).toFixed(1);
-  const roi      = costCAD > 0 ? Math.round((net / costCAD) * 100) : null;
-  // Break-even: max you can pay and still profit $0
-  // sellPrice × 0.85 − shipping = breakEven
+  const ebayFee   = +(sellPriceCAD * 0.15).toFixed(2);
+  const shipping  = +pricerShipping(sellPriceCAD, dest).toFixed(2);
+  const net       = +(sellPriceCAD - ebayFee - shipping - costCAD).toFixed(2);
+  const margin    = +((net / sellPriceCAD) * 100).toFixed(1);
+  const roi       = costCAD > 0 ? Math.round((net / costCAD) * 100) : null;
   const breakEven = +(sellPriceCAD * 0.85 - shipping).toFixed(2);
   return { sellPrice: +sellPriceCAD.toFixed(2), ebayFee, shipping, cost: costCAD, net, margin, roi, breakEven };
 }
 
 // ── Verdict ───────────────────────────────────────────────────────────────────
-// Strong Buy:  net ≥ $15 AND margin ≥ 35%
-// Marginal:    net > $0 (but doesn't hit strong threshold)
-// Skip:        net ≤ $0
 function pricerVerdict(calc) {
   if (!calc) return 'nodata';
   if (calc.net >= 15 && calc.margin >= 35) return 'strong';
@@ -62,7 +77,6 @@ function initPricer() {
   if (_pricerInitDone) return;
   _pricerInitDone = true;
 
-  // Populate rarity dropdown from config.js RARITIES array
   const rarSel = document.getElementById('pricer-rarity');
   if (typeof RARITIES !== 'undefined') {
     RARITIES.forEach(r => {
@@ -73,21 +87,37 @@ function initPricer() {
   }
 
   document.getElementById('pricer-check-btn').addEventListener('click', runPricerCheck);
-
   document.getElementById('pricer-card-number').addEventListener('keydown', e => {
     if (e.key === 'Enter') runPricerCheck();
   });
 
-  // Live recalc when cost or destination changes (while results are showing)
   document.getElementById('pricer-cost').addEventListener('input', () => {
-    if (_pricerEbayData) renderPricerResults();
+    if (_pricerTcgLow) renderPricerResults();
   });
   document.getElementById('pricer-ship-dest').addEventListener('change', () => {
-    if (_pricerEbayData) renderPricerResults();
+    if (_pricerTcgLow) renderPricerResults();
   });
+  document.getElementById('pricer-scale-pct').addEventListener('input', onScaleChange);
 }
 
-// ── Fetch & render ────────────────────────────────────────────────────────────
+// ── Scale % handler ───────────────────────────────────────────────────────────
+function onScaleChange() {
+  if (!_pricerTcgLow) return;
+  const pct   = parseFloat(document.getElementById('pricer-scale-pct').value) || 0;
+  const offer = pct > 0 ? +(_pricerTcgLow.cad * pct / 100).toFixed(2) : 0;
+
+  const offerEl = document.getElementById('p-offer-price');
+  if (offerEl) offerEl.textContent = offer > 0 ? `C$${offer.toFixed(2)}` : '—';
+
+  // Auto-fill cost and re-render profit table
+  const costEl = document.getElementById('pricer-cost');
+  if (costEl && offer > 0) {
+    costEl.value = offer.toFixed(2);
+    renderPricerResults();
+  }
+}
+
+// ── Main fetch ────────────────────────────────────────────────────────────────
 async function runPricerCheck() {
   const cardNum = document.getElementById('pricer-card-number').value.trim().toUpperCase();
   const rarity  = document.getElementById('pricer-rarity').value;
@@ -96,179 +126,134 @@ async function runPricerCheck() {
   if (!rarity)  { showToast('Select a rarity');     return; }
 
   setPricerState('loading');
+  _pricerTcgLow = null;
 
   try {
-    const [rate, raw] = await Promise.all([
-      getPricerUsdCadRate(),
-      fetch(
-        `/.netlify/functions/ebay-prices` +
-        `?card_number=${encodeURIComponent(cardNum)}` +
-        `&rarity=${encodeURIComponent(rarity)}`
-      ).then(r => r.json()),
-    ]);
+    const rate    = await getPricerUsdCadRate();
+    _pricerTcgLow = await lookupTcgLow(cardNum, rarity, rate);
 
-    if (raw.error === 'rate_limit') {
-      setPricerState('error', 'eBay rate limit reached — resets at midnight PT. Try again tomorrow.');
-      return;
-    }
-    if (raw.error) {
-      setPricerState('error', raw.message || raw.error);
+    if (!_pricerTcgLow) {
+      setPricerState('error',
+        `No TCG Low price found for ${cardNum} — ${rarity}.\n` +
+        `Make sure the card exists in your collection and the Bulk Price Updater has been run.`
+      );
       return;
     }
 
-    _pricerEbayData = {
-      lowestCAD:   raw.lowestListed     ? +(raw.lowestListed     * rate).toFixed(2) : null,
-      medianCAD:   raw.recentSoldMedian ? +(raw.recentSoldMedian * rate).toFixed(2) : null,
-      activeCount: raw.activeCount || 0,
-      soldCount:   raw.soldCount   || 0,
-      usdRate: rate,
-    };
-
-    // Reset cost field for the new card, then focus it so user can type immediately
-    document.getElementById('pricer-cost').value = '';
+    document.getElementById('pricer-cost').value      = '';
+    document.getElementById('pricer-scale-pct').value = '80';
 
     setPricerState('results');
     renderPricerResults();
+    onScaleChange(); // pre-fill cost at 80%
 
-    // Focus cost input after a tick so the results div is visible
-    setTimeout(() => document.getElementById('pricer-cost').focus(), 50);
+    setTimeout(() => document.getElementById('pricer-scale-pct').focus(), 50);
 
   } catch (e) {
-    setPricerState('error', 'Fetch failed: ' + e.message);
+    setPricerState('error', 'Lookup failed: ' + e.message);
   }
 }
 
 function setPricerState(state, msg = '') {
-  document.getElementById('pricer-loading').style.display  = state === 'loading' ? 'flex'  : 'none';
-  document.getElementById('pricer-results').style.display  = state === 'results' ? 'block' : 'none';
-  document.getElementById('pricer-error-box').style.display = state === 'error'  ? 'block' : 'none';
+  document.getElementById('pricer-loading').style.display   = state === 'loading' ? 'flex'  : 'none';
+  document.getElementById('pricer-results').style.display   = state === 'results' ? 'block' : 'none';
+  document.getElementById('pricer-error-box').style.display = state === 'error'   ? 'block' : 'none';
   if (state === 'error') document.getElementById('pricer-error-box').textContent = msg;
   document.getElementById('pricer-check-btn').disabled = (state === 'loading');
 }
 
 // ── Render results ────────────────────────────────────────────────────────────
 function renderPricerResults() {
-  const d    = _pricerEbayData;
+  if (!_pricerTcgLow) return;
   const cost = parseFloat(document.getElementById('pricer-cost').value) || 0;
   const dest = document.getElementById('pricer-ship-dest').value;
+  const rate = _usdCadRate || 1.38;
 
-  // Rate badge
-  document.getElementById('pricer-rate-badge').textContent = `1 USD = $${d.usdRate.toFixed(4)} CAD`;
+  // TCG Low panel
+  document.getElementById('p-tcglow-rate').textContent = `1 USD = C$${rate.toFixed(4)}`;
+  document.getElementById('p-tcglow-usd').textContent  = `$${_pricerTcgLow.usd.toFixed(2)} USD`;
+  document.getElementById('p-tcglow-cad').textContent  = `C$${_pricerTcgLow.cad.toFixed(2)}`;
 
-  // Market stat boxes
-  document.getElementById('p-lowest').textContent = d.lowestCAD  ? `$${d.lowestCAD.toFixed(2)}`  : '—';
-  document.getElementById('p-median').textContent = d.medianCAD  ? `$${d.medianCAD.toFixed(2)}`  : '—';
-  document.getElementById('p-active').textContent = d.activeCount ?? '—';
-  document.getElementById('p-sold').textContent   = d.soldCount  ?? '—';
+  // Refresh offer price display
+  const pct   = parseFloat(document.getElementById('pricer-scale-pct').value) || 0;
+  const offer = pct > 0 ? +(_pricerTcgLow.cad * pct / 100).toFixed(2) : 0;
+  const offerEl = document.getElementById('p-offer-price');
+  if (offerEl) offerEl.textContent = offer > 0 ? `C$${offer.toFixed(2)}` : '—';
 
-  // Scenarios — compete at lowest + sell at median
-  const scenarios = [
-    { label: 'Compete at lowest',  sub: 'Floor the active market',  price: d.lowestCAD  },
-    { label: 'Sell at median',     sub: 'Recent sold transactions',  price: d.medianCAD  },
-  ].filter(s => s.price != null);
-
-  const tbody = document.getElementById('pricer-tbody');
+  // Profit table — sell at TCG Low CAD
+  const calc   = calcDeal(_pricerTcgLow.cad, cost, dest);
+  const tbody  = document.getElementById('pricer-tbody');
   tbody.innerHTML = '';
-  let mainCalc = null;
 
-  scenarios.forEach((s, i) => {
-    const c = calcDeal(s.price, cost, dest);
-    if (i === 0) mainCalc = c;
-    if (!c) return;
-
-    const sign     = c.net >= 0 ? '+' : '';
-    const netColor = c.net >= 15 && c.margin >= 35 ? 'var(--green)'
-                   : c.net > 0                      ? 'var(--yellow)'
+  if (calc) {
+    const sign     = calc.net >= 0 ? '+' : '';
+    const netColor = calc.net >= 15 && calc.margin >= 35 ? 'var(--green)'
+                   : calc.net > 0                         ? 'var(--yellow)'
                    : 'var(--red)';
-    const roiColor  = (c.roi ?? 0) > 0 ? 'var(--green)' : 'var(--red)';
-    const shipLabel = c.shipping === 2 ? 'letter mail' : 'tracked';
+    const roiColor  = (calc.roi ?? 0) > 0 ? 'var(--green)' : 'var(--red)';
+    const shipLabel = calc.shipping === 2 ? 'letter mail' : 'tracked';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>
-        <strong style="color:var(--gold2)">${s.label}</strong><br>
-        <span class="muted small">${s.sub}</span>
+        <strong style="color:var(--gold2)">Sell at TCG Low</strong><br>
+        <span class="muted small">TCGPlayer lowest listed price</span>
       </td>
-      <td class="cinzel" style="font-size:1.05rem;white-space:nowrap">$${c.sellPrice.toFixed(2)} CAD</td>
-      <td style="color:var(--red);white-space:nowrap">−$${c.ebayFee.toFixed(2)}</td>
+      <td class="cinzel" style="font-size:1.05rem;white-space:nowrap">C$${calc.sellPrice.toFixed(2)}</td>
+      <td style="color:var(--red);white-space:nowrap">−C$${calc.ebayFee.toFixed(2)}</td>
       <td style="color:var(--red);white-space:nowrap">
-        −$${c.shipping.toFixed(2)}<br>
+        −C$${calc.shipping.toFixed(2)}<br>
         <span class="muted small">${shipLabel}</span>
       </td>
-      <td style="color:var(--muted);white-space:nowrap">−$${c.cost.toFixed(2)}</td>
-      <td style="color:${netColor};font-weight:700;font-size:1.1rem;white-space:nowrap">${sign}$${c.net.toFixed(2)}</td>
-      <td style="color:${netColor};white-space:nowrap">${c.margin.toFixed(1)}%</td>
-      <td style="color:${roiColor};white-space:nowrap">${c.roi !== null ? c.roi + '%' : '—'}</td>
+      <td style="color:var(--muted);white-space:nowrap">−C$${calc.cost.toFixed(2)}</td>
+      <td style="color:${netColor};font-weight:700;font-size:1.1rem;white-space:nowrap">${sign}C$${calc.net.toFixed(2)}</td>
+      <td style="color:${netColor};white-space:nowrap">${calc.margin.toFixed(1)}%</td>
+      <td style="color:${roiColor};white-space:nowrap">${calc.roi !== null ? calc.roi + '%' : '—'}</td>
     `;
     tbody.appendChild(tr);
-  });
-
-  if (!scenarios.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="8" class="muted text-center" style="padding:20px">
-          No eBay listings found for this card + rarity combo
-        </td>
-      </tr>`;
+  } else {
+    tbody.innerHTML = `<tr><td colspan="8" class="muted text-center" style="padding:20px">Enter your cost above to see profit breakdown</td></tr>`;
   }
 
-  // Break-even highlight
+  // Break-even
   const beBox = document.getElementById('pricer-breakeven');
-  if (mainCalc && mainCalc.breakEven > 0) {
+  if (calc && calc.breakEven > 0) {
     beBox.style.display = 'flex';
-    document.getElementById('p-breakeven').textContent = `$${mainCalc.breakEven.toFixed(2)} CAD`;
-
+    document.getElementById('p-breakeven').textContent = `C$${calc.breakEven.toFixed(2)}`;
     let beNote;
-    if (cost <= 0) {
-      beNote = 'Max you can pay and still break even at lowest listed';
-    } else if (cost <= mainCalc.breakEven) {
-      const upside = (mainCalc.breakEven - cost).toFixed(2);
-      beNote = `Your cost $${cost.toFixed(2)} is $${upside} under break-even ✓`;
-    } else {
-      const over = (cost - mainCalc.breakEven).toFixed(2);
-      beNote = `Your cost $${cost.toFixed(2)} is $${over} OVER break-even ✗`;
-    }
+    if (cost <= 0)                   beNote = 'Max you can pay and still break even at TCG Low';
+    else if (cost <= calc.breakEven) beNote = `Your cost C$${cost.toFixed(2)} is C$${(calc.breakEven - cost).toFixed(2)} under break-even ✓`;
+    else                             beNote = `Your cost C$${cost.toFixed(2)} is C$${(cost - calc.breakEven).toFixed(2)} OVER break-even ✗`;
     document.getElementById('p-be-note').textContent = beNote;
   } else {
     beBox.style.display = 'none';
   }
 
-  // Verdict
-  renderPricerVerdict(pricerVerdict(mainCalc), mainCalc, cost);
+  renderPricerVerdict(pricerVerdict(calc), calc, cost);
 }
 
 // ── Verdict panel ─────────────────────────────────────────────────────────────
 function renderPricerVerdict(verdict, calc, cost) {
   const panel = document.getElementById('pricer-verdict');
   const cfgs = {
-    strong:   { icon: '✅', label: 'STRONG BUY', color: 'var(--green)',  bg: 'rgba(61,184,122,0.08)',  border: 'rgba(61,184,122,0.25)'  },
-    marginal: { icon: '⚠️', label: 'MARGINAL',   color: 'var(--yellow)', bg: 'rgba(232,176,48,0.07)', border: 'rgba(232,176,48,0.25)'  },
-    skip:     { icon: '❌', label: 'SKIP',        color: 'var(--red)',    bg: 'rgba(224,72,72,0.07)',  border: 'rgba(224,72,72,0.25)'   },
-    nodata:   { icon: '❓', label: 'NO DATA',     color: 'var(--muted)', bg: 'rgba(255,255,255,0.02)', border: 'rgba(255,255,255,0.07)' },
+    strong:   { icon: '✅', label: 'STRONG BUY', color: 'var(--green)',  bg: 'rgba(61,184,122,0.08)',   border: 'rgba(61,184,122,0.25)'  },
+    marginal: { icon: '⚠️', label: 'MARGINAL',   color: 'var(--yellow)', bg: 'rgba(232,176,48,0.07)',   border: 'rgba(232,176,48,0.25)'  },
+    skip:     { icon: '❌', label: 'SKIP',        color: 'var(--red)',    bg: 'rgba(224,72,72,0.07)',    border: 'rgba(224,72,72,0.25)'   },
+    nodata:   { icon: '❓', label: 'NO DATA',     color: 'var(--muted)', bg: 'rgba(255,255,255,0.02)',   border: 'rgba(255,255,255,0.07)' },
   };
   const cfg = cfgs[verdict] || cfgs.nodata;
 
   let desc = '';
   if (verdict === 'strong')
-    desc = `You pocket <strong style="color:var(--green)">$${calc.net.toFixed(2)}</strong> after all fees and shipping — ${calc.margin.toFixed(1)}% margin${calc.roi !== null ? ', ' + calc.roi + '% ROI on your cost' : ''}.`;
+    desc = `You pocket <strong style="color:var(--green)">C$${calc.net.toFixed(2)}</strong> after all fees and shipping — ${calc.margin.toFixed(1)}% margin${calc.roi !== null ? ', ' + calc.roi + '% ROI' : ''}.`;
   if (verdict === 'marginal')
-    desc = `Thin profit of <strong style="color:var(--yellow)">$${calc.net.toFixed(2)}</strong> at ${calc.margin.toFixed(1)}% margin. Worth it only if you can price above the floor or it moves quickly.`;
+    desc = `Thin profit of <strong style="color:var(--yellow)">C$${calc.net.toFixed(2)}</strong> at ${calc.margin.toFixed(1)}% margin. Worth it only if you can negotiate lower or it moves quickly.`;
   if (verdict === 'skip' && calc)
-    desc = `You'd <strong style="color:var(--red)">lose $${Math.abs(calc.net).toFixed(2)}</strong> at current market prices. Break-even is $${calc.breakEven.toFixed(2)} CAD — don't pay more than that.`;
-  if (verdict === 'skip' && !calc)
-    desc = 'No eBay data found for this card.';
+    desc = `You'd <strong style="color:var(--red)">lose C$${Math.abs(calc.net).toFixed(2)}</strong> selling at TCG Low. Break-even cost is C$${calc.breakEven.toFixed(2)} — don't pay more than that.`;
   if (verdict === 'nodata')
-    desc = 'No eBay listings found. Enter your acquisition cost to see the break-even analysis once market data is available.';
+    desc = 'Adjust the % scale or enter your cost manually to see the profit breakdown.';
 
-  panel.style.cssText = [
-    `display:block`,
-    `background:${cfg.bg}`,
-    `border:1px solid ${cfg.border}`,
-    `border-radius:12px`,
-    `padding:18px 22px`,
-    `margin-top:20px`,
-  ].join(';');
-
+  panel.style.cssText = `display:block;background:${cfg.bg};border:1px solid ${cfg.border};border-radius:12px;padding:18px 22px;margin-top:20px`;
   panel.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       <span style="font-size:1.55rem;line-height:1">${cfg.icon}</span>

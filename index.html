@@ -193,7 +193,6 @@
         </select>
         <button id="col-export-btn" class="btn btn-secondary btn-sm" style="white-space:nowrap">Export CSV</button>
         <button id="col-add-btn" class="btn btn-primary btn-sm" data-mode="owner" style="white-space:nowrap">+ Add Card</button>
-        <button id="col-import-btn" class="btn btn-secondary btn-sm" data-mode="owner" style="white-space:nowrap">&#8679; Import Set</button>
         <button id="col-sets-btn" class="btn btn-secondary btn-sm" data-mode="owner" style="white-space:nowrap">&#9881; Sets</button>
       </div>
       <div class="table-wrap">
@@ -207,7 +206,6 @@
               <th data-sort="set_name">Set <span class="sort-arrow"> ↕</span></th>
               <th data-sort="tcg_price_cad">TCG Market (CAD) <span class="sort-arrow"> ↕</span></th>
               <th data-sort="tcg_low_price">TCG Low <span class="sort-arrow"> ↕</span></th>
-              <th>eBay Low</th>
               <th data-sort="hr_tcg_price" style="color:var(--purple)">HR TCG <span class="sort-arrow"> ↕</span></th>
               <th data-sort="hr_tcg_low_price" style="color:var(--purple)">HR TCG Low <span class="sort-arrow"> ↕</span></th>
               <th style="color:var(--purple)">HR eBay</th>
@@ -591,9 +589,15 @@
       <!-- Summary stat cards -->
       <div class="stat-grid" id="report-stats"></div>
 
+      <!-- Inventory Overview -->
+      <div class="report-section">
+        <h3>Inventory Overview <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(5/10/85 segmentation · valued at TCG Low CAD)</span></h3>
+        <div id="report-inv-overview"><p class="muted small">Loading…</p></div>
+      </div>
+
       <!-- High Value Unlisted -->
       <div class="report-section">
-        <h3>Top 50 Highest Value — Unlisted <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(sorted by TCG Market · cards you own but haven't listed)</span></h3>
+        <h3>Top 50 Highest Value — Unlisted <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(sorted by TCG Low · cards you own but haven't listed)</span></h3>
         <div id="report-high-value"><p class="muted small">Loading…</p></div>
       </div>
 
@@ -611,13 +615,13 @@
 
       <!-- Inventory Value by Set -->
       <div class="report-section">
-        <h3>Inventory Value by Set <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(top 10 · Unlimited NM price × qty)</span></h3>
+        <h3>Inventory Value by Set <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(top 10 · TCG Low × qty, in CAD)</span></h3>
         <div id="report-set-value"><p class="muted small">Loading…</p></div>
       </div>
 
       <!-- Price Movers -->
       <div class="report-section">
-        <h3>Price Movers <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(TCG market ±20%+ since acquisition)</span></h3>
+        <h3>Price Movers <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(TCG Low ±15%+ between snapshots)</span></h3>
         <div id="report-price-movers"><p class="muted small">Loading…</p></div>
       </div>
 
@@ -669,6 +673,7 @@
     <div class="modal-box" style="max-width:680px;max-height:92vh;display:flex;flex-direction:column">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-shrink:0">
         <div class="modal-title" style="margin:0;flex:1">Manage Sets</div>
+        <button class="btn btn-secondary btn-sm" id="sets-refresh-btn" onclick="refreshSets()">&#8635; Refresh</button>
         <button class="btn btn-ghost btn-sm" onclick="closeSetsModal()">✕</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-shrink:0">
@@ -689,32 +694,6 @@
             <tr><td colspan="4" class="text-center muted" style="padding:24px">Loading…</td></tr>
           </tbody>
         </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ─── IMPORT SET MODAL ─────────────────────────────────────────────────── -->
-  <div id="import-set-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeImportModal()">
-    <div class="modal-box" style="max-width:560px">
-      <div class="modal-title">Import New Set</div>
-      <p class="muted" style="margin:12px 0 8px;font-size:0.9rem">
-        Upload a CSV with one row per card. Required columns: <strong>Card #</strong>, <strong>Card Name</strong>, <strong>Rarity</strong>, <strong>Set Name</strong>, <strong>Year</strong>. Extra columns (Type, ATR, etc.) are ignored.
-      </p>
-      <button class="btn btn-ghost btn-sm" onclick="downloadImportTemplate()" style="margin-bottom:16px">
-        &#8681; Download Template CSV
-      </button>
-      <div class="form-group">
-        <label class="form-label">Select CSV File</label>
-        <input id="import-file-input" type="file" accept=".csv" class="input" onchange="previewImportFile(this)">
-      </div>
-      <div id="import-preview" style="margin-top:8px;font-size:0.85rem;color:var(--muted)"></div>
-      <div id="import-progress" style="display:none;margin-top:12px">
-        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="import-bar"></div></div>
-        <div id="import-status" style="font-size:0.8rem;color:var(--muted);margin-top:4px"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeImportModal()">Cancel</button>
-        <button class="btn btn-primary" id="import-go-btn" onclick="runImport()" disabled>Import</button>
       </div>
     </div>
   </div>
@@ -759,10 +738,10 @@
               <option>Collector's Rare</option><option>10000 Secret Rare</option>
               <option>Duel Terminal Normal Parallel Rare</option>
               <option>Duel Terminal Ultra Parallel Rare</option>
-              <option>Quarter Century Secret Rare</option><option>Platinum Rare</option>
-              <option>Platinum Secret Rare</option><option>Premium Gold Rare</option>
-              <option>Pharaoh's Rare</option><option>Prismatic Collector's Rare</option>
-              <option>Prismatic Ultimate Rare</option>
+              <option>Platinum Rare</option><option>Platinum Secret Rare</option>
+              <option>Premium Gold Rare</option><option>Pharaoh's Rare</option>
+              <option>Prismatic Collector's Rare</option><option>Prismatic Ultimate Rare</option>
+              <option>Quarter Century Secret Rare</option>
             </select>
           </div>
           <div class="form-group">
@@ -968,7 +947,7 @@
       <!-- ── Loading ─────────────────────────────────────────────────────── -->
       <div id="pricer-loading" class="pricer-loading" style="display:none">
         <div class="pricer-spinner"></div>
-        <span>Fetching eBay market data…</span>
+        <span>Looking up prices…</span>
       </div>
 
       <!-- ── Error ───────────────────────────────────────────────────────── -->
@@ -977,33 +956,45 @@
       <!-- ── Results ─────────────────────────────────────────────────────── -->
       <div id="pricer-results" style="display:none">
 
-        <!-- Market stats row -->
-        <div class="pricer-market-panel">
+        <!-- TCG Low from DB -->
+        <div id="pricer-tcglow-panel" class="pricer-market-panel" style="display:none">
           <div class="pricer-market-header">
-            <h3 class="cinzel" style="color:var(--gold);font-size:1rem;margin:0">eBay Market Data</h3>
-            <span id="pricer-rate-badge" class="pricer-rate-badge"></span>
+            <h3 class="cinzel" style="color:var(--gold);font-size:1rem;margin:0">TCG Low — Your Database</h3>
+            <span id="p-tcglow-rate" class="pricer-rate-badge"></span>
           </div>
           <div class="pricer-stat-grid">
             <div class="pricer-stat">
-              <div class="pricer-stat-label">Lowest Listed (CAD)</div>
-              <div id="p-lowest" class="pricer-stat-value cinzel"></div>
+              <div class="pricer-stat-label">TCG Low (USD)</div>
+              <div id="p-tcglow-usd" class="pricer-stat-value cinzel"></div>
             </div>
             <div class="pricer-stat">
-              <div class="pricer-stat-label">Recent Sold Median (CAD)</div>
-              <div id="p-median" class="pricer-stat-value cinzel"></div>
+              <div class="pricer-stat-label">TCG Low (CAD)</div>
+              <div id="p-tcglow-cad" class="pricer-stat-value cinzel" style="color:var(--gold2)"></div>
             </div>
-            <div class="pricer-stat">
-              <div class="pricer-stat-label">Active Listings</div>
-              <div id="p-active" class="pricer-stat-value"></div>
+          </div>
+          <!-- Scale % negotiation input -->
+          <div style="display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px 14px;background:var(--b1);border-radius:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:160px">
+              <div style="font-size:0.82rem;font-weight:600;color:var(--txt);margin-bottom:2px">Negotiate at % of TCG Low</div>
+              <div class="muted small">e.g. 80 = paying 80% of the lowest listed price</div>
             </div>
-            <div class="pricer-stat">
-              <div class="pricer-stat-label">Sold (last ~20)</div>
-              <div id="p-sold" class="pricer-stat-value"></div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div>
+                <div class="pricer-label">% of Low</div>
+                <input id="pricer-scale-pct" class="input pricer-cost-input" type="text"
+                       inputmode="decimal" placeholder="80" value="80"
+                       style="width:72px;text-align:center">
+              </div>
+              <div style="color:var(--muted);font-size:1.1rem;align-self:flex-end;padding-bottom:6px">→</div>
+              <div>
+                <div class="pricer-label">Offer at (CAD)</div>
+                <div id="p-offer-price" class="cinzel" style="font-size:1.35rem;color:var(--gold2);font-weight:700;padding-top:4px">—</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Acquisition cost + shipping — appears after market data loads -->
+        <!-- Acquisition cost + shipping -->
         <div class="pricer-cost-section">
           <div class="pricer-cost-left">
             <div class="pricer-cost-label">What are they asking?</div>

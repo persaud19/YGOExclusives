@@ -37,7 +37,7 @@ function generateEbayDescription(card, opts = {}) {
     'Card ships securely in a toploader + bubble mailer with tracking.',
     'Combined shipping available — contact us!',
     '',
-    'Thank you for shopping at Shadowrealm Emporium!'
+    'Thank you for shopping at YGOExclusives!'
   );
 
   return lines.join('\n');

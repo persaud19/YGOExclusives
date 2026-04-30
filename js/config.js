@@ -31,9 +31,10 @@ const RARITIES = [
   'Alternate Rare', 'Gold Rare', 'Gold Secret Rare', 'Ghost/Gold Rare',
   'Prismatic Secret Rare', 'Starlight Rare', "Collector's Rare",
   '10000 Secret Rare', 'Duel Terminal Normal Parallel Rare',
-  'Duel Terminal Ultra Parallel Rare', 'Quarter Century Secret Rare',
+  'Duel Terminal Ultra Parallel Rare',
   'Platinum Rare', 'Platinum Secret Rare', 'Premium Gold Rare',
   "Pharaoh's Rare", "Prismatic Collector's Rare", 'Prismatic Ultimate Rare',
+  'Quarter Century Secret Rare',
 ];
 
 const HR_OPTIONS = ['None', ...RARITIES];

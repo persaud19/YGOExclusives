@@ -1,6 +1,9 @@
 # Exports / local data
 *.csv
 
+# Local backups — never commit these
+backups/
+
 # Claude session files
 .claude/
 

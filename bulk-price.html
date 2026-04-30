@@ -221,16 +221,30 @@ async function run() {
   // ── Step 2: Fetch USD → CAD exchange rate ────────────────────────────────────
   log('Fetching USD → CAD exchange rate…');
   let cadRate = null;
+
+  // Primary: frankfurter.app
   try {
-    const rateRes  = await fetch('https://api.frankfurter.app/latest?from=USD&to=CAD');
-    if (!rateRes.ok) throw new Error('Frankfurter returned ' + rateRes.status);
+    const rateRes = await fetch('https://api.frankfurter.app/latest?from=USD&to=CAD');
+    if (!rateRes.ok) throw new Error(`HTTP ${rateRes.status}`);
     const rateData = await rateRes.json();
-    cadRate = rateData.rates?.CAD;
-    if (!cadRate) throw new Error('CAD rate missing from response');
+    cadRate = rateData?.rates?.CAD;
+    if (!cadRate) throw new Error(`No CAD in response: ${JSON.stringify(rateData)}`);
     setStat('s-rate', cadRate.toFixed(4));
-    log(`USD → CAD: ${cadRate.toFixed(4)} (as of ${rateData.date})`, 'ok');
+    log(`USD → CAD: ${cadRate.toFixed(4)} via frankfurter.app (${rateData.date})`, 'ok');
   } catch (e) {
-    log('Exchange rate fetch failed: ' + e.message + ' — CAD prices will not be written', 'warn');
+    log(`Primary rate source failed (${e.message}) — trying backup…`, 'warn');
+    // Fallback: open.er-api.com (free, no key)
+    try {
+      const r2 = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
+      const d2 = await r2.json();
+      cadRate = d2?.rates?.CAD;
+      if (!cadRate) throw new Error(`No CAD in backup response: ${JSON.stringify(d2)}`);
+      setStat('s-rate', cadRate.toFixed(4));
+      log(`USD → CAD: ${cadRate.toFixed(4)} via open.er-api.com`, 'ok');
+    } catch (e2) {
+      log(`Both rate sources failed: ${e2.message} — CAD column will NOT be updated`, 'err');
+    }
   }
 
   // ── Step 3: Page through card_inventory (or cards in prod) ──────────────────

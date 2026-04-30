@@ -1,0 +1,184 @@
+# Session Log — 2026-04-30
+## Schema Migration: New Inventory Architecture
+
+---
+
+## What Was Built
+
+### New 3-Table Schema (Dev Supabase Only)
+Designed and deployed a new database schema to replace the old single `cards` table with a normalized 3-table structure.
+
+**Dev Supabase project:** `https://xyhzwmlqmazloyerelas.supabase.co`
+**Dev anon key:** `[redacted — stored in js/config.js]`
+**Dev service role key:** `[redacted — stored in backups/config.json]`
+
+---
+
+## New Schema (3 Tables)
+
+### `cards` — Card identity (one row per unique card number)
+```sql
+id           uuid PRIMARY KEY DEFAULT gen_random_uuid()
+card_number  text NOT NULL UNIQUE
+card_name    text NOT NULL
+set_name     text
+year         text
+api_id       text
+```
+
+### `sets` — Edition rules per set
+```sql
+id             uuid PRIMARY KEY DEFAULT gen_random_uuid()
+set_code       text NOT NULL UNIQUE   -- e.g. "LODT", "RA01"
+set_name       text NOT NULL
+year           text
+has_first_ed   boolean DEFAULT true
+has_unlimited  boolean DEFAULT false  -- DEFAULT FALSE: assume 1st edition only
+edition_note   text                   -- staff reminder text
+```
+
+### `card_inventory` — One row per card_number + rarity
+```sql
+id               uuid PRIMARY KEY DEFAULT gen_random_uuid()
+card_id          uuid NOT NULL REFERENCES cards(id) ON DELETE CASCADE
+card_number      text NOT NULL
+rarity           text NOT NULL
+location         text DEFAULT 'Basement Box'
+qty_fe_nm        int DEFAULT 0      -- 1st edition quantities
+qty_fe_lp        int DEFAULT 0
+qty_fe_mp        int DEFAULT 0
+qty_un_nm        int DEFAULT 0      -- unlimited quantities
+qty_un_lp        int DEFAULT 0
+qty_un_mp        int DEFAULT 0
+qty_total        int GENERATED ALWAYS AS (qty_fe_nm+qty_fe_lp+qty_fe_mp+qty_un_nm+qty_un_lp+qty_un_mp) STORED
+price_fe_nm      numeric            -- listing prices
+price_fe_lp      numeric
+price_fe_mp      numeric
+price_un_nm      numeric
+price_un_lp      numeric
+price_un_mp      numeric
+tcg_price        numeric
+tcg_low_price    numeric            -- added: TCG lowest listed price
+acquisition_cost numeric
+ebay_low_price   numeric
+needs_review     boolean DEFAULT false
+listed           boolean DEFAULT false
+created_at       timestamptz DEFAULT now()
+UNIQUE(card_number, rarity)
+```
+
+---
+
+## Key Design Decisions
+
+### Why this schema
+- Old schema bolted HR (high rarity) as extra columns (`hr_qty_nm`, `hr_fe_nm`, etc.) — only handled 2 tiers
+- Sets like RA01 have 7 rarities for the same card — all were separate rows already but with inconsistent HR column handling
+- New schema: every rarity is a first-class `card_inventory` row. HR is just another rarity value, not a separate column group
+
+### Edition locking
+- `sets.has_unlimited = false` by default — assume 1st edition only
+- Ryan flips `has_unlimited = true` for sets that had unlimited waves
+- UI plan (not yet built): lock `qty_un_*` inputs when `has_unlimited = false`; show popup reminder when both editions exist
+- Example: MP21 = 1st only (locked); LODT = both (reminder popup fires)
+- Staff reminder popup: "Check bottom-left of card for '1st Edition' stamp. No stamp = Unlimited."
+
+### Pricing API confirmed
+- YGOPRODeck with `tcgplayer_data=true` returns per-rarity per-card pricing:
+  - `set_price` = TCG market price
+  - `set_price_low` = TCG lowest listed
+- Match key: `set_code + set_rarity` → maps to `card_number + rarity` in new schema
+- Example: BLMM-EN001 Secret Rare = $13.95 market / $11.92 low; BLMM-EN001 Starlight = $132.18 / $150.00
+- CRITICAL: Ignore `card_prices[]` block — it's a single aggregate across all printings, useless for per-rarity pricing
+
+### Column naming
+- `qty_*` = physical stock counts
+- `price_*` = listing prices
+- `tcg_price` = TCG market (renamed from `tcg_market_price`)
+- `tcg_low_price` = TCG lowest listed (new)
+
+---
+
+## Migration Stats
+
+| Metric | Value |
+|---|---|
+| Prod rows (old schema) | 32,555 |
+| Dev `cards` (deduplicated) | 32,081 |
+| Dev `card_inventory` rows | 34,511 |
+| Dev `sets` seeded | 448 |
+| Old total qty | 79,941 |
+| New total qty | 79,937 |
+| Match | 99.995% (4 units delta) |
+
+**The 4 unit delta:** Not from skipped rows — all 32,081 card_numbers are present in dev. Likely edge case in comma-separated rarity rows during dedup merge. Confirmed acceptable by Ryan.
+
+**511 rarity anomalies flagged:** Rows in old schema had comma-separated rarities (e.g. `"Ultra Rare, Starlight Rare"`). These were split into separate inventory rows. All have `needs_review = true` in dev so they can be confirmed.
+
+---
+
+## Files Created / Modified
+
+| File | Change |
+|---|---|
+| `backups/dev-schema.sql` | Complete SQL for all 3 dev tables (reference copy) |
+| `backups/migrate.py` | Full migration script: fetch prod → seed sets → insert cards → insert inventory → validate |
+| `js/config.js` | Added `DEV_MODE` flag — flip `true`/`false` to switch environments |
+| `js/db.js` | Added `getInventoryPage()` — queries `card_inventory` + embedded `cards`, normalizes fields to match old renderer |
+| `js/app.js` | Show orange DEV banner when `DEV_MODE = true` |
+| `index.html` | Added DEV banner element |
+
+---
+
+## Current App State
+
+- `DEV_MODE = true` in `js/config.js` — app is pointed at dev Supabase
+- Collection tab loads from `card_inventory` correctly — verified RA01-EN001 shows 7 separate rarity rows
+- Search works by `card_number` only (limitation — see Pending Work below)
+- All other tabs (Inventory, Acquisitions, Sales, Reports) still use old schema queries — they will error or show no data when `DEV_MODE = true`
+
+---
+
+## Pending Work (Next Session)
+
+### Database
+1. **Add `card_name` + `set_name` to `card_inventory`** (denormalized) so name/set search works — run `ALTER TABLE card_inventory ADD COLUMN card_name text; ALTER TABLE card_inventory ADD COLUMN set_name text;` then backfill from `cards`
+2. **Flip `has_unlimited = true`** on sets that had unlimited waves — Ryan does this manually in Supabase or via a UI toggle
+3. **Migrate child tables** (once core data confirmed 100%):
+   - `acquisitions` — add `rarity` reference to link to `card_inventory`
+   - `sales` — confirm `rarity` is consistently populated
+   - `price_history` — add `rarity` column (currently only has `card_number`)
+
+### App / UI
+4. **Edition locking UI** — when set has `has_unlimited = false`, grey out `qty_un_*` inputs in inventory entry
+5. **Staff reminder popup** — fires when entering a set with both editions; shows 1st Edition stamp location image
+6. **Update remaining tabs** to query new schema: Inventory grid, Acquisitions, Rarity Sets
+7. **Fix search** — update `getInventoryPage()` to search `card_name` once it's denormalized on `card_inventory`
+8. **Update `updateCard()` / `toggleListed()` / `deleteCard()`** in db.js to target `card_inventory` when `DEV_MODE = true`
+
+### Future (post-cutover)
+- Set auto-ingestion via YGOPRODeck cardsets endpoint + GitHub Actions
+- Bulk price updater: switch to `tcgplayer_data=true`, match on `card_number + rarity`, populate both `tcg_price` and `tcg_low_price`
+- Prod cutover: run migrate.py against prod, flip `DEV_MODE = false`, deploy
+
+---
+
+## How to Switch Between Prod and Dev
+
+In `js/config.js` line 3:
+```js
+const DEV_MODE = true;   // → dev Supabase (new schema)
+const DEV_MODE = false;  // → prod Supabase (old schema, everything still works)
+```
+
+---
+
+## Quick Reference — Dev Credentials
+
+| Item | Value |
+|---|---|
+| Dev URL | `https://xyhzwmlqmazloyerelas.supabase.co` |
+| Dev anon key | `[redacted — stored in js/config.js]` |
+| Migration script | `D:\CoworkOS\YGO Project\backups\migrate.py` |
+| Schema SQL | `D:\CoworkOS\YGO Project\backups\dev-schema.sql` |
+| Re-run migration | `cd D:\CoworkOS\YGO Project\backups && python migrate.py` (idempotent — safe to re-run) |

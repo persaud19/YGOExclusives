@@ -1,6 +1,6 @@
 // ─── add-card.js — List Card Tab ─────────────────────────────────────────────
 
-const LC_KEY_STORAGE = 'shadowrealm_anthropic_key';
+const LC_KEY_STORAGE = 'ygoexclusives_anthropic_key';
 const ANTHROPIC_URL  = 'https://api.anthropic.com/v1/messages';
 
 let addCardInitialized = false;
