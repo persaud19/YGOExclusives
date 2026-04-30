@@ -193,6 +193,7 @@
         </select>
         <button id="col-export-btn" class="btn btn-secondary btn-sm" style="white-space:nowrap">Export CSV</button>
         <button id="col-add-btn" class="btn btn-primary btn-sm" data-mode="owner" style="white-space:nowrap">+ Add Card</button>
+        <button id="col-sync-sets-btn" class="btn btn-secondary btn-sm" data-mode="owner" style="white-space:nowrap" onclick="refreshSets()">&#8635; Sync Sets</button>
         <button id="col-sets-btn" class="btn btn-secondary btn-sm" data-mode="owner" style="white-space:nowrap">&#9881; Sets</button>
       </div>
       <div class="table-wrap">
@@ -585,6 +586,10 @@
   <!-- ─── REPORTS TAB ───────────────────────────────────────────────────── -->
   <div id="tab-reports" class="tab-panel">
     <div class="tab-content">
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-secondary btn-sm" onclick="loadReports()">&#8635; Refresh Reports</button>
+      </div>
 
       <!-- Summary stat cards -->
       <div class="stat-grid" id="report-stats"></div>
