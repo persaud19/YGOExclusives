@@ -1,6 +1,6 @@
 // ─── Supabase Config ─────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://xyhzwmlqmazloyerelas.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5aHp3bWxxbWF6bG95ZXJlbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTE3NTEsImV4cCI6MjA5MzA4Nzc1MX0.dNaWuZUwX8eFqpFk0mp_cvGpYzOycuBGN7wUii8U0-E';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5aHp3bWxxbWF6bG95ZXJlbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTE3NTEsImV4cCI6MjA5MzA4Nzc1MX0.dNaWuZUwX8eFqpFk0mp_cvGpYzOycuBGn7wUii8U0-E';
 
 const DB_HEADERS = {
   'Content-Type':  'application/json',
