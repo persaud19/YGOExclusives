@@ -1,6 +1,6 @@
-// ─── Supabase Config ────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://cioijkralojzgelytbfc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNpb2lqa3JhbG9qemdlbHl0YmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MjY4OTEsImV4cCI6MjA4OTIwMjg5MX0.aFhTukBGrNzrXu3igwKpXkyJ-b4cuwLbZrvEifcDvXI';
+// ─── Supabase Config ─────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://xyhzwmlqmazloyerelas.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5aHp3bWxxbWF6bG95ZXJlbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTE3NTEsImV4cCI6MjA5MzA4Nzc1MX0.dNaWuZUwX8eFqpFk0mp_cvGpYzOycuBGN7wUii8U0-E';
 
 const DB_HEADERS = {
   'Content-Type':  'application/json',
@@ -16,11 +16,11 @@ const DB_HEADERS_RETURN = {
   'Prefer':        'return=representation',
 };
 
-// ─── YGOPRODeck API ──────────────────────────────────────────────────────────
+// ─── YGOPRODeck API ───────────────────────────────────────────────────────────
 const YGOPRO_API = 'https://db.ygoprodeck.com/api/v7/cardinfo.php';
 const CARD_IMG   = id => `https://images.ygoprodeck.com/images/cards_small/${id}.jpg`;
 
-// ─── App Constants ───────────────────────────────────────────────────────────
+// ─── App Constants ────────────────────────────────────────────────────────────
 const DEFAULT_PIN = '1234';
 
 const LOCATIONS = ['Basement Box', 'Binder', 'Deck'];
@@ -40,7 +40,7 @@ const HR_OPTIONS = ['None', ...RARITIES];
 
 const PLATFORMS = ['eBay', 'Facebook', 'Cash'];
 
-// ─── Price auto-fill multipliers ─────────────────────────────────────────────
+// ─── Price auto-fill multipliers ──────────────────────────────────────────────
 const PRICE_MULT = {
   first_ed_nm:  1.20,
   first_ed_lp:  0.90,

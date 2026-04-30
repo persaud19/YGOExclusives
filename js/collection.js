@@ -66,6 +66,7 @@ function wireCollectionControls() {
   document.getElementById('col-export-btn')?.addEventListener('click', exportCollectionCSV);
   document.getElementById('col-add-btn')?.addEventListener('click', openAddCardModal);
   document.getElementById('col-import-btn')?.addEventListener('click', openImportModal);
+  document.getElementById('col-sets-btn')?.addEventListener('click', openSetsModal);
 }
 
 function updateSortArrows() {
@@ -86,7 +87,7 @@ function updateSortArrows() {
 async function loadCollectionPage() {
   const tbody = document.getElementById('col-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="13" class="text-center muted" style="padding:24px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="17" class="text-center muted" style="padding:24px">Loading…</td></tr>';
   try {
     const { rows, total } = await getCardsPage({
       ...colFilters,
@@ -99,13 +100,13 @@ async function loadCollectionPage() {
     renderCollectionRows(rows, tbody);
     updateCollectionPagination(total);
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="13" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="17" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
   }
 }
 
 function renderCollectionRows(rows, tbody) {
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="13" class="text-center muted" style="padding:24px">No cards found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="17" class="text-center muted" style="padding:24px">No cards found</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(card => {
@@ -125,14 +126,23 @@ function renderCollectionRows(rows, tbody) {
           : ''}
       </td>
       <td class="small muted" style="white-space:nowrap">${escHtml(card.set_name||'')}</td>
-      <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${card.tcg_market_price > 0 ? '$'+Number(card.tcg_market_price).toFixed(2) : '—'}</td>
+      <td style="white-space:nowrap">
+        ${card.tcg_price_cad > 0
+          ? `<span class="cinzel" style="color:var(--gold2)">C$${Number(card.tcg_price_cad).toFixed(2)}</span>
+             <span class="muted" style="font-size:0.7rem;display:block">$${Number(card.tcg_market_price||0).toFixed(2)} USD</span>`
+          : card.tcg_market_price > 0
+            ? `<span class="cinzel" style="color:var(--muted)">$${Number(card.tcg_market_price).toFixed(2)}</span>`
+            : '<span class="muted">—</span>'}
+      </td>
+      <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${card.tcg_low_price > 0 ? '$'+Number(card.tcg_low_price).toFixed(2) : '—'}</td>
       <td class="small muted" style="white-space:nowrap">${(card.ebay_low_price > 0) ? '$'+Number(card.ebay_low_price).toFixed(2) : '—'}</td>
+      <td class="cinzel" style="color:var(--purple);white-space:nowrap">${card.hr_tcg_price > 0 ? '$'+Number(card.hr_tcg_price).toFixed(2) : '—'}</td>
+      <td class="cinzel" style="color:var(--purple);white-space:nowrap">${card.hr_tcg_low_price > 0 ? '$'+Number(card.hr_tcg_low_price).toFixed(2) : '—'}</td>
+      <td class="small muted" style="white-space:nowrap;color:var(--purple)">${card.hr_ebay_price > 0 ? '$'+Number(card.hr_ebay_price).toFixed(2) : '—'}</td>
       <td class="small muted">${(card.acquisition_cost > 0) ? '$'+Number(card.acquisition_cost).toFixed(2) : '—'}</td>
       <td class="small muted">${escHtml(card.location||'')}</td>
       <td class="cinzel" style="color:var(--gold2);text-align:center;font-weight:700">${(card.fe_nm||0)+(card.fe_lp||0)+(card.fe_mp||0)+(card.un_nm||0)+(card.un_lp||0)+(card.un_mp||0)}</td>
       <td class="cinzel" style="color:var(--purple);text-align:center;font-weight:700">${((card.hr_qty_nm||0)+(card.hr_qty_lp||0)) || '—'}</td>
-      <td class="cinzel" style="color:var(--purple);white-space:nowrap">${card.hr_tcg_price > 0 ? '$'+Number(card.hr_tcg_price).toFixed(2) : '—'}</td>
-      <td class="small muted" style="white-space:nowrap;color:var(--purple)">${card.hr_ebay_price > 0 ? '$'+Number(card.hr_ebay_price).toFixed(2) : '—'}</td>
       <td>
         <span class="badge ${listed ? 'badge-green' : 'badge-muted'}"
               style="cursor:pointer" id="listed-badge-${card.id}"
@@ -193,7 +203,7 @@ async function quickToggleListed(id, newVal, badgeEl) {
 async function deleteCard(cardId, cardName) {
   if (!confirm(`Delete "${cardName}" from your collection?\nThis cannot be undone.`)) return;
   try {
-    await dbDelete('cards', 'id', cardId);
+    await dbDelete('card_inventory', 'id', cardId);
     showToast(`Deleted: ${cardName}`);
     loadCollectionPage();
   } catch (e) {
@@ -495,7 +505,7 @@ async function exportCollectionCSV() {
     const blob = new Blob([csvLines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const a    = Object.assign(document.createElement('a'), {
       href:     URL.createObjectURL(blob),
-      download: `shadowrealm-${new Date().toISOString().slice(0,10)}.csv`,
+      download: `ygoexclusives-${new Date().toISOString().slice(0,10)}.csv`,
     });
     a.click();
     URL.revokeObjectURL(a.href);
@@ -735,4 +745,93 @@ async function runImport() {
   colPage = 0;
   loadCollectionPage();
   goBtn.disabled = false;
+}
+
+// ─── Sets Modal ───────────────────────────────────────────────────────────────
+let _allSets = [];
+
+async function openSetsModal() {
+  document.getElementById('sets-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('sets-search').value = '';
+
+  if (_allSets.length === 0) await loadSets();
+  else renderSets(_allSets);
+
+  document.getElementById('sets-search').addEventListener('input', onSetsSearch);
+  setTimeout(() => document.getElementById('sets-search')?.focus(), 50);
+}
+
+function closeSetsModal() {
+  document.getElementById('sets-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  document.getElementById('sets-search').removeEventListener('input', onSetsSearch);
+}
+
+async function loadSets() {
+  const tbody = document.getElementById('sets-tbody');
+  tbody.innerHTML = '<tr><td colspan="4" class="text-center muted" style="padding:24px">Loading…</td></tr>';
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/sets?select=id,set_code,set_name,year,has_unlimited,has_first_ed&order=set_code.asc&limit=1000`,
+      { headers: DB_HEADERS_RETURN }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    _allSets = await res.json();
+    renderSets(_allSets);
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function onSetsSearch() {
+  const q = document.getElementById('sets-search').value.trim().toLowerCase();
+  const filtered = q
+    ? _allSets.filter(s => s.set_code.toLowerCase().includes(q) || s.set_name.toLowerCase().includes(q))
+    : _allSets;
+  renderSets(filtered);
+}
+
+function renderSets(sets) {
+  const countEl = document.getElementById('sets-count');
+  if (countEl) countEl.textContent = `${sets.length.toLocaleString()} sets`;
+
+  const tbody = document.getElementById('sets-tbody');
+  if (!sets.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center muted" style="padding:16px">No sets found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sets.map(s => `
+    <tr style="border-top:1px solid var(--b1)">
+      <td style="padding:8px;white-space:nowrap">
+        <span class="cinzel" style="font-size:0.8rem;color:var(--gold2)">${escHtml(s.set_code)}</span>
+      </td>
+      <td style="padding:8px;font-size:0.85rem">${escHtml(s.set_name)}</td>
+      <td style="padding:8px;text-align:center;color:var(--muted);font-size:0.8rem">${escHtml(s.year||'—')}</td>
+      <td style="padding:8px;text-align:center">
+        <label class="toggle-switch" title="${s.has_unlimited ? 'Has Unlimited — click to set 1st Ed only' : '1st Ed only — click to enable Unlimited'}">
+          <input type="checkbox" ${s.has_unlimited ? 'checked' : ''}
+            onchange="toggleSetUnlimited('${s.id}', this.checked, this)">
+          <span class="toggle-track"></span>
+        </label>
+      </td>
+    </tr>`).join('');
+}
+
+async function toggleSetUnlimited(setId, newVal, checkbox) {
+  checkbox.disabled = true;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/sets?id=eq.${encodeURIComponent(setId)}`,
+      { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify({ has_unlimited: newVal }) }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    const set = _allSets.find(s => s.id === setId);
+    if (set) set.has_unlimited = newVal;
+    showToast(`Updated ✓`);
+  } catch (e) {
+    checkbox.checked = !newVal;
+    showToast('Failed: ' + e.message);
+  }
+  checkbox.disabled = false;
 }

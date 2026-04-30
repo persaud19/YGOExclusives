@@ -40,7 +40,7 @@ function wireSalesForm() {
 async function loadSalesPage() {
   const tbody = document.getElementById('sales-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="9" class="muted text-center">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="10" class="muted text-center">Loading…</td></tr>';
   try {
     const { rows, total } = await getSalesPage({ page: salesPage, pageSize: SALES_PAGE_SIZE });
     renderSalesRows(rows, tbody);
@@ -53,7 +53,7 @@ async function loadSalesPage() {
 
 function renderSalesRows(rows, tbody) {
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="muted text-center" style="padding:24px">No sales yet</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="muted text-center" style="padding:24px">No sales yet</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(s => {
@@ -69,6 +69,7 @@ function renderSalesRows(rows, tbody) {
       <td class="cinzel ${profit >= 0 ? 'profit-positive' : 'profit-negative'}">
         ${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}
       </td>
+      <td class="small muted">${escHtml(s.buyer_name||'')}</td>
       <td>
         <button class="btn btn-danger btn-sm" onclick="deleteSaleRow('${s.id}')">✕</button>
       </td>
@@ -94,6 +95,7 @@ async function submitSale(e) {
     platform_fee:     getNum('sale-fee'),
     shipping_cost_out:getNum('sale-shipping-out'),
     acquisition_cost: getNum('sale-acq-cost'),
+    buyer_name:       get('sale-buyer-name') || null,
     created_at:       new Date().toISOString(),
   };
 

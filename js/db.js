@@ -74,35 +74,112 @@ async function setConfig(key, value) {
 // ─── Cards ────────────────────────────────────────────────────────────────────
 
 async function getCardsBySet(setCode) {
-  // card_number starts with "SETCODE-"
-  const params = {
+  // Fetch edition flags for this set
+  const setRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/sets?set_code=eq.${encodeURIComponent(setCode)}&select=has_unlimited,has_first_ed&limit=1`,
+    { headers: DB_HEADERS_RETURN }
+  );
+  const setRows = setRes.ok ? await setRes.json() : [];
+  const hasUnlimited = setRows[0]?.has_unlimited ?? true;
+  const hasFirstEd   = setRows[0]?.has_first_ed  ?? true;
+
+  const params = new URLSearchParams({
+    select:      '*,cards(api_id,year)',
     card_number: `ilike.${setCode}-%`,
-    order: 'card_number.asc',
-    limit: 1000,
-  };
-  return dbGet('cards', params);
+    order:       'card_number.asc,rarity_order.asc',
+    limit:       1000,
+  });
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/card_inventory?${params}`,
+    { headers: DB_HEADERS_RETURN }
+  );
+  if (!res.ok) throw new Error(`DB GET card_inventory failed: ${res.status} ${await res.text()}`);
+  return (await res.json()).map(r => ({
+    id:               r.id,
+    card_number:      r.card_number,
+    card_name:        r.card_name || '',
+    rarity:           r.rarity,
+    set_name:         r.set_name || '',
+    year:             r.cards?.year,
+    api_id:           r.cards?.api_id,
+    has_unlimited:    hasUnlimited,
+    has_first_ed:     hasFirstEd,
+    fe_nm:            r.qty_fe_nm,    fe_lp: r.qty_fe_lp,    fe_mp: r.qty_fe_mp,
+    un_nm:            r.qty_un_nm,    un_lp: r.qty_un_lp,    un_mp: r.qty_un_mp,
+    binder_fe_nm:     r.qty_binder_fe_nm,
+    binder_un_nm:     r.qty_binder_un_nm,
+    tcg_market_price: r.tcg_price,
+    tcg_price_cad:    r.tcg_price_cad,
+    acquisition_cost: r.acquisition_cost,
+    listed:           r.listed,
+    needs_review:     r.needs_review,
+    qty_total:        r.qty_total,
+  }));
 }
 
-async function getCardsPage({ search = '', rarity = '', location = '', listed = '',
-                               page = 0, pageSize = 50,
-                               sortCol = 'card_number', sortDir = 'asc' } = {}) {
+async function getCardsPage(opts = {}) {
+  return getInventoryPage(opts);
+}
+
+// ─── card_inventory query ─────────────────────────────────────────────────────
+async function getInventoryPage({ search = '', rarity = '', listed = '',
+                                   page = 0, pageSize = 50,
+                                   sortCol = 'card_number', sortDir = 'asc' } = {}) {
+  const colMap = { tcg_market_price: 'tcg_price', tcg_price_cad: 'tcg_price_cad' };
+  const mappedSort = colMap[sortCol] || sortCol;
+
   const params = new URLSearchParams({
-    order: `${sortCol}.${sortDir}`,
-    limit: pageSize,
+    select: '*,cards(api_id,year)',
+    order:  `${mappedSort}.${sortDir}`,
+    limit:  pageSize,
     offset: page * pageSize,
   });
-  if (search)            params.set('or',       `(card_name.ilike.*${search}*,card_number.ilike.*${search}*,set_name.ilike.*${search}*)`);
-  if (rarity)            params.set('rarity',   `eq.${rarity}`);
-  if (location)          params.set('location', `eq.${location}`);
-  if (listed === 'true') params.set('listed',   'eq.true');
-  if (listed === 'false')params.set('listed',   'eq.false');
+  if (search)   params.set('or',     `(card_name.ilike.*${search}*,card_number.ilike.*${search}*,set_name.ilike.*${search}*)`);
+  if (rarity)   params.set('rarity', `eq.${rarity}`);
+  if (listed === 'true')  params.set('listed', 'eq.true');
+  if (listed === 'false') params.set('listed', 'eq.false');
 
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/cards?${params}`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/card_inventory?${params}`, {
     headers: { ...DB_HEADERS_RETURN, 'Prefer': 'count=exact' },
   });
-  if (!res.ok) throw new Error(`DB GET cards failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`DB GET card_inventory failed: ${res.status} ${await res.text()}`);
   const total = parseInt(res.headers.get('content-range')?.split('/')[1] || '0', 10);
-  return { rows: await res.json(), total };
+  const raw   = await res.json();
+
+  // Normalize new schema fields → old field names so the renderer works unchanged
+  const rows = raw.map(r => ({
+    id:               r.id,
+    card_number:      r.card_number,
+    card_name:        r.card_name || '',
+    rarity:           r.rarity,
+    higher_rarity:    null,
+    set_name:         r.set_name || '',
+    year:             r.cards?.year,
+    api_id:           r.cards?.api_id,
+    tcg_market_price: r.tcg_price,
+    tcg_price_cad:    r.tcg_price_cad,
+    tcg_low_price:    r.tcg_low_price,
+    ebay_low_price:   r.ebay_low_price,
+    hr_tcg_price:     null,
+    hr_tcg_low_price: null,
+    hr_ebay_price:    null,
+    acquisition_cost: r.acquisition_cost,
+    location:         null,
+    fe_nm:            r.qty_fe_nm,
+    fe_lp:            r.qty_fe_lp,
+    fe_mp:            r.qty_fe_mp,
+    un_nm:            r.qty_un_nm,
+    un_lp:            r.qty_un_lp,
+    un_mp:            r.qty_un_mp,
+    binder_fe_nm:     r.qty_binder_fe_nm,
+    binder_un_nm:     r.qty_binder_un_nm,
+    hr_qty_nm:        0,
+    hr_qty_lp:        0,
+    listed:           r.listed,
+    needs_review:     r.needs_review,
+    qty_total:        r.qty_total,
+  }));
+  return { rows, total };
 }
 
 async function getCardById(id) {
@@ -115,11 +192,26 @@ async function saveCard(card) {
 }
 
 async function updateCard(card) {
-  return dbUpdate('cards', card);
+  const fieldMap = {
+    fe_nm: 'qty_fe_nm', fe_lp: 'qty_fe_lp', fe_mp: 'qty_fe_mp',
+    un_nm: 'qty_un_nm', un_lp: 'qty_un_lp', un_mp: 'qty_un_mp',
+    binder_fe_nm: 'qty_binder_fe_nm', binder_un_nm: 'qty_binder_un_nm',
+    tcg_market_price: 'tcg_price',
+  };
+  const drop = new Set(['higher_rarity','hr_fe_nm','hr_fe_lp','hr_qty_nm','hr_qty_lp',
+    'hr_location','hr_tcg_price','set_name','year','card_name','api_id','updated_at',
+    'first_ed_nm','first_ed_lp','first_ed_mp','unlimited_nm','unlimited_lp','unlimited_mp',
+    'location','rarity']);
+  const mapped = { id: card.id };
+  for (const [k, v] of Object.entries(card)) {
+    if (k === 'id' || drop.has(k)) continue;
+    mapped[fieldMap[k] || k] = v;
+  }
+  return dbUpdate('card_inventory', mapped);
 }
 
 async function toggleListed(id, listed) {
-  return dbUpdate('cards', { id, listed });
+  return dbUpdate('card_inventory', { id, listed });
 }
 
 async function upsertCardsBatch(rows) {

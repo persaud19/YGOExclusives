@@ -51,8 +51,9 @@ async function lookupCardByNumber(raw) {
   if (status) { status.textContent = '🔍'; status.style.color = 'var(--muted)'; }
 
   try {
+    const table = 'card_inventory';
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?card_number=eq.${encodeURIComponent(num)}&select=card_name,rarity&limit=1`,
+      `${SUPABASE_URL}/rest/v1/${table}?card_number=eq.${encodeURIComponent(num)}&select=card_name,rarity&limit=1`,
       { headers: DB_HEADERS }
     );
     if (!res.ok) throw new Error(res.status);
@@ -266,30 +267,32 @@ async function processAcquisitionRow(row, date) {
   let cardUUID = null;
 
   if (!row.skip_inventory) {
-    // 1. Look up card in DB by card_number
+    const params = new URLSearchParams({
+      card_number: `eq.${row.card_number}`,
+      select: 'id,qty_fe_nm,qty_fe_lp,qty_fe_mp,qty_un_nm,qty_un_lp,qty_un_mp',
+      limit: 1,
+    });
+    if (row.rarity) params.set('rarity', `eq.${row.rarity}`);
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?card_number=eq.${encodeURIComponent(row.card_number)}&select=id,fe_nm,fe_lp,fe_mp,un_nm,un_lp,un_mp,hr_fe_nm,hr_fe_lp,hr_qty_nm,hr_qty_lp&limit=1`,
+      `${SUPABASE_URL}/rest/v1/card_inventory?${params}`,
       { headers: DB_HEADERS }
     );
     if (!res.ok) throw new Error(`DB lookup ${res.status}`);
     const cards = await res.json();
     if (!cards.length) throw new Error(`Card not found: ${row.card_number}`);
     const card = cards[0];
-    cardUUID = toUUID(card.id);
+    cardUUID = card.id;
 
-    // 2. Determine which qty column to increment
-    const field      = getQtyField(row);
-    const currentQty = Number(card[field]) || 0;
-
-    // 3. Increment inventory quantity
-    const patchRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?id=eq.${card.id}`,
-      { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify({ [field]: currentQty + row.quantity }) }
+    const devField   = getDevQtyField(row);
+    const currentQty = Number(card[devField]) || 0;
+    const patchRes   = await fetch(
+      `${SUPABASE_URL}/rest/v1/card_inventory?id=eq.${card.id}`,
+      { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify({ [devField]: currentQty + row.quantity }) }
     );
     if (!patchRes.ok) throw new Error(`PATCH failed: ${await patchRes.text()}`);
   }
 
-  // 4. Always log acquisition record (skip_inventory = purchase log only)
+  // Always log acquisition record
   const logRes = await fetch(
     `${SUPABASE_URL}/rest/v1/acquisitions`,
     {
@@ -311,6 +314,21 @@ async function processAcquisitionRow(row, date) {
     }
   );
   if (!logRes.ok) throw new Error(`Log failed: ${await logRes.text()}`);
+}
+
+// Maps row → correct qty column for dev schema (card_inventory)
+function getDevQtyField(row) {
+  const c     = (row.condition || 'NM').toUpperCase();
+  const e     = (row.edition   || '').toLowerCase();
+  const is1st = e.includes('1st') || e.includes('first');
+  if (is1st) {
+    if (c === 'LP') return 'qty_fe_lp';
+    if (c === 'MP') return 'qty_fe_mp';
+    return 'qty_fe_nm';
+  }
+  if (c === 'LP') return 'qty_un_lp';
+  if (c === 'MP') return 'qty_un_mp';
+  return 'qty_un_nm';
 }
 
 // Maps row → correct DB qty column

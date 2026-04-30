@@ -3,133 +3,156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shadowrealm — Bulk Price Updater</title>
+  <title>YGOExclusives — Bulk Price Updater</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
   <style>
-    body { max-width: 720px; margin: 0 auto; padding: 24px 16px 80px; }
-    .page-title { text-align:center; margin-bottom: 32px; }
-    .page-title h1 { font-size:1.5rem; color:var(--gold2); margin-bottom:4px; }
-    .page-title p  { color:var(--muted); font-size:0.85rem; }
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg:    #100d1a; --surf: #1a1530; --surf2: #211c38;
+      --b1:    #2e2850; --b2:  #3d3668;
+      --gold:  #c9a84c; --gold2: #e2c47a;
+      --txt:   #e8e0f0; --muted: #7a7090; --dim: #4a4468;
+      --green: #4caf7d; --yellow: #e2b24c; --red: #e25c5c; --blue: #5c9ee2;
+    }
+    body {
+      background: var(--bg); color: var(--txt);
+      font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+      margin: 0; padding: 24px 16px 80px;
+      max-width: 680px; margin-inline: auto;
+    }
+    .page-title { text-align: center; margin-bottom: 32px; }
+    .page-title h1 { font-family: 'Cinzel', serif; font-size: 1.4rem; color: var(--gold2); margin: 0 0 6px; }
+    .page-title p  { color: var(--muted); font-size: 0.82rem; margin: 0; }
+    .dev-badge {
+      display: inline-block; background: #ff9900; color: #000;
+      font-size: 0.7rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 4px; margin-top: 8px; letter-spacing: 0.05em;
+    }
 
-    .step-card {
-      background: var(--surf2);
-      border: 1px solid var(--b1);
-      border-radius: 12px;
-      padding: 20px 24px;
-      margin-bottom: 16px;
+    .card {
+      background: var(--surf2); border: 1px solid var(--b1);
+      border-radius: 12px; padding: 20px 24px; margin-bottom: 16px;
     }
-    .step-card h2 { font-size:0.85rem; color:var(--gold2); margin-bottom: 12px; letter-spacing:0.05em; }
+    .card h2 {
+      font-family: 'Cinzel', serif; font-size: 0.78rem;
+      color: var(--gold2); letter-spacing: 0.07em;
+      margin: 0 0 14px; text-transform: uppercase;
+    }
 
-    .stat-row {
-      display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
+    label.opt {
+      display: flex; align-items: flex-start; gap: 10px;
+      cursor: pointer; font-size: 0.85rem; color: var(--txt);
     }
-    .stat-box {
-      background: var(--b1); border-radius: 8px; padding: 12px 16px;
-      flex: 1; min-width: 100px; text-align: center;
+    label.opt input { margin-top: 3px; accent-color: var(--gold); }
+    label.opt .sub  { display: block; color: var(--muted); font-size: 0.78rem; margin-top: 2px; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 10px 20px; border-radius: 8px; border: none;
+      font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.15s; text-decoration: none;
     }
-    .stat-box .val { font-family:'Cinzel',serif; font-size:1.4rem; font-weight:700; color:var(--gold2); }
-    .stat-box .lbl { font-size:0.72rem; color:var(--muted); margin-top:2px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary   { background: var(--gold); color: #1a1530; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+    .btn-secondary { background: var(--surf); color: var(--txt); border: 1px solid var(--b2); }
+    .btn-full { width: 100%; }
+
+    .stat-row  { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .stat-box  {
+      background: var(--b1); border-radius: 8px; padding: 10px 14px;
+      flex: 1; min-width: 90px; text-align: center;
+    }
+    .stat-box .val { font-family: 'Cinzel', serif; font-size: 1.25rem; font-weight: 700; color: var(--gold2); }
+    .stat-box .lbl { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    .val-green { color: var(--green) !important; }
+    .val-muted { color: var(--muted) !important; }
+    .val-red   { color: var(--red)   !important; }
+
+    .progress-wrap { background: var(--b1); border-radius: 4px; height: 6px; margin-bottom: 8px; overflow: hidden; }
+    .progress-bar  { background: var(--gold); height: 100%; width: 0%; transition: width 0.2s; }
+    .prog-label    { font-size: 0.78rem; color: var(--muted); text-align: center; margin-bottom: 10px; }
 
     .log-wrap {
       background: var(--b1); border-radius: 8px;
-      max-height: 200px; overflow-y: auto;
-      padding: 10px 12px;
-      font-size: 0.76rem;
-      font-family: monospace;
-      color: var(--muted);
-      margin-top: 12px;
+      max-height: 220px; overflow-y: auto;
+      padding: 10px 12px; font-size: 0.74rem;
+      font-family: monospace; color: var(--muted); margin-top: 10px;
     }
-    .log-wrap .log-ok   { color: var(--green); }
-    .log-wrap .log-warn { color: var(--yellow); }
-    .log-wrap .log-err  { color: var(--red); }
+    .log-ok   { color: var(--green); }
+    .log-warn { color: var(--yellow); }
+    .log-err  { color: var(--red); }
 
-    #run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .done-actions { display: flex; gap: 12px; margin-top: 12px; }
   </style>
 </head>
 <body>
 
 <div class="page-title">
   <h1>Bulk Price Updater</h1>
-  <p>Shadowrealm Emporium — Fetch TCG market prices &amp; auto-fill listing prices for all cards</p>
+  <p>Fetches TCG market &amp; low prices from YGOPRODeck — matched per card + rarity</p>
 </div>
 
-<!-- Options -->
-<div class="step-card">
+<div class="card">
   <h2>Options</h2>
-  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--txt)">
-      <input type="checkbox" id="opt-overwrite" checked style="margin-top:2px">
-      <span>
-        <strong>Overwrite existing prices</strong>
-        <span class="muted small" style="display:block">Re-fetch and overwrite even if TCG Market Price is already set</span>
-      </span>
-    </label>
-    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--txt)">
-      <input type="checkbox" id="opt-set-api-id" checked style="margin-top:2px">
-      <span>
-        <strong>Set api_id where missing</strong>
-        <span class="muted small" style="display:block">Match cards by name and save the YGOPRODeck api_id to the DB</span>
-      </span>
-    </label>
-    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--txt)">
-      <input type="checkbox" id="opt-listing-prices" checked style="margin-top:2px">
-      <span>
-        <strong>Auto-fill listing prices</strong>
-        <span class="muted small" style="display:block">1st NM ×1.2 · 1st LP ×0.9 · 1st MP ×0.6 · Un NM ×1.0 · Un LP ×0.75 · Un MP ×0.5</span>
-      </span>
-    </label>
-    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;color:var(--txt)">
-      <input type="checkbox" id="opt-ebay-hr" checked style="margin-top:2px">
-      <span>
-        <strong style="color:var(--purple)">★ Fetch HR prices from eBay</strong>
-        <span class="muted small" style="display:block">Looks up recently sold + lowest listed (price + shipping) for each card with a High Rarity type set. Slower — one eBay call per unique HR card.</span>
-      </span>
-    </label>
-  </div>
-  <button id="run-btn" class="btn btn-primary" style="width:100%" onclick="runBulkPrice()">
-    Fetch &amp; Update All Prices
-  </button>
+  <label class="opt">
+    <input type="checkbox" id="opt-overwrite" checked>
+    <span>
+      Overwrite existing prices
+      <span class="sub">Re-fetch even if tcg_price is already set</span>
+    </span>
+  </label>
 </div>
 
-<!-- Progress -->
-<div class="step-card" id="progress-card" style="display:none">
+<button id="run-btn" class="btn btn-primary btn-full" onclick="run()">
+  Fetch &amp; Update All Prices
+</button>
+
+<div class="card" id="progress-card" style="display:none;margin-top:16px">
   <h2>Progress</h2>
-  <div class="stat-row" id="stat-row">
-    <div class="stat-box"><div class="val" id="s-ygo">—</div><div class="lbl">YGO Cards Loaded</div></div>
-    <div class="stat-box"><div class="val" id="s-db">—</div><div class="lbl">DB Cards Scanned</div></div>
-    <div class="stat-box"><div class="val green" id="s-updated">0</div><div class="lbl">Updated</div></div>
-    <div class="stat-box"><div class="val muted" id="s-skipped">0</div><div class="lbl">Skipped (no match)</div></div>
-    <div class="stat-box"><div class="val" id="s-hr" style="color:var(--purple)">—</div><div class="lbl">HR eBay Fetched</div></div>
-    <div class="stat-box"><div class="val red" id="s-errors">0</div><div class="lbl">Errors</div></div>
+  <div class="stat-row">
+    <div class="stat-box"><div class="val" id="s-printings">—</div><div class="lbl">YGOPRODeck Printings</div></div>
+    <div class="stat-box"><div class="val" id="s-rate">—</div><div class="lbl">USD → CAD Rate</div></div>
+    <div class="stat-box"><div class="val" id="s-db">—</div><div class="lbl">DB Rows Loaded</div></div>
+    <div class="stat-box"><div class="val val-green" id="s-updated">0</div><div class="lbl">Updated</div></div>
+    <div class="stat-box"><div class="val val-muted" id="s-skipped">0</div><div class="lbl">Skipped</div></div>
+    <div class="stat-box"><div class="val val-red" id="s-errors">0</div><div class="lbl">Errors</div></div>
   </div>
-  <div class="progress-wrap">
-    <div class="progress-bar" id="prog-bar" style="width:0%"></div>
-  </div>
-  <div style="font-size:0.8rem;color:var(--muted);margin-top:8px;text-align:center" id="prog-label">Starting…</div>
+  <div class="progress-wrap"><div class="progress-bar" id="prog-bar"></div></div>
+  <div class="prog-label" id="prog-label">Starting…</div>
   <div class="log-wrap" id="log"></div>
 </div>
 
-<!-- Result -->
-<div class="step-card" id="result-card" style="display:none">
+<div class="card" id="done-card" style="display:none;margin-top:16px">
   <h2>Complete</h2>
-  <div class="stat-row" id="result-stats"></div>
-  <div style="display:flex;gap:12px;margin-top:8px">
+  <div class="stat-row" id="done-stats"></div>
+  <div class="done-actions">
     <button class="btn btn-secondary" onclick="location.reload()">Run Again</button>
     <a href="index.html" class="btn btn-primary">Open App →</a>
   </div>
 </div>
 
-<div id="toast"></div>
-
-<script src="js/config.js"></script>
-<script src="js/db.js"></script>
 <script>
+// ── Config (self-contained — no external JS dependencies) ─────────────────────
+const SUPABASE_URL = 'https://xyhzwmlqmazloyerelas.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5aHp3bWxxbWF6bG95ZXJlbGFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTE3NTEsImV4cCI6MjA5MzA4Nzc1MX0.dNaWuZUwX8eFqpFk0mp_cvGpYzOycuBGN7wUii8U0-E';
 
+const TABLE   = 'card_inventory';
+const FLD_MKT = 'tcg_price';
+const FLD_LOW = 'tcg_low_price';
+const FLD_CAD = 'tcg_price_cad';
+
+const HEADERS = {
+  'Content-Type':  'application/json',
+  'apikey':        SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+};
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
 function log(msg, type = '') {
   const wrap = document.getElementById('log');
   const line = document.createElement('div');
-  line.className = type ? `log-${type}` : '';
+  if (type) line.className = 'log-' + type;
   line.textContent = msg;
   wrap.appendChild(line);
   wrap.scrollTop = wrap.scrollHeight;
@@ -146,298 +169,176 @@ function setProgress(done, total, label) {
   document.getElementById('prog-label').textContent = label;
 }
 
-async function runBulkPrice() {
-  const btn            = document.getElementById('run-btn');
-  const optOverwrite   = document.getElementById('opt-overwrite').checked;
-  const optSetApiId    = document.getElementById('opt-set-api-id').checked;
-  const optListPrices  = document.getElementById('opt-listing-prices').checked;
-  const optEbayHr      = document.getElementById('opt-ebay-hr').checked;
+// ── Main ──────────────────────────────────────────────────────────────────────
+async function run() {
+  const btn          = document.getElementById('run-btn');
+  const optOverwrite = document.getElementById('opt-overwrite').checked;
 
   btn.disabled = true;
   document.getElementById('progress-card').style.display = '';
-  document.getElementById('result-card').style.display   = 'none';
+  document.getElementById('done-card').style.display     = 'none';
+  document.getElementById('log').innerHTML               = '';
 
   let totalUpdated = 0;
   let totalSkipped = 0;
   let totalErrors  = 0;
 
-  // ── Step 1: Fetch all YGOPRODeck cards ──────────────────────────────────────
-  log('Fetching all cards from YGOPRODeck…');
-  setProgress(0, 1, 'Fetching YGOPRODeck database…');
+  // ── Step 1: Fetch YGOPRODeck (tcgplayer_data=true for per-printing prices) ──
+  log('Fetching YGOPRODeck — this may take 10–20 seconds…');
+  setProgress(0, 1, 'Fetching YGOPRODeck…');
 
-  let ygoMap;        // name_lower              → { id, price, ebay }  — fallback by name
-  let setCodeMap;    // set_code_lower          → { id, price, ebay }  — preferred: exact card# + rarity price
-  let nameRarityMap; // "name|rarity" lower     → price               — for HR pricing
+  let priceMap; // "card_number|rarity" lowercase → { market, low }
   try {
-    const res  = await fetch('https://db.ygoprodeck.com/api/v7/cardinfo.php?misc=yes');
-    if (!res.ok) throw new Error('YGOPRODeck API returned ' + res.status);
+    const res = await fetch('https://db.ygoprodeck.com/api/v7/cardinfo.php?tcgplayer_data=true');
+    if (!res.ok) throw new Error('YGOPRODeck returned ' + res.status);
     const data = await res.json();
-    const cards = data.data || [];
 
-    ygoMap        = new Map();
-    setCodeMap    = new Map();
-    nameRarityMap = new Map();
-    cards.forEach(c => {
-      const price = parseFloat(c.card_prices?.[0]?.tcgplayer_price) || 0;
-      const ebay  = parseFloat(c.card_prices?.[0]?.ebay_price)      || 0;
-      // Name fallback (generic price — last resort only)
-      ygoMap.set(c.name.toLowerCase().trim(), { id: c.id, price, ebay });
-      // Card-number + rarity map — exact rarity-specific price
-      (c.card_sets || []).forEach(s => {
-        const setCode  = s.set_code?.toLowerCase().trim();
-        const setPrice = parseFloat(s.set_price) || 0;
-        const rarity   = s.set_rarity?.toLowerCase().trim() || '';
-        if (setCode && setPrice > 0) {
-          // Primary key: card_number|rarity — exact match
-          setCodeMap.set(`${setCode}|${rarity}`, { id: c.id, price: setPrice, ebay });
-          // Secondary key: card_number only — only set if not already set (first rarity wins as fallback)
-          if (!setCodeMap.has(setCode)) {
-            setCodeMap.set(setCode, { id: c.id, price: setPrice, ebay });
-          }
+    priceMap = new Map();
+    let pricedPrintings = 0;
+
+    for (const card of data.data || []) {
+      for (const s of card.card_sets || []) {
+        const market = parseFloat(s.set_price)     || 0;
+        const low    = parseFloat(s.set_price_low) || 0;
+        if (market === 0 && low === 0) continue;
+
+        const key = `${(s.set_code || '').trim().toLowerCase()}|${(s.set_rarity || '').trim().toLowerCase()}`;
+        if (!priceMap.has(key)) {
+          priceMap.set(key, { market, low });
+          pricedPrintings++;
         }
-        // Name+rarity map for HR pricing
-        if (setPrice > 0 && rarity) {
-          const nrKey = `${c.name.toLowerCase().trim()}|${rarity}`;
-          if (!nameRarityMap.has(nrKey)) nameRarityMap.set(nrKey, setPrice);
-        }
-      });
-    });
-    setStat('s-ygo', ygoMap.size);
-    log(`✓ Loaded ${ygoMap.size.toLocaleString()} cards · ${setCodeMap.size.toLocaleString()} set printings from YGOPRODeck`, 'ok');
+      }
+    }
+
+    setStat('s-printings', pricedPrintings);
+    log(`Loaded ${pricedPrintings.toLocaleString()} priced printings`, 'ok');
   } catch (e) {
-    log('✗ Failed to fetch YGOPRODeck: ' + e.message, 'err');
+    log('YGOPRODeck fetch failed: ' + e.message, 'err');
     btn.disabled = false;
     return;
   }
 
-  // ── Step 2: Page through all DB cards ────────────────────────────────────────
-  log('Loading cards from Supabase…');
-  const PAGE = 1000;
-  let allCards = [];
-  let offset   = 0;
+  // ── Step 2: Fetch USD → CAD exchange rate ────────────────────────────────────
+  log('Fetching USD → CAD exchange rate…');
+  let cadRate = null;
+  try {
+    const rateRes  = await fetch('https://api.frankfurter.app/latest?from=USD&to=CAD');
+    if (!rateRes.ok) throw new Error('Frankfurter returned ' + rateRes.status);
+    const rateData = await rateRes.json();
+    cadRate = rateData.rates?.CAD;
+    if (!cadRate) throw new Error('CAD rate missing from response');
+    setStat('s-rate', cadRate.toFixed(4));
+    log(`USD → CAD: ${cadRate.toFixed(4)} (as of ${rateData.date})`, 'ok');
+  } catch (e) {
+    log('Exchange rate fetch failed: ' + e.message + ' — CAD prices will not be written', 'warn');
+  }
 
-  // Get total count first
+  // ── Step 3: Page through card_inventory (or cards in prod) ──────────────────
+  log(`Loading ${TABLE} from Supabase…`);
+  setProgress(0, 1, 'Loading inventory…');
+
+  const PAGE    = 1000;
+  let allRows   = [];
+  let offset    = 0;
+
   const countRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/cards?select=id&limit=1`,
-    { headers: { ...DB_HEADERS_RETURN, 'Prefer': 'count=exact' } }
+    `${SUPABASE_URL}/rest/v1/${TABLE}?select=id&limit=1`,
+    { headers: { ...HEADERS, 'Prefer': 'count=exact' } }
   );
-  const totalCards = parseInt(countRes.headers.get('content-range')?.split('/')[1] || '0', 10);
-  setStat('s-db', totalCards);
-  log(`DB has ${totalCards.toLocaleString()} cards to process`);
+  const totalRows = parseInt(countRes.headers.get('content-range')?.split('/')[1] || '0', 10);
+  setStat('s-db', totalRows);
 
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?select=id,card_number,card_name,rarity,higher_rarity,hr_qty_nm,hr_qty_lp,hr_tcg_price,api_id,tcg_market_price&limit=${PAGE}&offset=${offset}`,
-      { headers: DB_HEADERS_RETURN }
+      `${SUPABASE_URL}/rest/v1/${TABLE}?select=id,card_number,rarity,${FLD_MKT}&limit=${PAGE}&offset=${offset}`,
+      { headers: { ...HEADERS, 'Prefer': 'return=representation' } }
     );
-    if (!res.ok) { log('✗ DB fetch failed at offset ' + offset, 'err'); break; }
+    if (!res.ok) { log('DB fetch failed at offset ' + offset + ': ' + await res.text(), 'err'); break; }
     const batch = await res.json();
-    allCards = allCards.concat(batch);
+    allRows = allRows.concat(batch);
     if (batch.length < PAGE) break;
     offset += PAGE;
-    setProgress(allCards.length, totalCards, `Loading DB cards… ${allCards.length.toLocaleString()} / ${totalCards.toLocaleString()}`);
+    setProgress(allRows.length, totalRows, `Loading… ${allRows.length.toLocaleString()} / ${totalRows.toLocaleString()}`);
   }
 
-  log(`✓ Loaded ${allCards.length.toLocaleString()} cards from DB`, 'ok');
+  log(`Loaded ${allRows.length.toLocaleString()} rows from DB`, 'ok');
 
-  // ── Step 3: Build update payload ─────────────────────────────────────────────
+  // ── Step 4: Match + build patches ───────────────────────────────────────────
   log('Matching prices…');
-  const updates = [];
+  const patches = [];
 
-  let hrCardsFound = 0;
-  let hrMatched    = 0;
-  let hrMissed     = 0;
-  const hrEbayQueue = []; // cards needing eBay HR lookup (YGOPRODeck had no set price)
+  for (const row of allRows) {
+    if (!optOverwrite && row[FLD_MKT] > 0) { totalSkipped++; continue; }
 
-  allCards.forEach(card => {
-    const codeKey   = (card.card_number || '').toLowerCase().trim();
-    const rarityKey = `${codeKey}|${(card.rarity || '').toLowerCase().trim()}`;
-    const nameKey   = (card.card_name   || '').toLowerCase().trim();
+    const key   = `${(row.card_number || '').trim().toLowerCase()}|${(row.rarity || '').trim().toLowerCase()}`;
+    const match = priceMap.get(key);
 
-    // ── Base price ──────────────────────────────────────────────────────────
-    const baseNeeded = optOverwrite || !(card.tcg_market_price > 0);
-    const match      = setCodeMap.get(rarityKey) || setCodeMap.get(codeKey) || ygoMap.get(nameKey);
+    if (!match) { totalSkipped++; continue; }
 
-    if (baseNeeded && (!match || match.price <= 0)) {
-      totalSkipped++;
-      // Still attempt HR price update below even if base price missed
+    const patch = { id: row.id };
+    if (match.market > 0) {
+      patch[FLD_MKT] = +match.market.toFixed(2);
+      if (cadRate) patch[FLD_CAD] = +(match.market * cadRate).toFixed(2);
     }
+    if (match.low > 0) patch[FLD_LOW] = +match.low.toFixed(2);
 
-    const patch = { id: card.id, updated_at: new Date().toISOString() };
-    let hasUpdate = false;
-
-    if (baseNeeded && match && match.price > 0) {
-      const p = match.price;
-      patch.tcg_market_price = p;
-      if (match.ebay > 0) patch.ebay_low_price = +match.ebay.toFixed(2);
-      if (optSetApiId && !card.api_id && match.id) patch.api_id = match.id;
-      if (optListPrices) {
-        patch.first_ed_nm  = +(p * PRICE_MULT.first_ed_nm).toFixed(2);
-        patch.first_ed_lp  = +(p * PRICE_MULT.first_ed_lp).toFixed(2);
-        patch.first_ed_mp  = +(p * PRICE_MULT.first_ed_mp).toFixed(2);
-        patch.unlimited_nm = +(p * PRICE_MULT.unlimited_nm).toFixed(2);
-        patch.unlimited_lp = +(p * PRICE_MULT.unlimited_lp).toFixed(2);
-        patch.unlimited_mp = +(p * PRICE_MULT.unlimited_mp).toFixed(2);
-      }
-      hasUpdate = true;
-    }
-
-    // ── HR price — only for cards you physically own as HR ───────────────────
-    // Guard: skip if no HR qty in inventory — avoids thousands of eBay calls
-    // for cards where higher_rarity is set but you own zero HR copies
-    const hasHrQty = (card.hr_qty_nm > 0 || card.hr_qty_lp > 0);
-    const hrNeeded = hasHrQty && card.higher_rarity && (optOverwrite || !(card.hr_tcg_price > 0));
-    if (hrNeeded) {
-      hrCardsFound++;
-      const hrRarLower  = card.higher_rarity.toLowerCase().trim();
-      const hrCodeKey   = `${codeKey}|${hrRarLower}`;
-      const hrCodeMatch = setCodeMap.get(hrCodeKey);
-      const hrPrice     = hrCodeMatch
-        ? hrCodeMatch.price
-        : (nameRarityMap.get(`${nameKey}|${hrRarLower}`) || 0);
-
-      if (hrPrice > 0) {
-        patch.hr_tcg_price = +parseFloat(hrPrice).toFixed(2);
-        if (hrCodeMatch && hrCodeMatch.ebay > 0) patch.hr_ebay_price = +hrCodeMatch.ebay.toFixed(2);
-        hrMatched++;
-        hasUpdate = true;
-      } else {
-        // YGOPRODeck has no set-level price for this HR variant — queue for eBay lookup
-        hrMissed++;
-        hrEbayQueue.push({ patchRef: patch, card_number: card.card_number, rarity: card.higher_rarity });
-      }
-    }
-
-    if (hasUpdate) updates.push(patch);
-    else if (hrEbayQueue.length && hrEbayQueue[hrEbayQueue.length - 1].patchRef === patch) {
-      // patch was created but has no base update yet — still add so eBay results have somewhere to land
-      updates.push(patch);
-    }
-  });
-
-  log(`${updates.length.toLocaleString()} cards staged · ${totalSkipped.toLocaleString()} skipped (no base match)`);
-  log(`HR (YGOPRODeck): ${hrCardsFound} found · ${hrMatched} priced · ${hrMissed} queued for eBay`, hrMissed > 0 ? 'warn' : 'ok');
-  setStat('s-skipped', totalSkipped);
-
-  // ── Step 4: eBay HR price lookup ─────────────────────────────────────────────
-  if (optEbayHr && hrEbayQueue.length > 0) {
-    // Deduplicate by card_number|rarity so we only make one eBay call per unique printing
-    const seen      = new Map(); // "card_number|rarity" → { sold, listed }
-    const deduped   = [];
-    hrEbayQueue.forEach(item => {
-      const key = `${item.card_number}|${item.rarity}`.toLowerCase();
-      if (!seen.has(key)) { seen.set(key, null); deduped.push({ ...item, key }); }
-    });
-
-    log(`Fetching eBay prices for ${deduped.length} unique HR printing(s)… (one call each, ~0.3s apart)`);
-    setStat('s-hr', `0/${deduped.length}`);
-    let hrFetched = 0;
-
-    for (const item of deduped) {
-      const url = `/.netlify/functions/ebay-prices` +
-        `?card_number=${encodeURIComponent(item.card_number)}` +
-        `&rarity=${encodeURIComponent(item.rarity)}`;
-      try {
-        const res  = await fetch(url);
-        const data = await res.json().catch(() => ({}));
-
-        // Rate limit hit — stop all remaining eBay calls immediately
-        if (res.status === 429 || data.error === 'rate_limit') {
-          log('⚠ eBay rate limit reached — quota resets at midnight PT. Stopping HR lookup early.', 'warn');
-          log(`  Completed ${hrFetched} / ${deduped.length} before limit hit.`, 'warn');
-          break;
-        }
-
-        if (data.recentSoldMedian > 0 || data.lowestListed > 0) {
-          // Apply result to ALL patches that matched this card_number|rarity
-          hrEbayQueue
-            .filter(q => `${q.card_number}|${q.rarity}`.toLowerCase() === item.key)
-            .forEach(q => {
-              if (data.recentSoldMedian > 0) q.patchRef.hr_tcg_price  = data.recentSoldMedian;
-              if (data.lowestListed     > 0) q.patchRef.hr_ebay_price = data.lowestListed;
-            });
-          log(
-            `★ ${item.card_number} ${item.rarity}: ` +
-            `sold ~$${data.recentSoldMedian ?? '—'} · ` +
-            `listed from $${data.lowestListed ?? '—'} ` +
-            `(${data.soldCount} sold, ${data.activeCount} active)`,
-            'ok'
-          );
-        } else {
-          log(`○ ${item.card_number} ${item.rarity}: no eBay results found`, 'warn');
-        }
-        hrFetched++;
-        setStat('s-hr', `${hrFetched}/${deduped.length}`);
-      } catch (e) {
-        log(`✗ eBay lookup failed for ${item.card_number}: ${e.message}`, 'err');
-      }
-      // Throttle — avoid hitting eBay rate limits
-      await new Promise(r => setTimeout(r, 300));
-    }
-    log(`eBay HR lookup complete: ${hrFetched} / ${deduped.length}`, 'ok');
+    if (Object.keys(patch).length > 1) patches.push(patch);
+    else totalSkipped++;
   }
 
-  const realUpdates = updates.filter(p => Object.keys(p).length > 2); // more than just id + updated_at
-  if (!realUpdates.length) {
-    log('Nothing to update.', 'warn');
+  setStat('s-skipped', totalSkipped);
+  log(`${patches.length.toLocaleString()} rows to update · ${totalSkipped.toLocaleString()} skipped (no match or already priced)`);
+
+  if (!patches.length) {
     setProgress(1, 1, 'Done — nothing to update');
+    log('Nothing to update.', 'warn');
     btn.disabled = false;
     return;
   }
 
-  // ── Step 5: Batch PATCH (concurrent per batch) ───────────────────────────────
-  // Use PATCH per card (not upsert/POST) so Supabase only updates existing rows
-  // without triggering NOT NULL constraints on columns we're not touching.
-  const BATCH = 100;
-  const totalBatches = Math.ceil(realUpdates.length / BATCH);
-  log(`Uploading ${realUpdates.length.toLocaleString()} updates in ${totalBatches} batches of ${BATCH}…`);
+  // ── Step 5: Batch PATCH ──────────────────────────────────────────────────────
+  const BATCH       = 100;
+  const totalBatches = Math.ceil(patches.length / BATCH);
+  log(`Uploading in ${totalBatches} batch${totalBatches !== 1 ? 'es' : ''} of ${BATCH}…`);
 
-  async function patchCard(row) {
+  async function patchRow(row) {
     const { id, ...fields } = row;
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?id=eq.${id}`,
-      { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify(fields) }
+      `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${id}`,
+      { method: 'PATCH', headers: HEADERS, body: JSON.stringify(fields) }
     );
     if (!res.ok) throw new Error(await res.text());
   }
 
-  for (let i = 0; i < realUpdates.length; i += BATCH) {
-    const batch    = realUpdates.slice(i, i + BATCH);
-    const batchNum = Math.floor(i / BATCH) + 1;
-    const results  = await Promise.allSettled(batch.map(patchCard));
+  for (let i = 0; i < patches.length; i += BATCH) {
+    const batch     = patches.slice(i, i + BATCH);
+    const batchNum  = Math.floor(i / BATCH) + 1;
+    const results   = await Promise.allSettled(batch.map(patchRow));
     let batchErrors = 0;
-    results.forEach(r => {
-      if (r.status === 'fulfilled') totalUpdated++;
-      else { totalErrors++; batchErrors++; }
-    });
+    results.forEach(r => r.status === 'fulfilled' ? totalUpdated++ : (totalErrors++, batchErrors++));
     setStat('s-updated', totalUpdated);
-    setStat('s-errors', totalErrors);
-    if (batchErrors) log(`✗ Batch ${batchNum}: ${batchErrors} failed`, 'err');
-    setProgress(
-      i + batch.length,
-      realUpdates.length,
-      `Batch ${batchNum} / ${totalBatches} — ${totalUpdated.toLocaleString()} updated`
-    );
+    setStat('s-errors',  totalErrors);
+    if (batchErrors) log(`Batch ${batchNum}: ${batchErrors} failed`, 'err');
+    setProgress(i + batch.length, patches.length, `Batch ${batchNum} / ${totalBatches} — ${totalUpdated.toLocaleString()} updated`);
     await new Promise(r => setTimeout(r, 0));
   }
 
   // ── Done ──────────────────────────────────────────────────────────────────────
-  setProgress(updates.length, updates.length, 'Complete!');
-  log(`✓ Done — ${totalUpdated.toLocaleString()} updated · ${totalSkipped.toLocaleString()} skipped · ${totalErrors} errors`, 'ok');
+  setProgress(patches.length, patches.length, 'Complete!');
+  log(
+    `Done — ${totalUpdated.toLocaleString()} updated · ${totalSkipped.toLocaleString()} skipped · ${totalErrors} errors`,
+    totalErrors > 0 ? 'warn' : 'ok'
+  );
 
-  document.getElementById('result-card').style.display = '';
-  document.getElementById('result-stats').innerHTML = `
-    <div class="stat-box"><div class="val green">${totalUpdated.toLocaleString()}</div><div class="lbl">Prices Updated</div></div>
-    <div class="stat-box"><div class="val muted">${totalSkipped.toLocaleString()}</div><div class="lbl">No Match Found</div></div>
-    <div class="stat-box"><div class="val ${totalErrors ? 'red' : 'muted'}">${totalErrors}</div><div class="lbl">Errors</div></div>
+  document.getElementById('done-card').style.display = '';
+  document.getElementById('done-stats').innerHTML = `
+    <div class="stat-box"><div class="val val-green">${totalUpdated.toLocaleString()}</div><div class="lbl">Updated</div></div>
+    <div class="stat-box"><div class="val val-muted">${totalSkipped.toLocaleString()}</div><div class="lbl">Skipped</div></div>
+    <div class="stat-box"><div class="val ${totalErrors ? 'val-red' : 'val-muted'}">${totalErrors}</div><div class="lbl">Errors</div></div>
   `;
 
   btn.disabled = false;
 }
-
-// Toast stub (needed by db.js indirectly)
-function showToast(msg) { console.warn(msg); }
-
 </script>
 </body>
 </html>

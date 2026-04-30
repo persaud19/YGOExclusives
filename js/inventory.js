@@ -2,6 +2,7 @@
 
 let invInitialized = false;
 const saveTimers = {};
+const _editionShownSets = new Set();
 
 function initInventory() {
   if (invInitialized) return;
@@ -149,6 +150,15 @@ async function loadInventoryCards(setCode, countEl) {
     cards.forEach(card => fragment.appendChild(buildCardRow(card)));
     tbody.appendChild(fragment);
     table.style.display = '';
+
+    // Staff reminder: show once per session when set has both editions
+    if (cards.length) {
+      const { has_unlimited, has_first_ed } = cards[0];
+      if (has_unlimited && has_first_ed && !_editionShownSets.has(setCode)) {
+        _editionShownSets.add(setCode);
+        showToast('Check the bottom-left corner for a 1st Edition stamp. No stamp = Unlimited.');
+      }
+    }
   } catch (e) {
     empty.textContent = 'Error: ' + e.message;
     empty.className = 'red text-center';
@@ -160,21 +170,16 @@ function buildCardRow(card) {
   const tr = document.createElement('tr');
   tr.className = 'inv-row';
   tr.dataset.cardId = card.id;
+  tr.dataset.hasUnlimited = card.has_unlimited === false ? 'false' : 'true';
 
-  const rarityBadge = getRarityBadgeClass(card.rarity);
-  const hasHR = !!(card.higher_rarity && card.higher_rarity !== 'None' && card.higher_rarity !== '');
-
-  const feNm = card.fe_nm     || 0;
-  const feLp = card.fe_lp     || 0;
-  const feMp = card.fe_mp     || 0;
-  const unNm = card.un_nm     || 0;
-  const unLp = card.un_lp     || 0;
-  const unMp = card.un_mp     || 0;
-  const hrFeNm = card.hr_fe_nm   || 0;
-  const hrFeLp = card.hr_fe_lp   || 0;
-  const hrNm   = card.hr_qty_nm  || 0;
-  const hrLp   = card.hr_qty_lp  || 0;
-  const hrLoc  = card.hr_location || 'Basement';
+  const feNm      = card.fe_nm         || 0;
+  const feLp      = card.fe_lp         || 0;
+  const feMp      = card.fe_mp         || 0;
+  const unNm      = card.un_nm         || 0;
+  const unLp      = card.un_lp         || 0;
+  const unMp      = card.un_mp         || 0;
+  const binderFe  = card.binder_fe_nm  || 0;
+  const binderUn  = card.binder_un_nm  || 0;
 
   tr.innerHTML = `
     <td class="inv-td-check">
@@ -188,38 +193,19 @@ function buildCardRow(card) {
     <td class="inv-td-num">${escHtml(card.card_number)}</td>
     <td class="inv-td-name">${escHtml(card.card_name)}</td>
     <td class="inv-td-rarity">
-      <select class="inv-select inv-rarity-select" data-field="rarity" data-card="${card.id}">
-        ${RARITIES.map(r => `<option value="${r}" ${card.rarity === r ? 'selected' : ''}>${r}</option>`).join('')}
-      </select>
+      <span class="badge ${getRarityBadgeClass(card.rarity)}" style="font-size:0.7rem;white-space:nowrap">${escHtml(card.rarity || '')}</span>
     </td>
-    ${buildQtyCell('fe_nm',     feNm, card.id, 0, true)}
-    ${buildQtyCell('fe_lp',     feLp, card.id, 1, false)}
-    ${buildQtyCell('fe_mp',     feMp, card.id, 2, false)}
+    ${buildQtyCell('fe_nm',        feNm,     card.id, 0, true)}
+    ${buildQtyCell('fe_lp',        feLp,     card.id, 1, false)}
+    ${buildQtyCell('fe_mp',        feMp,     card.id, 2, false)}
     <td class="inv-td-total" id="fe-total-${card.id}">${feNm + feLp + feMp}</td>
-    ${buildQtyCell('un_nm',     unNm, card.id, 3, true)}
-    ${buildQtyCell('un_lp',     unLp, card.id, 4, false)}
-    ${buildQtyCell('un_mp',     unMp, card.id, 5, false)}
+    ${buildQtyCell('un_nm',        unNm,     card.id, 3, true,  !card.has_unlimited)}
+    ${buildQtyCell('un_lp',        unLp,     card.id, 4, false, !card.has_unlimited)}
+    ${buildQtyCell('un_mp',        unMp,     card.id, 5, false, !card.has_unlimited)}
     <td class="inv-td-total" id="un-total-${card.id}">${unNm + unLp + unMp}</td>
-    <td class="inv-td-select">
-      <select class="inv-select" data-field="location" data-card="${card.id}">
-        ${LOCATIONS.map(l => `<option value="${l}" ${card.location === l ? 'selected' : ''}>${l}</option>`).join('')}
-      </select>
-    </td>
-    <td class="inv-td-select inv-td-hr-sep">
-      <select class="inv-select" data-field="higher_rarity" data-card="${card.id}">
-        ${HR_OPTIONS.map(r => `<option value="${r === 'None' ? '' : r}" ${(card.higher_rarity || '') === (r === 'None' ? '' : r) ? 'selected' : ''}>${r}</option>`).join('')}
-      </select>
-    </td>
-    ${buildQtyCell('hr_fe_nm',  hrFeNm, card.id, 6, true,  !hasHR)}
-    ${buildQtyCell('hr_fe_lp',  hrFeLp, card.id, 7, false, !hasHR)}
-    ${buildQtyCell('hr_qty_nm', hrNm,   card.id, 8, true,  !hasHR)}
-    ${buildQtyCell('hr_qty_lp', hrLp,   card.id, 9, false, !hasHR)}
-    <td class="inv-td-select${!hasHR ? ' inv-qty-disabled' : ''}" id="hr-loc-cell-${card.id}">
-      <select class="inv-select" data-field="hr_location" data-card="${card.id}" ${!hasHR ? 'disabled' : ''}>
-        ${LOCATIONS.map(l => `<option value="${l}" ${hrLoc === l ? 'selected' : ''}>${l}</option>`).join('')}
-      </select>
-    </td>
-    <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + hrFeNm + hrFeLp + hrNm + hrLp}</td>
+    ${buildQtyCell('binder_fe_nm', binderFe, card.id, 6, true)}
+    ${buildQtyCell('binder_un_nm', binderUn, card.id, 7, false, !card.has_unlimited)}
+    <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + binderFe + binderUn}</td>
     <td class="inv-td-review">
       <input type="checkbox" class="inv-review-check" data-card="${card.id}" ${card.needs_review ? 'checked' : ''} title="Flag for review">
     </td>
@@ -264,14 +250,9 @@ function wireRowEvents(tr, cardId) {
     });
   });
 
-  // Location / HR type dropdowns
+  // Dropdowns (none remain in new schema but keep for safety)
   tr.querySelectorAll('select[data-card]').forEach(sel => {
-    sel.addEventListener('change', () => {
-      if (sel.dataset.field === 'higher_rarity') {
-        toggleHrCells(tr, !!sel.value);
-      }
-      scheduleSave(cardId, tr);
-    });
+    sel.addEventListener('change', () => scheduleSave(cardId, tr));
   });
 
   // Row selection checkbox (for bulk rarity edit)
@@ -297,32 +278,18 @@ function wireRowEvents(tr, cardId) {
   }
 }
 
-function toggleHrCells(tr, enabled) {
-  ['hr_fe_nm', 'hr_fe_lp', 'hr_qty_nm', 'hr_qty_lp'].forEach(field => {
-    const cell  = tr.querySelector(`.inv-qty-input[data-field="${field}"]`)?.closest('td');
-    const input = tr.querySelector(`.inv-qty-input[data-field="${field}"]`);
-    if (cell)  cell.classList.toggle('inv-qty-disabled', !enabled);
-    if (input) input.disabled = !enabled;
-  });
-  // HR location select
-  const cardId = tr.dataset.cardId;
-  const hrLocCell = document.getElementById(`hr-loc-cell-${cardId}`);
-  const hrLocSel  = tr.querySelector('select[data-field="hr_location"]');
-  if (hrLocCell) hrLocCell.classList.toggle('inv-qty-disabled', !enabled);
-  if (hrLocSel)  hrLocSel.disabled = !enabled;
-}
 
 function updateRowTotals(tr, cardId) {
   const v = f => parseInt(tr.querySelector(`.inv-qty-input[data-field="${f}"]`)?.value, 10) || 0;
   const feEl  = document.getElementById(`fe-total-${cardId}`);
   const unEl  = document.getElementById(`un-total-${cardId}`);
   const allEl = document.getElementById(`all-total-${cardId}`);
-  const feSum = v('fe_nm') + v('fe_lp') + v('fe_mp');
-  const unSum = v('un_nm') + v('un_lp') + v('un_mp');
-  const hrSum = v('hr_fe_nm') + v('hr_fe_lp') + v('hr_qty_nm') + v('hr_qty_lp');
+  const feSum     = v('fe_nm') + v('fe_lp') + v('fe_mp');
+  const unSum     = v('un_nm') + v('un_lp') + v('un_mp');
+  const binderSum = v('binder_fe_nm') + v('binder_un_nm');
   if (feEl)  feEl.textContent  = feSum;
   if (unEl)  unEl.textContent  = unSum;
-  if (allEl) allEl.textContent = feSum + unSum + hrSum;
+  if (allEl) allEl.textContent = feSum + unSum + binderSum;
 }
 
 function scheduleSave(cardId, tr) {
@@ -341,23 +308,18 @@ async function doSave(cardId, tr) {
     return sel ? sel.value : null;
   };
 
+  const firstEdOnly = tr.dataset.hasUnlimited === 'false';
   const patch = {
     id:            cardId,
     fe_nm:         getVal('fe_nm'),
     fe_lp:         getVal('fe_lp'),
     fe_mp:         getVal('fe_mp'),
-    un_nm:         getVal('un_nm'),
-    un_lp:         getVal('un_lp'),
-    un_mp:         getVal('un_mp'),
-    hr_fe_nm:      getVal('hr_fe_nm'),
-    hr_fe_lp:      getVal('hr_fe_lp'),
-    hr_qty_nm:     getVal('hr_qty_nm'),
-    hr_qty_lp:     getVal('hr_qty_lp'),
-    rarity:        getSel('rarity'),
-    location:      getSel('location'),
-    higher_rarity: getSel('higher_rarity'),
-    hr_location:   getSel('hr_location') || 'Basement',
-    updated_at:    new Date().toISOString(),
+    un_nm:         firstEdOnly ? 0 : getVal('un_nm'),
+    un_lp:         firstEdOnly ? 0 : getVal('un_lp'),
+    un_mp:         firstEdOnly ? 0 : getVal('un_mp'),
+    binder_fe_nm:  getVal('binder_fe_nm'),
+    binder_un_nm:  firstEdOnly ? 0 : getVal('binder_un_nm'),
+    needs_review:  !!(tr.querySelector('.inv-review-check')?.checked),
   };
 
   try {
