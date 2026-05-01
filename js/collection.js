@@ -692,19 +692,17 @@ async function openSyncSetsModal() {
   setSyncState('loading');
 
   try {
-    // Fetch YGOPRODeck set list + sets that have at least one card_inventory row in parallel
-    // We check card_inventory (not sets table) so sets that were partially synced show up again
-    const [ygoRes, invRes] = await Promise.all([
+    // Fetch YGOPRODeck set list + our DB set codes in parallel
+    const [ygoRes, dbRes] = await Promise.all([
       fetch(`${YGOPRO}/cardsets.php`),
-      fetch(`${SUPABASE_URL}/rest/v1/card_inventory?select=card_number&limit=100000`, { headers: DB_HEADERS_RETURN }),
+      fetch(`${SUPABASE_URL}/rest/v1/sets?select=set_code&limit=10000`, { headers: DB_HEADERS_RETURN }),
     ]);
     if (!ygoRes.ok) throw new Error('YGOPRODeck unavailable');
-    if (!invRes.ok) throw new Error('DB fetch failed');
+    if (!dbRes.ok)  throw new Error('DB fetch failed');
 
     const ygoSets  = await ygoRes.json();
-    const invRows  = await invRes.json();
-    // Extract set prefix from card_number (e.g. "RA04-EN001" → "RA04")
-    const dbCodes  = new Set(invRows.map(r => r.card_number?.split('-')[0]).filter(Boolean));
+    const dbRows   = await dbRes.json();
+    const dbCodes  = new Set(dbRows.map(r => r.set_code));
 
     _syncMissingSets = ygoSets
       .filter(s => s.set_code?.trim() && !dbCodes.has(s.set_code.trim()))
