@@ -86,7 +86,7 @@ function updateSortArrows() {
 async function loadCollectionPage() {
   const tbody = document.getElementById('col-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="16" class="text-center muted" style="padding:24px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="13" class="text-center muted" style="padding:24px">Loading…</td></tr>';
   try {
     const { rows, total } = await getCardsPage({
       ...colFilters,
@@ -99,13 +99,13 @@ async function loadCollectionPage() {
     renderCollectionRows(rows, tbody);
     updateCollectionPagination(total);
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="16" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
   }
 }
 
 function renderCollectionRows(rows, tbody) {
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="16" class="text-center muted" style="padding:24px">No cards found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="text-center muted" style="padding:24px">No cards found</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(card => {
@@ -134,13 +134,9 @@ function renderCollectionRows(rows, tbody) {
             : '<span class="muted">—</span>'}
       </td>
       <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${card.tcg_low_price > 0 ? '$'+Number(card.tcg_low_price).toFixed(2) : '—'}</td>
-      <td class="cinzel" style="color:var(--purple);white-space:nowrap">${card.hr_tcg_price > 0 ? '$'+Number(card.hr_tcg_price).toFixed(2) : '—'}</td>
-      <td class="cinzel" style="color:var(--purple);white-space:nowrap">${card.hr_tcg_low_price > 0 ? '$'+Number(card.hr_tcg_low_price).toFixed(2) : '—'}</td>
-      <td class="small muted" style="white-space:nowrap;color:var(--purple)">${card.hr_ebay_price > 0 ? '$'+Number(card.hr_ebay_price).toFixed(2) : '—'}</td>
       <td class="small muted">${(card.acquisition_cost > 0) ? '$'+Number(card.acquisition_cost).toFixed(2) : '—'}</td>
       <td class="small muted">${escHtml(card.location||'')}</td>
       <td class="cinzel" style="color:var(--gold2);text-align:center;font-weight:700">${(card.fe_nm||0)+(card.fe_lp||0)+(card.fe_mp||0)+(card.un_nm||0)+(card.un_lp||0)+(card.un_mp||0)}</td>
-      <td class="cinzel" style="color:var(--purple);text-align:center;font-weight:700">${((card.hr_qty_nm||0)+(card.hr_qty_lp||0)) || '—'}</td>
       <td>
         <span class="badge ${listed ? 'badge-green' : 'badge-muted'}"
               style="cursor:pointer" id="listed-badge-${card.id}"
@@ -251,30 +247,15 @@ function populateEditModal(card) {
   sv('edit-un-nm',  card.un_nm  || 0);
   sv('edit-un-lp',  card.un_lp  || 0);
   sv('edit-un-mp',  card.un_mp  || 0);
-  sv('edit-hr-qty-nm', card.hr_qty_nm || 0);
-  sv('edit-hr-qty-lp', card.hr_qty_lp || 0);
-
-  // Prices — 4 market metrics
+  // Prices
   sv('edit-tcg-low',    card.tcg_low_price    || '');
   sv('edit-tcg-market', card.tcg_market_price || '');
-  sv('edit-ebay-low',   card.ebay_low_price   || '');
-  sv('edit-ebay-sold',  card.ebay_sold_price  || '');
   sv('edit-first-ed-nm',  card.first_ed_nm  || '');
   sv('edit-first-ed-lp',  card.first_ed_lp  || '');
   sv('edit-first-ed-mp',  card.first_ed_mp  || '');
   sv('edit-unlimited-nm', card.unlimited_nm || '');
   sv('edit-unlimited-lp', card.unlimited_lp || '');
   sv('edit-unlimited-mp', card.unlimited_mp || '');
-
-  // HR prices — show section only when higher_rarity is set
-  const hrPriceRow = document.getElementById('edit-hr-prices-row');
-  if (hrPriceRow) hrPriceRow.style.display = card.higher_rarity ? '' : 'none';
-  sv('edit-hr-tcg',  card.hr_tcg_price  || '');
-  sv('edit-hr-ebay', card.hr_ebay_price || '');
-
-  // Higher rarity
-  sv('edit-higher-rarity', card.higher_rarity || '');
-  document.getElementById('edit-hr-qty-row').style.display = card.higher_rarity ? '' : 'none';
 
   // Location & status
   sv('edit-location', card.location || 'Basement Box');
@@ -323,14 +304,9 @@ async function saveEditModal() {
     un_nm:                    gi('edit-un-nm'),
     un_lp:                    gi('edit-un-lp'),
     un_mp:                    gi('edit-un-mp'),
-    hr_qty_nm:                gi('edit-hr-qty-nm'),
-    hr_qty_lp:                gi('edit-hr-qty-lp'),
-    higher_rarity:            gv('edit-higher-rarity'),
     location:                 gv('edit-location'),
     listed:                   document.getElementById('edit-listed')?.checked || false,
     tcg_market_price:         gn('edit-tcg-market'),
-    hr_tcg_price:             gn('edit-hr-tcg'),
-    hr_ebay_price:            gn('edit-hr-ebay'),
     first_ed_nm:              gn('edit-first-ed-nm'),
     first_ed_lp:              gn('edit-first-ed-lp'),
     first_ed_mp:              gn('edit-first-ed-mp'),
@@ -363,8 +339,7 @@ async function saveEditModal() {
 
 // ─── Edit modal helpers ───────────────────────────────────────────────────────
 function editAutoFillPrices() {
-  const baseId = { 'tcg-low': 'edit-tcg-low', 'tcg-market': 'edit-tcg-market',
-                   'ebay-low': 'edit-ebay-low', 'ebay-sold': 'edit-ebay-sold' };
+  const baseId = { 'tcg-low': 'edit-tcg-low', 'tcg-market': 'edit-tcg-market' };
   const sel = document.getElementById('edit-price-base')?.value || 'tcg-market';
   const p = parseFloat(document.getElementById(baseId[sel])?.value) || 0;
   const s = (id, v) => { const el = document.getElementById(id); if (el) el.value = v.toFixed(2); };
@@ -689,4 +664,239 @@ async function toggleSetUnlimited(setId, newVal, checkbox) {
     showToast('Failed: ' + e.message);
   }
   checkbox.disabled = false;
+}
+
+// ── Sync Sets — diff YGOPRODeck vs DB, present missing sets for import ─────────
+
+const YGOPRO = 'https://db.ygoprodeck.com/api/v7';
+const UNLIMITED_EXCEPTIONS = new Set(['POTE', 'ETCO']);
+
+function parseSetYear(tcgDate) {
+  if (!tcgDate) return null;
+  if (tcgDate.includes('/')) return tcgDate.split('/')[2] || null;
+  return tcgDate.split('-')[0] || null;
+}
+
+function inferHasUnlimited(setCode, year) {
+  if (UNLIMITED_EXCEPTIONS.has(setCode)) return true;
+  const yr = parseInt(year, 10);
+  return !isNaN(yr) && yr < 2020;
+}
+
+let _syncMissingSets = []; // [{set_name, set_code, num_of_cards, tcg_date, year}]
+
+async function openSyncSetsModal() {
+  const modal = document.getElementById('sync-sets-modal');
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  setSyncState('loading');
+
+  try {
+    // Fetch YGOPRODeck set list + our DB set codes in parallel
+    const [ygoRes, dbRes] = await Promise.all([
+      fetch(`${YGOPRO}/cardsets.php`),
+      fetch(`${SUPABASE_URL}/rest/v1/sets?select=set_code&limit=10000`, { headers: DB_HEADERS_RETURN }),
+    ]);
+    if (!ygoRes.ok) throw new Error('YGOPRODeck unavailable');
+    if (!dbRes.ok)  throw new Error('DB fetch failed');
+
+    const ygoSets  = await ygoRes.json();
+    const dbRows   = await dbRes.json();
+    const dbCodes  = new Set(dbRows.map(r => r.set_code));
+
+    _syncMissingSets = ygoSets
+      .filter(s => s.set_code?.trim() && !dbCodes.has(s.set_code.trim()))
+      .map(s => ({ ...s, set_code: s.set_code.trim(), year: parseSetYear(s.tcg_date) }))
+      .sort((a, b) => (b.tcg_date || '').localeCompare(a.tcg_date || '')); // newest first
+
+    if (_syncMissingSets.length === 0) {
+      setSyncState('uptodate');
+    } else {
+      setSyncState('results');
+      renderSyncList();
+    }
+  } catch (e) {
+    setSyncState('error', e.message);
+  }
+}
+
+function closeSyncSetsModal() {
+  document.getElementById('sync-sets-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function setSyncState(state, msg = '') {
+  document.getElementById('sync-loading').style.display  = state === 'loading'  ? 'flex'   : 'none';
+  document.getElementById('sync-uptodate').style.display = state === 'uptodate' ? 'block'  : 'none';
+  document.getElementById('sync-error').style.display    = state === 'error'    ? 'block'  : 'none';
+  document.getElementById('sync-results').style.display  = state === 'results'  ? 'block'  : 'none';
+  if (state === 'error') document.getElementById('sync-error').textContent = 'Error: ' + msg;
+}
+
+function renderSyncList() {
+  const count = _syncMissingSets.length;
+  document.getElementById('sync-missing-count').textContent =
+    `${count} set${count !== 1 ? 's' : ''} missing from your collection`;
+
+  const list = document.getElementById('sync-set-list');
+  list.innerHTML = _syncMissingSets.map((s, i) => `
+    <label class="sync-set-row" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--b1);cursor:pointer">
+      <input type="checkbox" class="sync-set-cb" data-idx="${i}" checked style="width:16px;height:16px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <span class="cinzel" style="font-size:0.8rem;color:var(--gold2)">${escHtml(s.set_code)}</span>
+        <span style="color:var(--txt);margin-left:8px;font-size:0.85rem">${escHtml(s.set_name)}</span>
+      </div>
+      <div style="text-align:right;flex-shrink:0;font-size:0.75rem;color:var(--muted)">
+        ${s.num_of_cards ? s.num_of_cards + ' cards' : ''}<br>
+        ${s.year ? s.year : ''}
+      </div>
+    </label>
+  `).join('');
+
+  updateSyncImportBtn();
+  list.querySelectorAll('.sync-set-cb').forEach(cb => cb.addEventListener('change', updateSyncImportBtn));
+}
+
+function updateSyncImportBtn() {
+  const checked = document.querySelectorAll('.sync-set-cb:checked').length;
+  const btn = document.getElementById('sync-import-btn');
+  btn.disabled = checked === 0;
+  btn.textContent = checked > 0 ? `Import ${checked} Set${checked !== 1 ? 's' : ''}` : 'Import Selected';
+}
+
+function syncSelectAll(select) {
+  document.querySelectorAll('.sync-set-cb').forEach(cb => cb.checked = select);
+  updateSyncImportBtn();
+}
+
+async function runSyncImport() {
+  const selected = [...document.querySelectorAll('.sync-set-cb:checked')]
+    .map(cb => _syncMissingSets[parseInt(cb.dataset.idx)]);
+
+  if (!selected.length) return;
+
+  const btn     = document.getElementById('sync-import-btn');
+  const prog    = document.getElementById('sync-progress');
+  const progBar = document.getElementById('sync-progress-fill');
+  const progTxt = document.getElementById('sync-progress-txt');
+  btn.disabled  = true;
+  prog.style.display = 'block';
+
+  const BATCH = 250;
+  let totalCards = 0, totalInv = 0, errors = [];
+
+  // Load existing card_numbers + inventory keys to avoid touching existing rows
+  progTxt.textContent = 'Loading existing DB state…';
+  progBar.style.width = '5%';
+
+  let existingCardNums, existingInvKeys;
+  try {
+    const [cnRes, invRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/cards?select=card_number,id&limit=50000`, { headers: DB_HEADERS_RETURN }),
+      fetch(`${SUPABASE_URL}/rest/v1/card_inventory?select=card_number,rarity&limit=50000`, { headers: DB_HEADERS_RETURN }),
+    ]);
+    if (!cnRes.ok || !invRes.ok) throw new Error('Failed to load existing DB state');
+    const cnRows  = await cnRes.json();
+    const invRows = await invRes.json();
+    existingCardNums = new Map(cnRows.map(r => [r.card_number, r.id]));
+    existingInvKeys  = new Set(invRows.map(r => `${r.card_number}|${r.rarity}`));
+  } catch (e) {
+    progTxt.textContent = 'Failed: ' + e.message;
+    btn.disabled = false;
+    return;
+  }
+
+  for (let si = 0; si < selected.length; si++) {
+    const s    = selected[si];
+    const pct  = 10 + Math.round((si / selected.length) * 80);
+    progBar.style.width = pct + '%';
+    progTxt.textContent = `Fetching ${s.set_code} — ${s.set_name}…`;
+
+    let setCards = [];
+    try {
+      const res = await fetch(`${YGOPRO}/cardinfo.php?cardset=${encodeURIComponent(s.set_name)}&tcgplayer_data=true`);
+      if (res.status === 400) { continue; } // no TCG cards
+      if (!res.ok) throw new Error(`YGOPRODeck returned ${res.status}`);
+      const data = await res.json();
+      setCards = data.data || [];
+    } catch (e) {
+      errors.push(`${s.set_code}: ${e.message}`);
+      continue;
+    }
+
+    if (!setCards.length) continue;
+
+    const year         = s.year;
+    const hasUnlimited = inferHasUnlimited(s.set_code, year);
+
+    const setRows  = [{ set_code: s.set_code, set_name: s.set_name, year, has_first_ed: true, has_unlimited: hasUnlimited }];
+    const cardRows = [];
+    const invRows  = [];
+
+    for (const card of setCards) {
+      const apiId    = String(card.id);
+      const cardName = card.name;
+      const entries  = (card.card_sets || []).filter(e => e.set_code?.trim() === s.set_code);
+
+      for (const entry of entries) {
+        const cardNumber = entry.set_code?.trim();
+        const rarity     = entry.set_rarity?.trim();
+        if (!cardNumber || !rarity) continue;
+
+        if (!existingCardNums.has(cardNumber)) {
+          const newId = crypto.randomUUID();
+          cardRows.push({ id: newId, card_number: cardNumber, card_name: cardName, set_name: s.set_name, year, api_id: apiId });
+          existingCardNums.set(cardNumber, newId);
+        }
+
+        const invKey = `${cardNumber}|${rarity}`;
+        if (!existingInvKeys.has(invKey)) {
+          invRows.push({
+            id: crypto.randomUUID(),
+            card_id: existingCardNums.get(cardNumber),
+            card_number: cardNumber, card_name: cardName, set_name: s.set_name, rarity,
+            qty_fe_nm: 0, qty_fe_lp: 0, qty_fe_mp: 0,
+            qty_un_nm: 0, qty_un_lp: 0, qty_un_mp: 0,
+            qty_binder_fe_nm: 0, qty_binder_un_nm: 0,
+            listed: false, needs_review: false,
+          });
+          existingInvKeys.add(invKey);
+          totalInv++;
+        }
+      }
+      totalCards += cardRows.length ? 1 : 0;
+    }
+
+    const ignore = { ...DB_HEADERS, 'Prefer': 'resolution=ignore-duplicates,return=minimal' };
+
+    async function insertBatch(table, rows) {
+      for (let i = 0; i < rows.length; i += BATCH) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+          method: 'POST', headers: ignore, body: JSON.stringify(rows.slice(i, i + BATCH)),
+        });
+        if (!res.ok) throw new Error(`INSERT ${table}: ${await res.text()}`);
+      }
+    }
+
+    try {
+      progTxt.textContent = `Saving ${s.set_code}… (${setCards.length} cards)`;
+      await insertBatch('sets', setRows);
+      if (cardRows.length) await insertBatch('cards', cardRows);
+      if (invRows.length)  await insertBatch('card_inventory', invRows);
+    } catch (e) {
+      errors.push(`${s.set_code} save failed: ${e.message}`);
+    }
+
+    await new Promise(r => setTimeout(r, 200)); // respect YGOPRODeck rate limits
+  }
+
+  progBar.style.width = '100%';
+  const errMsg = errors.length ? `\n⚠ ${errors.length} error(s): ${errors.join('; ')}` : '';
+  progTxt.textContent = `Done — ${totalInv} new inventory rows added.${errMsg}`;
+
+  // Refresh sets cache so the Sets modal shows the new entries
+  _allSets = [];
+
+  btn.disabled = false;
+  btn.textContent = 'Done ✓';
 }

@@ -193,7 +193,7 @@
         </select>
         <button id="col-export-btn" class="btn btn-secondary btn-sm" style="white-space:nowrap">Export CSV</button>
         <button id="col-add-btn" class="btn btn-primary btn-sm" data-mode="owner" style="white-space:nowrap">+ Add Card</button>
-        <button id="col-sync-sets-btn" class="btn btn-secondary btn-sm" data-mode="owner" style="white-space:nowrap" onclick="refreshSets()">&#8635; Sync Sets</button>
+        <button id="col-sync-sets-btn" class="btn btn-secondary btn-sm" data-mode="owner" style="white-space:nowrap" onclick="openSyncSetsModal()">&#8635; Sync Sets</button>
         <button id="col-sets-btn" class="btn btn-secondary btn-sm" data-mode="owner" style="white-space:nowrap">&#9881; Sets</button>
       </div>
       <div class="table-wrap">
@@ -207,19 +207,15 @@
               <th data-sort="set_name">Set <span class="sort-arrow"> ↕</span></th>
               <th data-sort="tcg_price_cad">TCG Market (CAD) <span class="sort-arrow"> ↕</span></th>
               <th data-sort="tcg_low_price">TCG Low <span class="sort-arrow"> ↕</span></th>
-              <th data-sort="hr_tcg_price" style="color:var(--purple)">HR TCG <span class="sort-arrow"> ↕</span></th>
-              <th data-sort="hr_tcg_low_price" style="color:var(--purple)">HR TCG Low <span class="sort-arrow"> ↕</span></th>
-              <th style="color:var(--purple)">HR eBay</th>
               <th data-sort="acquisition_cost">Cost In <span class="sort-arrow"> ↕</span></th>
               <th data-sort="location">Location <span class="sort-arrow"> ↕</span></th>
-              <th>Reg Qty</th>
-              <th>HR Qty</th>
+              <th>Qty</th>
               <th>Listed</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="col-tbody">
-            <tr><td colspan="17" class="muted text-center" style="padding:24px">Loading collection…</td></tr>
+            <tr><td colspan="13" class="muted text-center" style="padding:24px">Loading collection…</td></tr>
           </tbody>
         </table>
       </div>
@@ -673,6 +669,51 @@
     </div>
   </div>
 
+  <!-- ─── SYNC SETS MODAL ──────────────────────────────────────────────────── -->
+  <div id="sync-sets-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeSyncSetsModal()">
+    <div class="modal-box" style="max-width:700px;max-height:92vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-shrink:0">
+        <div class="modal-title" style="margin:0;flex:1">Sync Sets from YGOPRODeck</div>
+        <button class="btn btn-ghost btn-sm" onclick="closeSyncSetsModal()">✕</button>
+      </div>
+
+      <!-- Loading -->
+      <div id="sync-loading" style="display:flex;align-items:center;gap:12px;padding:32px 0;color:var(--muted)">
+        <div class="spinner"></div> Comparing YGOPRODeck against your collection…
+      </div>
+
+      <!-- Up to date -->
+      <div id="sync-uptodate" style="display:none;padding:24px 0;text-align:center;color:var(--green)">
+        ✅ Your collection is up to date — no missing sets found.
+      </div>
+
+      <!-- Error -->
+      <div id="sync-error" style="display:none;padding:16px 0;color:var(--red);font-size:0.9rem"></div>
+
+      <!-- Results -->
+      <div id="sync-results" style="display:none;flex:1;overflow:hidden;display:none;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-shrink:0">
+          <span id="sync-missing-count" class="cinzel" style="color:var(--yellow);font-size:0.9rem"></span>
+          <div style="margin-left:auto;display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="syncSelectAll(true)">All</button>
+            <button class="btn btn-ghost btn-sm" onclick="syncSelectAll(false)">None</button>
+          </div>
+        </div>
+        <div id="sync-set-list" style="overflow-y:auto;flex:1;margin-bottom:12px"></div>
+        <div id="sync-progress" style="display:none;margin-bottom:10px">
+          <div style="background:var(--b1);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px">
+            <div id="sync-progress-fill" style="height:100%;background:var(--gold);width:0%;transition:width 0.3s"></div>
+          </div>
+          <div id="sync-progress-txt" style="font-size:0.8rem;color:var(--muted)"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
+          <button class="btn btn-ghost" onclick="closeSyncSetsModal()">Cancel</button>
+          <button id="sync-import-btn" class="btn btn-primary" disabled onclick="runSyncImport()">Import Selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ─── SETS MODAL ─────────────────────────────────────────────────────── -->
   <div id="sets-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeSetsModal()">
     <div class="modal-box" style="max-width:680px;max-height:92vh;display:flex;flex-direction:column">
@@ -789,10 +830,6 @@
             <option>Prismatic Ultimate Rare</option>
           </select>
         </div>
-        <div id="edit-hr-qty-row" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="form-group"><label class="form-label">HR NM Qty</label><input id="edit-hr-qty-nm" class="input" type="text" inputmode="numeric" value="0"></div>
-          <div class="form-group"><label class="form-label">HR LP Qty</label><input id="edit-hr-qty-lp" class="input" type="text" inputmode="numeric" value="0"></div>
-        </div>
       </div>
 
       <!-- Prices -->
@@ -811,28 +848,6 @@
             <label class="form-label">TCGPlayer Market $</label>
             <input id="edit-tcg-market" class="input" type="number" step="0.01" min="0" placeholder="0.00">
           </div>
-          <div class="form-group">
-            <label class="form-label">eBay Low $</label>
-            <input id="edit-ebay-low" class="input" type="number" step="0.01" min="0" placeholder="0.00">
-          </div>
-          <div class="form-group">
-            <label class="form-label">eBay Last Sold $</label>
-            <input id="edit-ebay-sold" class="input" type="number" step="0.01" min="0" placeholder="0.00">
-          </div>
-        </div>
-        <!-- HR prices — manual entry since YGOPRODeck doesn't carry set-level prices for high-value rarities -->
-        <div id="edit-hr-prices-row" style="display:none;margin-bottom:14px">
-          <div class="form-label" style="color:var(--purple);margin-bottom:6px">★ High Rarity Prices <span style="font-weight:400;font-size:0.75rem;color:var(--muted)">(enter manually from TCGPlayer)</span></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div class="form-group">
-              <label class="form-label">HR TCGPlayer Market $</label>
-              <input id="edit-hr-tcg" class="input" type="number" step="0.01" min="0" placeholder="0.00">
-            </div>
-            <div class="form-group">
-              <label class="form-label">HR eBay Low $</label>
-              <input id="edit-hr-ebay" class="input" type="number" step="0.01" min="0" placeholder="0.00">
-            </div>
-          </div>
         </div>
         <!-- Listing condition prices -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -842,8 +857,6 @@
             <select id="edit-price-base" class="input" style="padding:4px 6px;font-size:0.8rem;width:auto">
               <option value="tcg-low">TCG Low</option>
               <option value="tcg-market" selected>TCG Market</option>
-              <option value="ebay-low">eBay Low</option>
-              <option value="ebay-sold">eBay Sold</option>
             </select>
             <button class="btn btn-ghost btn-sm" onclick="editAutoFillPrices()">Auto-fill ↓</button>
           </div>
