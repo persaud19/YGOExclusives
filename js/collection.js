@@ -729,7 +729,8 @@ function setSyncState(state, msg = '') {
   document.getElementById('sync-loading').style.display  = state === 'loading'  ? 'flex'   : 'none';
   document.getElementById('sync-uptodate').style.display = state === 'uptodate' ? 'block'  : 'none';
   document.getElementById('sync-error').style.display    = state === 'error'    ? 'block'  : 'none';
-  document.getElementById('sync-results').style.display  = state === 'results'  ? 'block'  : 'none';
+  document.getElementById('sync-results').style.display  = state === 'results'  ? 'flex'   : 'none';
+  if (state === 'results') document.getElementById('sync-results').style.flexDirection = 'column';
   if (state === 'error') document.getElementById('sync-error').textContent = 'Error: ' + msg;
 }
 
