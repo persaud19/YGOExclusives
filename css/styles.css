@@ -637,12 +637,15 @@ select.input { cursor: pointer; appearance: none;
 }
 
 /* ─── Inventory Grid (Excel-style) ─────────────────────────────────────────── */
-.inv-table-wrap { overflow-x: auto; margin-top: 4px; }
+.inv-table-wrap { overflow-x: auto; margin-top: 4px; max-height: calc(100vh - 180px); overflow-y: auto; }
 
 .inv-table { width: 100%; border-collapse: collapse; font-size: 1.5rem; white-space: nowrap; }
 
 .inv-table thead th {
   background: var(--surf2);
+  position: sticky;
+  top: 0;
+  z-index: 10;
   padding: 8px 10px;
   font-family: 'Cinzel', serif;
   font-size: 1.1rem;
@@ -667,8 +670,9 @@ select.input { cursor: pointer; appearance: none;
                        font-size: .7rem !important; letter-spacing: .08em;
                        text-transform: uppercase; padding-bottom: 2px !important;
                        border-bottom: 1px solid var(--b2); }
+.inv-thead-group th  { top: 0; }
 .inv-thead-sub th    { font-size: .72rem !important; color: var(--muted) !important;
-                       padding-top: 2px !important; }
+                       padding-top: 2px !important; top: 38px; }
 
 .inv-table td {
   padding: 5px 8px;

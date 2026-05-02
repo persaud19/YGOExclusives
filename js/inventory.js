@@ -211,8 +211,8 @@ function buildCardRow(card) {
     <td class="inv-td-alt">
       <input type="checkbox" class="inv-alt-check" data-card="${card.id}" ${hasAlt ? 'checked' : ''} title="Has alternate art">
     </td>
-    ${buildQtyCell('alt_fe_nm', altFeNm, card.id, 8, true, !hasAlt).replace('inv-qty-cell', `inv-qty-cell inv-td-alt-qty${hasAlt ? '' : ' inv-alt-hidden'}`).replace('>', ` id="alt-cells-fe-${card.id}">`)}
-    ${buildQtyCell('alt_un_nm', altUnNm, card.id, 9, false, !hasAlt || !card.has_unlimited).replace('inv-qty-cell', `inv-qty-cell inv-td-alt-qty${hasAlt ? '' : ' inv-alt-hidden'}`).replace('>', ` id="alt-cells-un-${card.id}">`)}
+    ${buildAltCell('alt_fe_nm', altFeNm, card.id, 8, hasAlt)}
+    ${buildAltCell('alt_un_nm', altUnNm, card.id, 9, hasAlt, !card.has_unlimited)}
     <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + binderFe + binderUn + altFeNm + altUnNm}</td>
     <td class="inv-td-review">
       <input type="checkbox" class="inv-review-check" data-card="${card.id}" ${card.needs_review ? 'checked' : ''} title="Flag for review">
@@ -230,6 +230,15 @@ function buildQtyCell(field, val, cardId, colIdx, groupStart, disabled = false) 
     <td class="inv-qty-cell${groupStart ? ' inv-qty-group-start' : ''}${disabled ? ' inv-qty-disabled' : ''}">
       <input class="inv-qty-input" type="text" inputmode="numeric" pattern="[0-9]*"
              value="${val}" data-field="${field}" data-card="${cardId}" data-col-idx="${colIdx}" ${dis}>
+    </td>`;
+}
+
+function buildAltCell(field, val, cardId, colIdx, hasAlt, disabled = false) {
+  const off = !hasAlt || disabled;
+  return `
+    <td class="inv-qty-cell inv-qty-group-start inv-td-alt-qty${off ? ' inv-alt-hidden' : ''}" id="alt-cells-${field === 'alt_fe_nm' ? 'fe' : 'un'}-${cardId}">
+      <input class="inv-qty-input" type="text" inputmode="numeric" pattern="[0-9]*"
+             value="${val}" data-field="${field}" data-card="${cardId}" data-col-idx="${colIdx}" ${off ? 'disabled' : ''}>
     </td>`;
 }
 
@@ -279,8 +288,17 @@ function wireRowEvents(tr, cardId) {
       const on = altCheck.checked;
       const feTd = document.getElementById(`alt-cells-fe-${cardId}`);
       const unTd = document.getElementById(`alt-cells-un-${cardId}`);
-      if (feTd) { feTd.classList.toggle('inv-alt-hidden', !on); feTd.querySelector('.inv-qty-input').disabled = !on; }
-      if (unTd) { unTd.classList.toggle('inv-alt-hidden', !on); unTd.querySelector('.inv-qty-input').disabled = !on || tr.dataset.hasUnlimited === 'false'; }
+      if (feTd) {
+        feTd.classList.toggle('inv-alt-hidden', !on);
+        feTd.classList.remove('inv-qty-disabled');
+        feTd.querySelector('.inv-qty-input').disabled = !on;
+      }
+      if (unTd) {
+        const unlimDisabled = tr.dataset.hasUnlimited === 'false';
+        unTd.classList.toggle('inv-alt-hidden', !on);
+        if (!unlimDisabled) unTd.classList.remove('inv-qty-disabled');
+        unTd.querySelector('.inv-qty-input').disabled = !on || unlimDisabled;
+      }
       try { await updateCard({ id: cardId, has_alt_art: on }); } catch (_) {}
     });
   }
