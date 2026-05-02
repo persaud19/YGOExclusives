@@ -180,6 +180,9 @@ function buildCardRow(card) {
   const unMp      = card.un_mp         || 0;
   const binderFe  = card.binder_fe_nm  || 0;
   const binderUn  = card.binder_un_nm  || 0;
+  const altFeNm   = card.alt_fe_nm     || 0;
+  const altUnNm   = card.alt_un_nm     || 0;
+  const hasAlt    = card.has_alt_art   || false;
 
   tr.innerHTML = `
     <td class="inv-td-check">
@@ -205,7 +208,12 @@ function buildCardRow(card) {
     <td class="inv-td-total" id="un-total-${card.id}">${unNm + unLp + unMp}</td>
     ${buildQtyCell('binder_fe_nm', binderFe, card.id, 6, true)}
     ${buildQtyCell('binder_un_nm', binderUn, card.id, 7, false, !card.has_unlimited)}
-    <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + binderFe + binderUn}</td>
+    <td class="inv-td-alt">
+      <input type="checkbox" class="inv-alt-check" data-card="${card.id}" ${hasAlt ? 'checked' : ''} title="Has alternate art">
+    </td>
+    ${buildQtyCell('alt_fe_nm', altFeNm, card.id, 8, true, !hasAlt).replace('inv-qty-cell', `inv-qty-cell inv-td-alt-qty${hasAlt ? '' : ' inv-alt-hidden'}`).replace('>', ` id="alt-cells-fe-${card.id}">`)}
+    ${buildQtyCell('alt_un_nm', altUnNm, card.id, 9, false, !hasAlt || !card.has_unlimited).replace('inv-qty-cell', `inv-qty-cell inv-td-alt-qty${hasAlt ? '' : ' inv-alt-hidden'}`).replace('>', ` id="alt-cells-un-${card.id}">`)}
+    <td class="inv-td-total-end" id="all-total-${card.id}">${feNm + feLp + feMp + unNm + unLp + unMp + binderFe + binderUn + altFeNm + altUnNm}</td>
     <td class="inv-td-review">
       <input type="checkbox" class="inv-review-check" data-card="${card.id}" ${card.needs_review ? 'checked' : ''} title="Flag for review">
     </td>
@@ -264,6 +272,19 @@ function wireRowEvents(tr, cardId) {
     });
   }
 
+  // Alt Art checkbox — toggle alt qty fields visibility
+  const altCheck = tr.querySelector('.inv-alt-check');
+  if (altCheck) {
+    altCheck.addEventListener('change', async () => {
+      const on = altCheck.checked;
+      const feTd = document.getElementById(`alt-cells-fe-${cardId}`);
+      const unTd = document.getElementById(`alt-cells-un-${cardId}`);
+      if (feTd) { feTd.classList.toggle('inv-alt-hidden', !on); feTd.querySelector('.inv-qty-input').disabled = !on; }
+      if (unTd) { unTd.classList.toggle('inv-alt-hidden', !on); unTd.querySelector('.inv-qty-input').disabled = !on || tr.dataset.hasUnlimited === 'false'; }
+      try { await updateCard({ id: cardId, has_alt_art: on }); } catch (_) {}
+    });
+  }
+
   // Needs Review checkbox
   const reviewCheck = tr.querySelector('.inv-review-check');
   if (reviewCheck) {
@@ -287,9 +308,10 @@ function updateRowTotals(tr, cardId) {
   const feSum     = v('fe_nm') + v('fe_lp') + v('fe_mp');
   const unSum     = v('un_nm') + v('un_lp') + v('un_mp');
   const binderSum = v('binder_fe_nm') + v('binder_un_nm');
+  const altSum    = v('alt_fe_nm') + v('alt_un_nm');
   if (feEl)  feEl.textContent  = feSum;
   if (unEl)  unEl.textContent  = unSum;
-  if (allEl) allEl.textContent = feSum + unSum + binderSum;
+  if (allEl) allEl.textContent = feSum + unSum + binderSum + altSum;
 }
 
 function scheduleSave(cardId, tr) {
@@ -319,6 +341,8 @@ async function doSave(cardId, tr) {
     un_mp:         firstEdOnly ? 0 : getVal('un_mp'),
     binder_fe_nm:  getVal('binder_fe_nm'),
     binder_un_nm:  firstEdOnly ? 0 : getVal('binder_un_nm'),
+    alt_fe_nm:     tr.querySelector('.inv-alt-check')?.checked ? getVal('alt_fe_nm') : 0,
+    alt_un_nm:     tr.querySelector('.inv-alt-check')?.checked && !firstEdOnly ? getVal('alt_un_nm') : 0,
     needs_review:  !!(tr.querySelector('.inv-review-check')?.checked),
   };
 

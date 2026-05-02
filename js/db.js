@@ -108,6 +108,9 @@ async function getCardsBySet(setCode) {
     un_nm:            r.qty_un_nm,    un_lp: r.qty_un_lp,    un_mp: r.qty_un_mp,
     binder_fe_nm:     r.qty_binder_fe_nm,
     binder_un_nm:     r.qty_binder_un_nm,
+    has_alt_art:      r.has_alt_art,
+    alt_fe_nm:        r.qty_alt_fe_nm,
+    alt_un_nm:        r.qty_alt_un_nm,
     tcg_market_price: r.tcg_price,
     tcg_price_cad:    r.tcg_price_cad,
     acquisition_cost: r.acquisition_cost,
@@ -196,6 +199,7 @@ async function updateCard(card) {
     fe_nm: 'qty_fe_nm', fe_lp: 'qty_fe_lp', fe_mp: 'qty_fe_mp',
     un_nm: 'qty_un_nm', un_lp: 'qty_un_lp', un_mp: 'qty_un_mp',
     binder_fe_nm: 'qty_binder_fe_nm', binder_un_nm: 'qty_binder_un_nm',
+    alt_fe_nm: 'qty_alt_fe_nm', alt_un_nm: 'qty_alt_un_nm',
     tcg_market_price: 'tcg_price',
   };
   const drop = new Set(['higher_rarity','hr_fe_nm','hr_fe_lp','hr_qty_nm','hr_qty_lp',

@@ -26,16 +26,30 @@ function initReports() {
   loadReports();
 }
 
+function refreshReports() {
+  const btn = document.getElementById('refresh-reports-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Refreshing…'; }
+
+  const ids = ['report-stats','report-inv-overview','report-set-value','report-high-value',
+               'report-high-qty','report-monthly-pl','report-price-movers','report-weekly-ai'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '<p class="muted small">Loading…</p>';
+  });
+
+  _reportsCadRate = null;
+  loadReports().finally(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '⟳ Refresh Reports'; }
+  });
+}
+
 async function loadReports() {
-  // Fetch CAD rate and sales first (fast), then render each section independently
-  // so one failing section doesn't kill the whole page.
   const cadRate = await getReportsCadRate().catch(() => 1.38);
   const sales   = await getMonthlySales().catch(() => []);
 
   renderSummaryStats(sales);
   renderMonthlyPL(sales);
 
-  // Remaining sections run in parallel, each isolated
   const run = async (fetchFn, renderFn, containerId, ...args) => {
     try {
       const data = await fetchFn();
@@ -52,7 +66,8 @@ async function loadReports() {
     run(getHighValueUnlisted,     renderHighValueUnlisted,  'report-high-value',   cadRate),
     run(getHighQtyUnlisted,       renderHighQtyUnlisted,    'report-high-qty',     cadRate),
     run(getSetValueRows,          renderSetValue,           'report-set-value',    cadRate),
-    run(getPriceMovers,           renderPriceMovers,        'report-price-movers'),
+    loadPriceMovers('week'),
+    loadWeeklyReport(),
   ]);
 }
 
@@ -457,100 +472,281 @@ function renderSetValue(rows, cadRate) {
   }).join('');
 }
 
-// ─── Price Movers (from price_history — two most recent snapshots) ────────────
+// ─── Download utilities ───────────────────────────────────────────────────────
 
-async function getPriceMovers() {
-  // Find the two most recent distinct snapshot dates
-  const datesRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/price_history?select=snapshot_date&order=snapshot_date.desc&limit=2000`,
+function downloadTableCSV(filename, tableEl) {
+  if (!tableEl) return;
+  const rows = [...tableEl.querySelectorAll('tr')].map(tr =>
+    [...tr.querySelectorAll('th,td')]
+      .map(cell => `"${cell.textContent.trim().replace(/"/g, '""')}"`)
+      .join(',')
+  );
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function downloadText(filename, content, mime = 'text/plain') {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+window.dlReport = function(sectionId, filename) {
+  const table = document.querySelector(`#${sectionId} table`);
+  if (table) { downloadTableCSV(filename, table); return; }
+  const txt = document.querySelector(`#${sectionId} [data-dl-content]`);
+  if (txt) { downloadText(filename, txt.dataset.dlContent, 'text/markdown'); return; }
+  if (typeof showToast === 'function') showToast('No data to download — wait for report to load');
+};
+
+// ─── Price Movers (week / month / year toggle) ────────────────────────────────
+
+async function getPriceMovers(period) {
+  const daysMap = { week: 7, month: 30, year: 365 };
+  const days    = daysMap[period] || 7;
+
+  // Latest snapshot
+  const latestRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/price_history?select=snapshot_date&order=snapshot_date.desc&limit=1`,
     { headers: DB_HEADERS_RETURN }
   );
-  if (!datesRes.ok) return null;
+  if (!latestRes.ok) return null;
+  const latestRows = await latestRes.json();
+  if (!latestRows.length) return { hasData: false };
+  const latestDate = latestRows[0].snapshot_date;
 
-  const dateRows = await datesRes.json();
-  const dates    = [...new Set(dateRows.map(r => r.snapshot_date))].sort().reverse();
-  if (dates.length < 2) return { dates, hasData: dates.length > 0 };
+  // Nearest snapshot before the lookback target
+  const target = new Date(latestDate);
+  target.setDate(target.getDate() - days);
+  const targetStr = target.toISOString().split('T')[0];
 
-  const [latestDate, priorDate] = dates;
+  const priorRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/price_history?snapshot_date=lte.${targetStr}&select=snapshot_date&order=snapshot_date.desc&limit=1`,
+    { headers: DB_HEADERS_RETURN }
+  );
+  if (!priorRes.ok) return { hasData: true, latestDate, priorDate: null };
+  const priorRows = await priorRes.json();
+  if (!priorRows.length) return { hasData: true, latestDate, priorDate: null, noPrior: true };
+  const priorDate = priorRows[0].snapshot_date;
+
   const [recentRes, olderRes] = await Promise.all([
-    fetch(`${SUPABASE_URL}/rest/v1/price_history?snapshot_date=eq.${latestDate}&select=card_number,rarity,tcg_price&limit=10000`, { headers: DB_HEADERS_RETURN }),
-    fetch(`${SUPABASE_URL}/rest/v1/price_history?snapshot_date=eq.${priorDate}&select=card_number,rarity,tcg_price&limit=10000`,  { headers: DB_HEADERS_RETURN }),
+    fetch(`${SUPABASE_URL}/rest/v1/price_history?snapshot_date=eq.${latestDate}&select=card_number,card_name,rarity,tcg_low_price&limit=10000`, { headers: DB_HEADERS_RETURN }),
+    fetch(`${SUPABASE_URL}/rest/v1/price_history?snapshot_date=eq.${priorDate}&select=card_number,rarity,tcg_low_price&limit=10000`,           { headers: DB_HEADERS_RETURN }),
   ]);
   if (!recentRes.ok || !olderRes.ok) return null;
 
   return {
-    hasData:    true,
-    latestDate,
-    priorDate,
-    recent:     await recentRes.json(),
-    older:      await olderRes.json(),
+    hasData: true, latestDate, priorDate,
+    recent:  await recentRes.json(),
+    older:   await olderRes.json(),
   };
 }
 
-function renderPriceMovers(data) {
+async function loadPriceMovers(period) {
+  const container = document.getElementById('report-price-movers');
+  if (!container) return;
+  container.innerHTML = '<p class="muted small">Loading…</p>';
+  try {
+    const data = await getPriceMovers(period);
+    renderPriceMovers(data, period);
+  } catch (e) {
+    container.innerHTML = `<p class="red small">Error: ${e.message}</p>`;
+  }
+}
+
+window.switchPriceMovers = function(period) {
+  document.querySelectorAll('.pm-toggle-btn').forEach(b => {
+    b.style.background = b.dataset.period === period ? 'var(--gold)' : 'var(--b1)';
+    b.style.color      = b.dataset.period === period ? '#1a1530'     : 'var(--muted)';
+  });
+  loadPriceMovers(period);
+};
+
+function renderPriceMovers(data, period = 'week') {
   const container = document.getElementById('report-price-movers');
   if (!container) return;
 
+  const periodLabel = { week: '1 Week', month: '1 Month', year: '1 Year' };
+
+  const toggleHtml = `
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      ${['week','month','year'].map(p => `
+        <button class="pm-toggle-btn" data-period="${p}" onclick="switchPriceMovers('${p}')"
+          style="padding:4px 14px;border-radius:6px;border:none;cursor:pointer;font-size:0.78rem;font-weight:600;
+                 background:${p === period ? 'var(--gold)' : 'var(--b1)'};
+                 color:${p === period ? '#1a1530' : 'var(--muted)'}">
+          ${periodLabel[p]}
+        </button>`).join('')}
+      <button onclick="dlReport('report-price-movers','price-movers-${period}.csv')"
+        style="margin-left:auto;padding:4px 12px;border-radius:6px;border:1px solid var(--b2);
+               background:transparent;color:var(--muted);font-size:0.75rem;cursor:pointer">
+        Download CSV
+      </button>
+    </div>`;
+
   if (!data || !data.hasData) {
-    container.innerHTML = `<p class="muted small">Price history will appear here after the scheduled price run (1st and 15th of the month). Run the Bulk Price Updater at least twice to see movement.</p>`;
+    container.innerHTML = toggleHtml + `<p class="muted small">Run the Bulk Price Updater at least once to seed price history, then again next week to see movement.</p>`;
+    return;
+  }
+  if (data.noPrior || !data.priorDate) {
+    container.innerHTML = toggleHtml + `<p class="muted small">No snapshot found from ${periodLabel[period].toLowerCase()} ago yet — need more history. Latest snapshot: ${data.latestDate}.</p>`;
     return;
   }
   if (!data.recent?.length || !data.older?.length) {
-    container.innerHTML = `<p class="muted small">Only one price snapshot found (${data.dates?.[0] || '?'}). Need at least two snapshots to compare movement.</p>`;
+    container.innerHTML = toggleHtml + `<p class="muted small">Only one price snapshot found. Need at least two to compare movement.</p>`;
     return;
   }
 
-  // Build lookup of prior prices: "card_number|rarity" → tcg_price
   const priorMap = new Map();
   data.older.forEach(r => {
     const key = `${r.card_number}|${r.rarity || ''}`;
-    if (!priorMap.has(key)) priorMap.set(key, parseFloat(r.tcg_price) || 0);
+    if (!priorMap.has(key)) priorMap.set(key, parseFloat(r.tcg_low_price) || 0);
   });
 
-  // Calculate % change for each recent entry
-  const movers = data.recent
+  const allMovers = data.recent
     .map(r => {
       const key  = `${r.card_number}|${r.rarity || ''}`;
-      const now  = parseFloat(r.tcg_price) || 0;
+      const now  = parseFloat(r.tcg_low_price) || 0;
       const then = priorMap.get(key) || 0;
       if (now <= 0 || then <= 0) return null;
       const pct = ((now - then) / then) * 100;
-      return { card_number: r.card_number, rarity: r.rarity, now, then, pct };
+      if (Math.abs(pct) < 10) return null;
+      return { card_number: r.card_number, card_name: r.card_name, rarity: r.rarity, now, then, pct };
     })
-    .filter(r => r && Math.abs(r.pct) >= 15)
-    .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))
-    .slice(0, 30);
+    .filter(Boolean);
 
-  if (!movers.length) {
-    container.innerHTML = `<p class="muted small">No significant price moves (±15%) between ${data.priorDate} and ${data.latestDate}.</p>`;
+  const gainers = allMovers.filter(r => r.pct > 0).sort((a, b) => b.pct - a.pct).slice(0, 20);
+  const losers  = allMovers.filter(r => r.pct < 0).sort((a, b) => a.pct - b.pct).slice(0, 20);
+
+  if (!gainers.length && !losers.length) {
+    container.innerHTML = toggleHtml + `<p class="muted small">No significant price moves (±10%) between ${data.priorDate} and ${data.latestDate}.</p>`;
     return;
   }
 
-  container.innerHTML = `
-    <div class="muted small" style="margin-bottom:10px">Comparing ${data.priorDate} → ${data.latestDate}</div>
+  const mkTable = (rows, color) => rows.length === 0 ? '<p class="muted small">None this period.</p>' : `
     <div style="overflow-x:auto">
     <table style="width:100%">
-      <thead>
-        <tr>
-          <th>Card</th><th>Rarity</th><th>Prior (USD)</th><th>Now (USD)</th><th>Change</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Card</th><th>Rarity</th><th>Prior</th><th>Now</th><th>Change</th></tr></thead>
       <tbody>
-        ${movers.map(c => {
-          const up   = c.pct >= 0;
-          return `<tr>
-            <td>
-              <span class="cinzel" style="font-size:0.8rem;color:var(--muted)">${_e(c.card_number)}</span>
-            </td>
-            <td><span class="badge ${getRarityBadgeClass(c.rarity)}">${_e(c.rarity || '')}</span></td>
-            <td class="cinzel small muted">$${c.then.toFixed(2)}</td>
-            <td class="cinzel small">$${c.now.toFixed(2)}</td>
-            <td class="cinzel" style="color:${up ? 'var(--green)' : 'var(--red)'}">
-              ${up ? '+' : ''}${c.pct.toFixed(0)}%
-            </td>
-          </tr>`;
-        }).join('')}
+        ${rows.map(c => `<tr>
+          <td>
+            <span style="font-weight:500;font-size:0.85rem">${_e(c.card_name || c.card_number)}</span>
+            <span class="cinzel muted" style="font-size:0.68rem;display:block">${_e(c.card_number)}</span>
+          </td>
+          <td><span class="badge ${getRarityBadgeClass(c.rarity)}">${_e(c.rarity || '')}</span></td>
+          <td class="cinzel small muted">$${c.then.toFixed(2)}</td>
+          <td class="cinzel small">$${c.now.toFixed(2)}</td>
+          <td class="cinzel" style="color:${color};font-weight:700">${c.pct >= 0 ? '+' : ''}${c.pct.toFixed(0)}%</td>
+        </tr>`).join('')}
       </tbody>
-    </table>
+    </table></div>`;
+
+  container.innerHTML = `
+    ${toggleHtml}
+    <div class="muted small" style="margin-bottom:12px">${data.priorDate} → ${data.latestDate}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--green);margin-bottom:8px;letter-spacing:0.05em">GAINERS</div>
+        ${mkTable(gainers, 'var(--green)')}
+      </div>
+      <div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--red);margin-bottom:8px;letter-spacing:0.05em">LOSERS</div>
+        ${mkTable(losers, 'var(--red)')}
+      </div>
     </div>`;
+}
+
+// ─── Weekly AI Report ─────────────────────────────────────────────────────────
+
+async function loadWeeklyReport() {
+  const container = document.getElementById('report-weekly-ai');
+  if (!container) return;
+
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/weekly_reports?select=report_date,report_md&order=report_date.desc&limit=1`,
+      { headers: DB_HEADERS_RETURN }
+    );
+    if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+    const rows = await res.json();
+    if (!rows.length) {
+      container.innerHTML = '<p class="muted small">No weekly report yet — will appear here after the first Monday morning run.</p>';
+      return;
+    }
+    renderWeeklyReport(rows[0]);
+  } catch (e) {
+    container.innerHTML = `<p class="red small">Error loading report: ${e.message}</p>`;
+  }
+}
+
+function renderWeeklyReport(row) {
+  const container = document.getElementById('report-weekly-ai');
+  if (!container) return;
+
+  const md      = row.report_md || '';
+  const date    = row.report_date || '';
+  const html    = markdownToHtml(md);
+  const dlName  = `ygoexclusives-market-report-${date}.md`;
+
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <span class="muted small">Generated: ${date}</span>
+      <button onclick="dlReport('report-weekly-ai','${dlName}')"
+        style="padding:4px 12px;border-radius:6px;border:1px solid var(--b2);
+               background:transparent;color:var(--muted);font-size:0.75rem;cursor:pointer">
+        Download .md
+      </button>
+    </div>
+    <div data-dl-content="${_e(md)}" style="display:none"></div>
+    <div class="report-md-body">${html}</div>`;
+}
+
+// Minimal markdown → HTML (headings, bold, bullets, paragraphs, tables)
+function markdownToHtml(md) {
+  if (!md) return '';
+  let html = _e(md);
+
+  // Headings
+  html = html.replace(/^### (.+)$/gm, '<h4 style="color:var(--gold2);font-family:\'Cinzel\',serif;font-size:0.82rem;letter-spacing:0.06em;margin:18px 0 8px">$1</h4>');
+  html = html.replace(/^## (.+)$/gm,  '<h3 style="color:var(--gold2);font-family:\'Cinzel\',serif;font-size:0.88rem;letter-spacing:0.06em;margin:22px 0 10px">$1</h3>');
+  html = html.replace(/^# (.+)$/gm,   '<h2 style="color:var(--gold2);font-family:\'Cinzel\',serif;font-size:1rem;letter-spacing:0.06em;margin:0 0 14px">$1</h2>');
+
+  // Bold / italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g,     '<em>$1</em>');
+
+  // Horizontal rule
+  html = html.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--b2);margin:16px 0">');
+
+  // Tables (pipe-delimited) — basic support
+  html = html.replace(/((?:^\|.+\|\n)+)/gm, (block) => {
+    const rows = block.trim().split('\n').filter(l => !/^\|[-: |]+\|$/.test(l));
+    return '<div style="overflow-x:auto"><table style="width:100%;font-size:0.8rem">' +
+      rows.map((row, i) => {
+        const cells = row.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+        const tag   = i === 0 ? 'th' : 'td';
+        return '<tr>' + cells.map(c => `<${tag} style="padding:5px 8px">${c.trim()}</${tag}>`).join('') + '</tr>';
+      }).join('') +
+      '</table></div>';
+  });
+
+  // Bullet lists
+  html = html.replace(/((?:^[-*] .+\n?)+)/gm, (block) => {
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
+    return `<ul style="margin:6px 0 10px;padding-left:20px;line-height:1.7">${items}</ul>`;
+  });
+
+  // Paragraphs (double newline)
+  html = html.replace(/\n{2,}/g, '</p><p style="margin:0 0 10px;line-height:1.7">');
+  html = `<p style="margin:0 0 10px;line-height:1.7">${html}</p>`;
+  html = html.replace(/<p[^>]*>\s*(<(?:h[2-4]|ul|div|hr|table)[^>]*>)/g, '$1');
+  html = html.replace(/(<\/(?:h[2-4]|ul|div|hr|table)>)\s*<\/p>/g, '$1');
+  html = html.replace(/\n/g, ' ');
+
+  return html;
 }

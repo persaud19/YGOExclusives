@@ -30,7 +30,7 @@ async function lookupTcgLow(cardNumber, rarity, cadRate) {
   const params = new URLSearchParams({
     card_number: `eq.${cardNumber}`,
     rarity:      `eq.${rarity}`,
-    select:      'tcg_low_price,tcg_price_cad',
+    select:      'card_name,tcg_low_price,tcg_price_cad',
     limit:       1,
   });
   const res = await fetch(
@@ -43,7 +43,7 @@ async function lookupTcgLow(cardNumber, rarity, cadRate) {
   if (!row || !(parseFloat(row.tcg_low_price) > 0)) return null;
   const usd = parseFloat(row.tcg_low_price);
   const cad = row.tcg_price_cad ? parseFloat(row.tcg_price_cad) : +(usd * cadRate).toFixed(2);
-  return { usd, cad };
+  return { usd, cad, card_name: row.card_name || '' };
 }
 
 // ── Shipping cost ─────────────────────────────────────────────────────────────
@@ -142,6 +142,15 @@ async function runPricerCheck() {
 
     document.getElementById('pricer-cost').value      = '';
     document.getElementById('pricer-scale-pct').value = '80';
+
+    const banner = document.getElementById('pricer-card-name-banner');
+    if (banner && _pricerTcgLow.card_name) {
+      document.getElementById('pricer-card-name-text').textContent = _pricerTcgLow.card_name;
+      document.getElementById('pricer-card-rarity-text').textContent = `${cardNum} · ${rarity}`;
+      banner.style.display = '';
+    } else if (banner) {
+      banner.style.display = 'none';
+    }
 
     setPricerState('results');
     renderPricerResults();

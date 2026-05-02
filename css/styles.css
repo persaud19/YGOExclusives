@@ -718,17 +718,20 @@ select.input { cursor: pointer; appearance: none;
   white-space: nowrap;
   min-width: 60px;
 }
-.inv-td-review {
+.inv-td-review, .inv-td-alt {
   text-align: center;
   vertical-align: middle;
   padding: 0 8px;
 }
-.inv-review-check {
+.inv-review-check, .inv-alt-check {
   width: 26px;
   height: 26px;
   cursor: pointer;
   accent-color: var(--yellow);
 }
+.inv-alt-check { accent-color: var(--blue); }
+.inv-alt-hidden { opacity: 0.15; pointer-events: none; }
+.inv-td-alt-qty { padding: 0; }
 .inv-td-select { padding: 4px 6px; }
 .inv-td-status { width: 40px; text-align: center; padding: 0 6px; }
 
@@ -920,9 +923,49 @@ tr:hover td { background: var(--surf2); }
 .report-section h3 {
   font-size: 0.85rem;
   color: var(--gold2);
-  margin-bottom: 16px;
+  margin: 0;
   letter-spacing: 0.06em;
 }
+.report-section-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.rsh-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.rpt-dl-btn {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--b2);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rpt-dl-btn:hover { color: var(--txt); border-color: var(--gold); }
+.report-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+@media (max-width: 860px) {
+  .report-grid-2 { grid-template-columns: 1fr; }
+}
+.report-md-body {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--txt);
+}
+.report-md-body table { font-size: 0.78rem; }
 
 /* ─── Progress Bar ─────────────────────────────────────────────────────────── */
 .progress-wrap, .progress-bar-wrap { background: var(--b1); border-radius: 4px; height: 8px; overflow: hidden; }

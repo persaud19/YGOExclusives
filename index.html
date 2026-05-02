@@ -143,6 +143,8 @@
               <th colspan="4" class="inv-th-group-label inv-th-group-start">1st Edition</th>
               <th colspan="4" class="inv-th-group-label inv-th-group-start">Unlimited</th>
               <th colspan="2" class="inv-th-group-label inv-th-group-start">Binder</th>
+              <th rowspan="2" class="inv-th-alt" title="Alternate art toggle">Alt</th>
+              <th colspan="2" class="inv-th-group-label inv-th-group-start">Alt Art NM</th>
               <th rowspan="2" class="inv-th-total-end" title="Total across all editions &amp; conditions">Total</th>
               <th rowspan="2" class="inv-th-review">Review</th>
               <th class="inv-th-status" rowspan="2"></th>
@@ -158,6 +160,8 @@
               <th class="inv-th-total">∑</th>
               <th class="inv-th-qty inv-th-group-start">1st NM</th>
               <th class="inv-th-qty">Un NM</th>
+              <th class="inv-th-qty inv-th-group-start">1st</th>
+              <th class="inv-th-qty">Unl</th>
             </tr>
           </thead>
           <tbody id="inv-tbody"></tbody>
@@ -584,46 +588,75 @@
     <div class="tab-content">
 
       <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-        <button class="btn btn-secondary btn-sm" onclick="loadReports()">&#8635; Refresh Reports</button>
+        <button id="refresh-reports-btn" class="btn btn-secondary btn-sm" onclick="refreshReports()">&#8635; Refresh Reports</button>
+      </div>
+
+      <!-- Weekly AI Report (top of page) -->
+      <div class="report-section">
+        <div class="report-section-hdr">
+          <h3>Weekly Market Report <span class="muted small rsh-sub">(AI analysis · generated every Monday ~8:30am EST)</span></h3>
+        </div>
+        <div id="report-weekly-ai"><p class="muted small">Loading…</p></div>
       </div>
 
       <!-- Summary stat cards -->
       <div class="stat-grid" id="report-stats"></div>
 
-      <!-- Inventory Overview -->
-      <div class="report-section">
-        <h3>Inventory Overview <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(5/10/85 segmentation · valued at TCG Low CAD)</span></h3>
-        <div id="report-inv-overview"><p class="muted small">Loading…</p></div>
+      <!-- Row 1: Inventory Overview (2/3) + Set Value (1/3) -->
+      <div class="report-grid-2" style="grid-template-columns:2fr 1fr">
+
+        <div class="report-section" style="margin-bottom:0">
+          <div class="report-section-hdr">
+            <h3>Inventory Overview <span class="muted small rsh-sub">(5/10/85 · TCG Low CAD)</span></h3>
+          </div>
+          <div id="report-inv-overview"><p class="muted small">Loading…</p></div>
+        </div>
+
+        <div class="report-section" style="margin-bottom:0">
+          <div class="report-section-hdr">
+            <h3>Value by Set <span class="muted small rsh-sub">(top 10 · CAD)</span></h3>
+          </div>
+          <div id="report-set-value"><p class="muted small">Loading…</p></div>
+        </div>
+
       </div>
 
-      <!-- High Value Unlisted -->
+      <!-- Row 2: High Value Unlisted -->
       <div class="report-section">
-        <h3>Top 50 Highest Value — Unlisted <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(sorted by TCG Low · cards you own but haven't listed)</span></h3>
+        <div class="report-section-hdr">
+          <h3>Top 50 Highest Value — Unlisted <span class="muted small rsh-sub">(sorted by TCG Low · unlisted cards you own)</span></h3>
+          <button class="rpt-dl-btn" onclick="dlReport('report-high-value','high-value-unlisted.csv')">Download CSV</button>
+        </div>
         <div id="report-high-value"><p class="muted small">Loading…</p></div>
       </div>
 
-      <!-- High Qty Unlisted -->
+      <!-- Row 3: High Qty Unlisted -->
       <div class="report-section">
-        <h3>Top 50 Highest Quantity — Unlisted &amp; TCG Low &gt;$5 <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(most copies sitting unlisted above $5)</span></h3>
+        <div class="report-section-hdr">
+          <h3>Top 50 Highest Quantity — Unlisted &amp; TCG Low &gt;$5 <span class="muted small rsh-sub">(most copies sitting unlisted)</span></h3>
+          <button class="rpt-dl-btn" onclick="dlReport('report-high-qty','high-qty-unlisted.csv')">Download CSV</button>
+        </div>
         <div id="report-high-qty"><p class="muted small">Loading…</p></div>
       </div>
 
-      <!-- Monthly P&L -->
-      <div class="report-section">
-        <h3>Monthly P&amp;L</h3>
-        <div id="report-monthly-pl"><p class="muted small">Loading…</p></div>
-      </div>
+      <!-- Row 4: Monthly P&L + Price Movers side by side -->
+      <div class="report-grid-2">
 
-      <!-- Inventory Value by Set -->
-      <div class="report-section">
-        <h3>Inventory Value by Set <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(top 10 · TCG Low × qty, in CAD)</span></h3>
-        <div id="report-set-value"><p class="muted small">Loading…</p></div>
-      </div>
+        <div class="report-section" style="margin-bottom:0">
+          <div class="report-section-hdr">
+            <h3>Monthly P&amp;L</h3>
+            <button class="rpt-dl-btn" onclick="dlReport('report-monthly-pl','monthly-pl.csv')">Download CSV</button>
+          </div>
+          <div id="report-monthly-pl"><p class="muted small">Loading…</p></div>
+        </div>
 
-      <!-- Price Movers -->
-      <div class="report-section">
-        <h3>Price Movers <span class="muted small" style="font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0">(TCG Low ±15%+ between snapshots)</span></h3>
-        <div id="report-price-movers"><p class="muted small">Loading…</p></div>
+        <div class="report-section" style="margin-bottom:0">
+          <div class="report-section-hdr">
+            <h3>Price Movers <span class="muted small rsh-sub">(TCG Low ±10%)</span></h3>
+          </div>
+          <div id="report-price-movers"><p class="muted small">Loading…</p></div>
+        </div>
+
       </div>
 
     </div>
@@ -973,6 +1006,12 @@
 
       <!-- ── Results ─────────────────────────────────────────────────────── -->
       <div id="pricer-results" style="display:none">
+
+        <!-- Card name banner -->
+        <div id="pricer-card-name-banner" style="margin-bottom:14px;padding:10px 14px;background:var(--surf2);border-radius:8px;border-left:3px solid var(--gold);display:none">
+          <span id="pricer-card-name-text" class="cinzel" style="font-size:1.05rem;color:var(--gold2);font-weight:600"></span>
+          <span id="pricer-card-rarity-text" class="muted small" style="margin-left:10px"></span>
+        </div>
 
         <!-- TCG Low from DB -->
         <div id="pricer-tcglow-panel" class="pricer-market-panel" style="display:none">
