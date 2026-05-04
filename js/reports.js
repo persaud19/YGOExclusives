@@ -31,7 +31,8 @@ function refreshReports() {
   if (btn) { btn.disabled = true; btn.textContent = '⟳ Refreshing…'; }
 
   const ids = ['report-stats','report-inv-overview','report-set-value','report-high-value',
-               'report-high-qty','report-monthly-pl','report-price-movers','report-weekly-ai'];
+               'report-high-qty','report-monthly-pl','report-price-movers','report-weekly-ai',
+               'report-sets-in-inventory'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = '<p class="muted small">Loading…</p>';
@@ -66,6 +67,7 @@ async function loadReports() {
     run(getHighValueUnlisted,     renderHighValueUnlisted,  'report-high-value',   cadRate),
     run(getHighQtyUnlisted,       renderHighQtyUnlisted,    'report-high-qty',     cadRate),
     run(getSetValueRows,          renderSetValue,           'report-set-value',    cadRate),
+    run(getSetsInInventory,       renderSetsInInventory,    'report-sets-in-inventory'),
     loadPriceMovers('week'),
     loadWeeklyReport(),
   ]);
@@ -470,6 +472,86 @@ function renderSetValue(rows, cadRate) {
         <div class="muted small" style="margin-top:2px">${d.cards.toLocaleString()} priced print${d.cards !== 1 ? 'ings' : 'ing'}</div>
       </div>`;
   }).join('');
+}
+
+// ─── Sets in Inventory ────────────────────────────────────────────────────────
+
+async function getSetsInInventory() {
+  const all = [];
+  let offset = 0;
+  const PAGE = 1000;
+  while (true) {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/card_inventory` +
+      `?select=set_name,qty_total&limit=${PAGE}&offset=${offset}`,
+      { headers: DB_HEADERS_RETURN }
+    );
+    if (!res.ok) break;
+    const batch = await res.json();
+    all.push(...batch);
+    if (batch.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+
+function renderSetsInInventory(rows) {
+  const container = document.getElementById('report-sets-in-inventory');
+  if (!container) return;
+
+  if (!rows.length) {
+    container.innerHTML = '<p class="muted small">No inventory found.</p>';
+    return;
+  }
+
+  const sets = {};
+  rows.forEach(r => {
+    const name = r.set_name || '(Unknown)';
+    if (!sets[name]) sets[name] = { totalQty: 0 };
+    sets[name].totalQty += r.qty_total || 0;
+  });
+
+  const counted    = Object.entries(sets).filter(([, d]) => d.totalQty > 3).sort((a, b) => b[1].totalQty - a[1].totalQty);
+  const notCounted = Object.entries(sets).filter(([, d]) => d.totalQty === 0).sort((a, b) => a[0].localeCompare(b[0]));
+
+  const mkTable = (entries, color, emptyMsg) => {
+    if (!entries.length) return `<p class="muted small">${emptyMsg}</p>`;
+    return `
+      <div style="overflow-x:auto">
+      <table style="width:100%">
+        <thead>
+          <tr>
+            <th class="muted small" style="width:40px;text-align:center">#</th>
+            <th>Set Name</th>
+            <th style="text-align:center">Total Cards</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.map(([name, d], i) => `<tr>
+            <td class="muted small" style="text-align:center">${i + 1}</td>
+            <td style="font-weight:500">${_e(name)}</td>
+            <td class="cinzel" style="text-align:center;color:${color};font-weight:700;font-size:1.05rem">${d.totalQty.toLocaleString()}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      </div>`;
+  };
+
+  container.innerHTML = `
+    <div style="display:flex;gap:20px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="color:var(--green);font-size:0.82rem;font-weight:600">✓ ${counted.length} sets counted</span>
+      <span style="color:var(--red);font-size:0.82rem;font-weight:600">✗ ${notCounted.length} sets not counted</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--green);margin-bottom:8px;letter-spacing:0.05em">COUNTED (qty &gt; 3)</div>
+        ${mkTable(counted, 'var(--green)', 'No sets with more than 3 cards yet.')}
+      </div>
+      <div>
+        <div style="font-size:0.78rem;font-weight:600;color:var(--red);margin-bottom:8px;letter-spacing:0.05em">NOT COUNTED (qty = 0)</div>
+        ${mkTable(notCounted, 'var(--muted)', 'All sets have been counted!')}
+      </div>
+    </div>`;
 }
 
 // ─── Download utilities ───────────────────────────────────────────────────────
