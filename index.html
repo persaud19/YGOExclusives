@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>YGOExclusives</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a1035">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="YGOExclusives">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -621,6 +631,15 @@
 
       </div>
 
+      <!-- Sets in Inventory -->
+      <div class="report-section">
+        <div class="report-section-hdr">
+          <h3>Sets in Inventory <span class="muted small rsh-sub">(sets with &gt;3 cards · sorted by total qty)</span></h3>
+          <button class="rpt-dl-btn" onclick="dlReport('report-sets-in-inventory','sets-in-inventory.csv')">Download CSV</button>
+        </div>
+        <div id="report-sets-in-inventory"><p class="muted small">Loading…</p></div>
+      </div>
+
       <!-- Row 2: High Value Unlisted -->
       <div class="report-section">
         <div class="report-section-hdr">
@@ -1133,6 +1152,14 @@
 <script src="js/listing.js"></script>
 <script src="js/pricer.js"></script>
 <script src="js/app.js"></script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
 
 </body>
 </html>
