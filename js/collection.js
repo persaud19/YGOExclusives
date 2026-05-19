@@ -328,8 +328,8 @@ async function saveEditModal() {
   try {
     await updateCard(patch);
     showToast('Saved ✓');
+    await loadCollectionPage();
     closeEditModal();
-    loadCollectionPage();
   } catch (e) {
     showToast('Save failed: ' + e.message);
     saveBtn.disabled    = false;

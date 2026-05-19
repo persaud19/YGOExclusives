@@ -1406,6 +1406,12 @@ tr:hover td { background: var(--surf2); }
 }
 @keyframes pricer-spin { to { transform: rotate(360deg); } }
 
+@keyframes stampPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(212,175,55,0.7); }
+  60%  { box-shadow: 0 0 0 8px rgba(212,175,55,0); }
+  100% { box-shadow: 0 0 0 0 rgba(212,175,55,0); }
+}
+
 /* Error */
 .pricer-error-box {
   background: rgba(224,72,72,0.08);
