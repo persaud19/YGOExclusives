@@ -5,7 +5,6 @@ const saveTimers = {};
 const _editionShownSets = new Set();
 
 // ─── Sync missing cards ───────────────────────────────────────────────────────
-const YGOPRO = 'https://db.ygoprodeck.com/api/v7';
 let _syncPendingRows = null; // { cardRows, invRows } to insert on confirm
 
 async function openSyncMissingModal() {
