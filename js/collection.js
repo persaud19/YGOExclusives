@@ -645,6 +645,12 @@ function renderSets(sets) {
           <span class="toggle-track"></span>
         </label>
       </td>
+      <td style="padding:8px;text-align:right">
+        <button class="btn btn-ghost btn-sm" style="font-size:0.72rem;white-space:nowrap"
+          onclick="openFillGapsModal('${escHtml(s.set_code)}','${escHtml(s.set_name).replace(/'/g,"\\'")}')">
+          Fill Gaps
+        </button>
+      </td>
     </tr>`).join('');
 }
 
@@ -664,6 +670,167 @@ async function toggleSetUnlimited(setId, newVal, checkbox) {
     showToast('Failed: ' + e.message);
   }
   checkbox.disabled = false;
+}
+
+// ─── Fill Gaps ────────────────────────────────────────────────────────────────
+let _fillGapsPending = null;
+let _fillGapsMissing = [];
+
+async function openFillGapsModal(setCode, setName) {
+  const modal = document.getElementById('fill-gaps-modal');
+  document.getElementById('fill-gaps-title').textContent = `Fill Gaps — ${setCode}`;
+  document.getElementById('fill-gaps-sub').textContent   = setName;
+  document.getElementById('fill-gaps-summary').style.display  = 'none';
+  document.getElementById('fill-gaps-loading').style.display  = 'flex';
+  document.getElementById('fill-gaps-error').style.display    = 'none';
+  document.getElementById('fill-gaps-complete').style.display = 'none';
+  document.getElementById('fill-gaps-results').style.display  = 'none';
+  document.getElementById('fill-gaps-confirm-btn').style.display = 'none';
+  _fillGapsPending = null;
+  _fillGapsMissing = [];
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const [ygRes, invRes] = await Promise.all([
+      fetch(`${YGOPRO}/cardinfo.php?cardset=${encodeURIComponent(setName)}`),
+      fetch(`${SUPABASE_URL}/rest/v1/card_inventory?${new URLSearchParams({
+        card_number: `ilike.${setCode}-%`, select: 'card_number,rarity,card_id', limit: 2000,
+      })}`, { headers: DB_HEADERS_RETURN }),
+    ]);
+
+    if (ygRes.status === 400) throw new Error('Set not found on YGOPRODeck — the set name may differ');
+    if (!ygRes.ok)  throw new Error(`YGOPRODeck error ${ygRes.status}`);
+    if (!invRes.ok) throw new Error(`DB error ${invRes.status}`);
+
+    const ygData  = (await ygRes.json()).data || [];
+    const invData = await invRes.json();
+
+    const existingInvKeys  = new Set(invData.map(r => `${r.card_number}|${r.rarity}`));
+    const existingCardNums = new Map(invData.map(r => [r.card_number, r.card_id]));
+
+    let ygTotal = 0;
+    for (const card of ygData) {
+      const entries = (card.card_sets || []).filter(e =>
+        e.set_code?.toUpperCase().startsWith(setCode + '-') && e.set_name === setName
+      );
+      ygTotal += entries.length;
+      for (const entry of entries) {
+        const cardNumber = entry.set_code?.trim();
+        const rarity     = entry.set_rarity?.trim();
+        if (!cardNumber || !rarity) continue;
+        if (existingInvKeys.has(`${cardNumber}|${rarity}`)) continue;
+
+        let cardId = existingCardNums.get(cardNumber);
+        let cardRow = null;
+        if (!cardId) {
+          cardId = crypto.randomUUID();
+          cardRow = { id: cardId, card_number: cardNumber, card_name: card.name, set_name: setName, api_id: String(card.id) };
+          existingCardNums.set(cardNumber, cardId);
+        }
+        _fillGapsMissing.push({
+          cardNumber, cardName: card.name, rarity, cardRow,
+          invRow: {
+            id: crypto.randomUUID(), card_id: cardId,
+            card_number: cardNumber, card_name: card.name, set_name: setName, rarity,
+            qty_fe_nm: 0, qty_fe_lp: 0, qty_fe_mp: 0,
+            qty_un_nm: 0, qty_un_lp: 0, qty_un_mp: 0,
+            qty_binder_fe_nm: 0, qty_binder_un_nm: 0,
+            listed: false, needs_review: false,
+          },
+        });
+      }
+    }
+
+    document.getElementById('fill-gaps-loading').style.display = 'none';
+
+    const inDb = ygTotal - _fillGapsMissing.length;
+    const summary = document.getElementById('fill-gaps-summary');
+    summary.style.display = '';
+    summary.innerHTML = `
+      <span style="color:var(--green)">✓ ${inDb.toLocaleString()} entr${inDb === 1 ? 'y' : 'ies'} in your DB</span>
+      <span style="color:var(--dim);margin:0 8px">·</span>
+      <span style="color:var(--yellow)">${_fillGapsMissing.length.toLocaleString()} missing</span>
+      <span style="color:var(--dim);margin:0 8px">·</span>
+      <span style="color:var(--muted)">${ygTotal.toLocaleString()} total on YGOPRODeck</span>`;
+
+    if (!_fillGapsMissing.length) {
+      const el = document.getElementById('fill-gaps-complete');
+      el.textContent = `✓ ${setCode} is complete — all YGOPRODeck entries are already in your database.`;
+      el.style.display = 'block';
+      return;
+    }
+
+    _renderFillGapsList();
+    document.getElementById('fill-gaps-results').style.display = 'flex';
+    _updateFillGapsBtn();
+  } catch (e) {
+    document.getElementById('fill-gaps-loading').style.display = 'none';
+    const el = document.getElementById('fill-gaps-error');
+    el.textContent = 'Error: ' + e.message;
+    el.style.display = 'block';
+  }
+}
+
+function _renderFillGapsList() {
+  document.getElementById('fill-gaps-count').textContent =
+    `${_fillGapsMissing.length} missing entr${_fillGapsMissing.length === 1 ? 'y' : 'ies'}`;
+  document.getElementById('fill-gaps-tbody').innerHTML = _fillGapsMissing.map((m, i) => `
+    <tr style="border-bottom:1px solid var(--b1)">
+      <td style="padding:5px 8px;text-align:center">
+        <input type="checkbox" class="fill-gap-cb" data-idx="${i}" checked
+          style="width:14px;height:14px" onchange="_updateFillGapsBtn()">
+      </td>
+      <td style="padding:5px 8px;color:var(--muted);white-space:nowrap;font-size:0.78rem">${escHtml(m.cardNumber)}</td>
+      <td style="padding:5px 8px;font-weight:500">${escHtml(m.cardName)}</td>
+      <td style="padding:5px 8px;white-space:nowrap">
+        <span class="badge ${getRarityBadgeClass(m.rarity)}" style="font-size:0.65rem">${escHtml(m.rarity)}</span>
+      </td>
+    </tr>`).join('');
+}
+
+function fillGapsSelectAll(val) {
+  document.querySelectorAll('.fill-gap-cb').forEach(cb => cb.checked = val);
+  _updateFillGapsBtn();
+}
+
+function _updateFillGapsBtn() {
+  const checked = document.querySelectorAll('.fill-gap-cb:checked').length;
+  const btn = document.getElementById('fill-gaps-confirm-btn');
+  btn.style.display = checked > 0 ? '' : 'none';
+  btn.textContent   = `Add ${checked} Card${checked !== 1 ? 's' : ''}`;
+}
+
+function closeFillGapsModal() {
+  document.getElementById('fill-gaps-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  _fillGapsMissing = [];
+  _fillGapsPending = null;
+}
+
+async function confirmFillGaps() {
+  const selected = [...document.querySelectorAll('.fill-gap-cb:checked')]
+    .map(cb => _fillGapsMissing[parseInt(cb.dataset.idx)]);
+  if (!selected.length) return;
+
+  const btn = document.getElementById('fill-gaps-confirm-btn');
+  btn.disabled    = true;
+  btn.textContent = 'Adding…';
+
+  const cardRows = selected.filter(m => m.cardRow).map(m => m.cardRow);
+  const invRows  = selected.map(m => m.invRow);
+
+  try {
+    for (let i = 0; i < cardRows.length; i += 250) await dbUpsert('cards', cardRows.slice(i, i + 250));
+    for (let i = 0; i < invRows.length;  i += 250) await dbUpsert('card_inventory', invRows.slice(i, i + 250));
+    showToast(`Added ${invRows.length} card${invRows.length !== 1 ? 's' : ''} ✓`);
+    closeFillGapsModal();
+    loadCollectionPage();
+  } catch (e) {
+    btn.disabled    = false;
+    btn.textContent = 'Retry';
+    showToast('Failed: ' + e.message);
+  }
 }
 
 // ── Sync Sets — diff YGOPRODeck vs DB, present missing sets for import ─────────

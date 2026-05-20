@@ -171,17 +171,61 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
-     SYNC MISSING CARDS MODAL
+     FILL GAPS MODAL
 ═══════════════════════════════════════════════════════════════════════════ -->
-<div id="sync-missing-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeSyncMissingModal()">
-  <div class="modal-box" style="max-width:480px">
-    <div class="modal-title">Sync Missing Cards</div>
-    <div id="sync-missing-body" style="margin-top:12px;min-height:60px">
-      <div class="text-center muted" style="padding:20px">Checking YGOPRODeck…</div>
+<div id="fill-gaps-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeFillGapsModal()">
+  <div class="modal-box" style="max-width:620px;max-height:92vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;flex-shrink:0">
+      <div style="flex:1">
+        <div class="modal-title" style="margin:0" id="fill-gaps-title">Fill Gaps</div>
+        <div id="fill-gaps-sub" class="muted small" style="margin-top:2px"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeFillGapsModal()">✕</button>
     </div>
-    <div id="sync-missing-footer" style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
-      <button class="btn btn-ghost btn-sm" onclick="closeSyncMissingModal()">Cancel</button>
-      <button id="sync-missing-confirm" class="btn btn-primary btn-sm" style="display:none" onclick="confirmSyncMissing()">Add Missing Cards</button>
+
+    <!-- Summary bar -->
+    <div id="fill-gaps-summary" style="display:none;background:var(--b1);border-radius:6px;padding:10px 14px;margin:10px 0;font-size:0.85rem;flex-shrink:0">
+    </div>
+
+    <!-- Loading -->
+    <div id="fill-gaps-loading" style="display:flex;align-items:center;gap:12px;padding:32px 0;color:var(--muted);flex-shrink:0">
+      <div class="spinner"></div> Comparing with YGOPRODeck…
+    </div>
+
+    <!-- Error -->
+    <div id="fill-gaps-error" style="display:none;padding:16px 0;color:var(--red);font-size:0.9rem"></div>
+
+    <!-- All present -->
+    <div id="fill-gaps-complete" style="display:none;padding:24px 0;text-align:center;color:var(--green)"></div>
+
+    <!-- Missing card list -->
+    <div id="fill-gaps-results" style="display:none;flex:1;min-height:0;display:none;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0">
+        <span id="fill-gaps-count" class="cinzel" style="color:var(--yellow);font-size:0.85rem"></span>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="fillGapsSelectAll(true)">All</button>
+          <button class="btn btn-ghost btn-sm" onclick="fillGapsSelectAll(false)">None</button>
+        </div>
+      </div>
+      <div style="overflow-y:auto;flex:1;border:1px solid var(--b2);border-radius:6px;min-height:0">
+        <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+          <thead>
+            <tr style="position:sticky;top:0;background:var(--surf2)">
+              <th style="padding:6px 8px;width:28px"></th>
+              <th style="padding:6px 8px;text-align:left;color:var(--muted);font-size:0.72rem;font-weight:600;white-space:nowrap">CARD #</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--muted);font-size:0.72rem;font-weight:600">NAME</th>
+              <th style="padding:6px 8px;text-align:left;color:var(--muted);font-size:0.72rem;font-weight:600">RARITY</th>
+            </tr>
+          </thead>
+          <tbody id="fill-gaps-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-shrink:0">
+      <button class="btn btn-ghost" onclick="closeFillGapsModal()">Cancel</button>
+      <button id="fill-gaps-confirm-btn" class="btn btn-primary" style="display:none" onclick="confirmFillGaps()">Add Selected</button>
     </div>
   </div>
 </div>
@@ -256,9 +300,6 @@
             style="font-size:1rem;padding:10px 14px"
           >
           <div id="inv-filter-count" style="font-size:0.8rem;color:var(--muted);text-align:center;min-height:1.2em"></div>
-          <div style="text-align:center;margin-top:4px">
-            <button id="inv-sync-btn" class="btn btn-ghost btn-sm" onclick="openSyncMissingModal()" style="font-size:0.75rem;color:var(--muted)">⟳ Sync missing cards from YGOPRODeck</button>
-          </div>
         </div>
       </div>
       <div id="inv-bulk-bar" class="inv-bulk-bar" style="display:none">
@@ -915,6 +956,7 @@
               <th style="text-align:left;padding:6px 8px;font-size:0.75rem;color:var(--muted);font-weight:600">SET NAME</th>
               <th style="text-align:center;padding:6px 8px;font-size:0.75rem;color:var(--muted);font-weight:600;white-space:nowrap">YEAR</th>
               <th style="text-align:center;padding:6px 8px;font-size:0.75rem;color:var(--muted);font-weight:600;white-space:nowrap">HAS UNLIMITED</th>
+              <th style="padding:6px 8px"></th>
             </tr>
           </thead>
           <tbody id="sets-tbody">
