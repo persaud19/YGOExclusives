@@ -186,8 +186,33 @@ async function getInventoryPage({ search = '', rarity = '', listed = '',
 }
 
 async function getCardById(id) {
-  const rows = await dbGet('cards', { id: `eq.${id}` });
-  return rows[0] || null;
+  const params = new URLSearchParams({ id: `eq.${id}`, select: '*,cards(api_id,year)', limit: 1 });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/card_inventory?${params}`, { headers: DB_HEADERS_RETURN });
+  if (!res.ok) throw new Error(`DB GET card_inventory failed: ${res.status}`);
+  const rows = await res.json();
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    id:               r.id,
+    card_number:      r.card_number,
+    card_name:        r.card_name || '',
+    rarity:           r.rarity,
+    set_name:         r.set_name || '',
+    year:             r.cards?.year,
+    api_id:           r.cards?.api_id,
+    tcg_market_price: r.tcg_price,
+    tcg_low_price:    r.tcg_low_price,
+    acquisition_cost: r.acquisition_cost,
+    listed:           r.listed,
+    fe_nm:  r.qty_fe_nm,  fe_lp: r.qty_fe_lp,  fe_mp: r.qty_fe_mp,
+    un_nm:  r.qty_un_nm,  un_lp: r.qty_un_lp,  un_mp: r.qty_un_mp,
+    first_ed_nm:  r.list_price_fe_nm,  first_ed_lp:  r.list_price_fe_lp,  first_ed_mp:  r.list_price_fe_mp,
+    unlimited_nm: r.list_price_un_nm,  unlimited_lp: r.list_price_un_lp,  unlimited_mp: r.list_price_un_mp,
+    acquisition_shipping:     r.acquisition_shipping,
+    acquisition_platform_fee: r.acquisition_platform_fee,
+    acquisition_source:       r.acquisition_source,
+    acquisition_date:         r.acquisition_date,
+  };
 }
 
 async function saveCard(card) {

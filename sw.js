@@ -1,4 +1,4 @@
-const CACHE = 'ygoexclusives-v1';
+const CACHE = 'ygoexclusives-v2';
 
 const SHELL = [
   '/',
@@ -41,7 +41,21 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // For app shell assets: cache-first
+  // JS and CSS: network-first so deploys are always fresh, cache as offline fallback
+  if (url.pathname.match(/\.(js|css)$/)) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Everything else (HTML, images): cache-first
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
