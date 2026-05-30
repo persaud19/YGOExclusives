@@ -256,9 +256,6 @@
     <button class="tab-btn hidden" data-tab="acquisitions" data-mode="owner">
       Acquisitions
     </button>
-    <button class="tab-btn hidden" data-tab="add-card" data-mode="owner">
-      List Card
-    </button>
     <button class="tab-btn hidden" data-tab="sales" data-mode="owner">
       Sales
     </button>
@@ -413,122 +410,6 @@
         <span class="page-info" id="col-page-info"></span>
         <button class="btn btn-secondary btn-sm" id="col-next-btn">Next →</button>
       </div>
-    </div>
-  </div>
-
-  <!-- ─── LIST CARD TAB ─────────────────────────────────────────────────── -->
-  <div id="tab-add-card" class="tab-panel">
-    <div class="tab-content lc-wrap">
-
-      <!-- API Key bar -->
-      <div class="lc-apikey-bar">
-        <span class="lc-apikey-label">Anthropic API Key</span>
-        <div id="lc-apikey-saved-row" style="display:none;display:flex;align-items:center;gap:8px">
-          <span class="lc-apikey-ok">✓ Key saved</span>
-          <button class="btn btn-ghost btn-sm" onclick="lcChangeKey()">Change</button>
-        </div>
-        <div id="lc-apikey-input-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input id="lc-key-input" class="input" type="password" placeholder="sk-ant-…" style="max-width:300px">
-          <button class="btn btn-secondary btn-sm" onclick="lcSaveKey()">Save Key</button>
-          <a href="https://console.anthropic.com/account/keys" target="_blank" class="muted small" style="white-space:nowrap">Get a key ↗</a>
-        </div>
-      </div>
-
-      <!-- Two-column layout -->
-      <div class="lc-columns">
-
-        <!-- Left: photo upload -->
-        <div class="lc-left">
-          <div class="lc-step-title">1. Upload Card Photos</div>
-          <div class="lc-drop-zone" id="lc-drop-zone" onclick="document.getElementById('lc-file').click()">
-            <div id="lc-drop-ph" class="lc-drop-ph">
-              <div style="font-size:2.2rem;margin-bottom:6px">📷</div>
-              <div>Click to upload</div>
-              <div class="muted small" style="margin-top:4px">Select multiple — front, back, angles</div>
-            </div>
-            <div id="lc-previews" class="lc-previews" style="display:none"></div>
-          </div>
-          <input type="file" id="lc-file" accept="image/*" multiple style="display:none" onchange="lcOnFile(event)">
-          <button class="btn btn-ghost btn-sm" id="lc-add-more-btn" style="width:100%;margin-top:6px;display:none" onclick="document.getElementById('lc-file').click()">
-            + Add More Photos
-          </button>
-          <button class="btn btn-primary" id="lc-identify-btn" style="width:100%;margin-top:8px;display:none" onclick="lcIdentify()">
-            Identify with Claude Vision
-          </button>
-          <div id="lc-identify-msg" class="muted small" style="margin-top:6px;text-align:center;min-height:1.4em"></div>
-        </div>
-
-        <!-- Right: steps 2-4 -->
-        <div class="lc-right">
-
-          <!-- Step 2: Match -->
-          <div id="lc-step2" style="display:none">
-            <div class="lc-step-title">2. Card Match</div>
-            <div id="lc-match-card" class="lc-match-box"></div>
-          </div>
-
-          <!-- Step 3: Confirm -->
-          <div id="lc-step3" style="display:none">
-            <div class="lc-step-title">3. Confirm Details</div>
-            <div class="lc-confirm-grid">
-              <div class="form-group">
-                <label class="form-label">Condition</label>
-                <select id="lc-cond" class="input">
-                  <option value="NM">Near Mint (NM)</option>
-                  <option value="LP">Lightly Played (LP)</option>
-                  <option value="MP">Moderately Played (MP)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Edition</label>
-                <select id="lc-edition" class="input">
-                  <option value="1st Edition">1st Edition</option>
-                  <option value="Unlimited">Unlimited</option>
-                </select>
-              </div>
-              <div class="form-group" style="grid-column:1/-1">
-                <label class="form-label">Rarity <span id="lc-rarity-note" class="muted small" style="font-style:italic;margin-left:6px"></span></label>
-                <select id="lc-rarity" class="input" onchange="lcOnRarityChange()">
-                  <option value="">— select rarity —</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Asking Price ($)</label>
-                <input id="lc-price" class="input" type="number" step="0.01" min="0" placeholder="0.00">
-              </div>
-            </div>
-            <div id="lc-cond-note" class="muted small" style="margin:4px 0 2px;font-style:italic"></div>
-            <div id="lc-price-ref" class="muted small" style="margin-bottom:12px"></div>
-            <button class="btn btn-primary" style="width:100%" onclick="lcGenerateListing()">Generate Listing →</button>
-          </div>
-
-          <!-- Step 4: Listing preview -->
-          <div id="lc-step4" style="display:none;margin-top:20px">
-            <div class="lc-step-title">4. eBay Listing</div>
-            <div class="form-group" style="margin-bottom:8px">
-              <div class="lc-field-hdr">
-                <label class="form-label">Title</label>
-                <span id="lc-title-chars" class="muted small"></span>
-                <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('lc-title').value)">Copy</button>
-              </div>
-              <input id="lc-title" class="input" type="text" maxlength="80" oninput="lcUpdateTitleChars()">
-            </div>
-            <div class="form-group" style="margin-bottom:14px">
-              <div class="lc-field-hdr">
-                <label class="form-label">Description</label>
-                <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('lc-desc').value)">Copy</button>
-              </div>
-              <textarea id="lc-desc" class="input" rows="12" style="resize:vertical;font-size:0.8rem;line-height:1.55"></textarea>
-            </div>
-            <button class="btn btn-primary" style="width:100%;font-size:1rem;padding:13px" onclick="lcListIt()">
-              List It on eBay
-            </button>
-            <div class="muted small text-center" style="margin-top:6px">Copies listing · marks card as listed · opens eBay</div>
-          </div>
-
-        </div><!-- /.lc-right -->
-      </div><!-- /.lc-columns -->
-
     </div>
   </div>
 
@@ -1374,7 +1255,6 @@
 <script src="js/db.js"></script>
 <script src="js/inventory.js"></script>
 <script src="js/collection.js"></script>
-<script src="js/add-card.js"></script>
 <script src="js/acquisitions.js"></script>
 <script src="js/sales.js"></script>
 <script src="js/reports.js"></script>

@@ -9,7 +9,6 @@ const SHELL = [
   '/js/app.js',
   '/js/inventory.js',
   '/js/collection.js',
-  '/js/add-card.js',
   '/js/acquisitions.js',
   '/js/sales.js',
   '/js/reports.js',
