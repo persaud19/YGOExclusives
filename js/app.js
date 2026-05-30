@@ -96,6 +96,9 @@ function onTabActivated(tabId) {
     initRaritySets();
   } else if (tabId === 'pricer' && typeof initPricer === 'function') {
     initPricer();
+  } else if (tabId === 'listing-queue' && typeof lqLoad === 'function') {
+    lqPage = 0;
+    lqLoad();
   }
 }
 

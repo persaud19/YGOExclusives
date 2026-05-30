@@ -268,6 +268,9 @@
     <button class="tab-btn hidden" data-tab="pricer" data-mode="owner">
       Deal Check
     </button>
+    <button class="tab-btn hidden" data-tab="listing-queue" data-mode="owner">
+      List Queue
+    </button>
   </nav>
 
   <!-- ─── INVENTORY TAB ──────────────────────────────────────────────────── -->
@@ -1306,6 +1309,53 @@
     </div>
   </div>
 
+  <!-- ─── LISTING QUEUE TAB ──────────────────────────────────────────────── -->
+  <div id="tab-listing-queue" class="tab-panel">
+    <div class="tab-content" style="max-width:100%">
+
+      <!-- Header row -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+        <h2 class="cinzel" style="color:var(--gold);font-size:1.1rem;margin:0">eBay Listing Queue</h2>
+        <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
+          <select id="lq-status-filter" class="input" style="width:140px" onchange="lqLoad()">
+            <option value="pending">Pending</option>
+            <option value="pushed">Pushed</option>
+            <option value="skipped">Skipped</option>
+          </select>
+          <button class="btn btn-secondary" onclick="lqLoad()">Refresh</button>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div id="lq-stats" style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap"></div>
+
+      <!-- Queue table -->
+      <div style="overflow-x:auto">
+        <table class="inv-table" id="lq-table">
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th>Card</th>
+              <th>Set / Rarity</th>
+              <th style="width:110px">Condition</th>
+              <th style="width:110px">Edition</th>
+              <th style="width:90px">Price CAD</th>
+              <th style="width:160px">Photos</th>
+              <th style="width:120px">Action</th>
+            </tr>
+          </thead>
+          <tbody id="lq-tbody">
+            <tr><td colspan="8" class="muted" style="text-align:center;padding:24px">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div id="lq-pagination" style="display:flex;gap:8px;justify-content:center;margin-top:16px;align-items:center"></div>
+
+    </div>
+  </div>
+
 </div><!-- /#app -->
 
 <!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
@@ -1321,6 +1371,7 @@
 <script src="js/sales.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/listing.js"></script>
+<script src="js/listing-queue.js"></script>
 <script src="js/pricer.js"></script>
 <script src="js/app.js"></script>
 
