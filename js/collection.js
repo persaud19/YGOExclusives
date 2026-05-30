@@ -86,7 +86,7 @@ function updateSortArrows() {
 async function loadCollectionPage() {
   const tbody = document.getElementById('col-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="13" class="text-center muted" style="padding:24px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="15" class="text-center muted" style="padding:24px">Loading…</td></tr>';
   try {
     const { rows, total } = await getCardsPage({
       ...colFilters,
@@ -99,13 +99,13 @@ async function loadCollectionPage() {
     renderCollectionRows(rows, tbody);
     updateCollectionPagination(total);
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="13" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="15" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
   }
 }
 
 function renderCollectionRows(rows, tbody) {
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="13" class="text-center muted" style="padding:24px">No cards found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="text-center muted" style="padding:24px">No cards found</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map(card => {
@@ -141,8 +141,17 @@ function renderCollectionRows(rows, tbody) {
         <span class="badge ${listed ? 'badge-green' : 'badge-muted'}"
               style="cursor:pointer" id="listed-badge-${card.id}"
               onclick="quickToggleListed('${card.id}',${!listed},this)">
-          ${listed ? 'Listed' : 'Unlisted'}
+          ${listed ? 'Listed' : 'Not Listed'}
         </span>
+      </td>
+      <td class="cinzel" style="color:var(--green);white-space:nowrap">
+        ${card.listed_price_cad > 0 ? `C$${Number(card.listed_price_cad).toFixed(2)}` : '<span class="muted">—</span>'}
+      </td>
+      <td style="font-size:0.72rem;white-space:nowrap">
+        ${card.ebay_listing_id
+          ? `<a href="https://www.ebay.ca/itm/${card.ebay_listing_id}" target="_blank"
+                style="color:var(--blue)">${card.ebay_listing_id}</a>`
+          : '<span class="muted">—</span>'}
       </td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-sm" onclick="openEditModal('${card.id}')">Edit</button>

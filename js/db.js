@@ -115,6 +115,8 @@ async function getCardsBySet(setCode) {
     tcg_price_cad:    r.tcg_price_cad,
     acquisition_cost: r.acquisition_cost,
     listed:           r.listed,
+    listed_price_cad: r.listed_price_cad,
+    ebay_listing_id:  r.ebay_listing_id,
     needs_review:     r.needs_review,
     qty_total:        r.qty_total,
   }));
@@ -179,6 +181,8 @@ async function getInventoryPage({ search = '', rarity = '', listed = '',
     hr_qty_nm:        0,
     hr_qty_lp:        0,
     listed:           r.listed,
+    listed_price_cad: r.listed_price_cad,
+    ebay_listing_id:  r.ebay_listing_id,
     needs_review:     r.needs_review,
     qty_total:        r.qty_total,
   }));
