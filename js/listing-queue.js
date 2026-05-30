@@ -84,7 +84,7 @@ function lqRenderRows(rows, status) {
 
     const actionCell = status === 'pending'
       ? `<div style="display:flex;flex-direction:column;gap:4px">
-           <button class="btn btn-primary" style="font-size:0.75rem;padding:4px 8px" onclick="lqOpenPush('${row.id}')">Push to eBay</button>
+           <button class="btn btn-primary" style="font-size:0.75rem;padding:4px 8px" id="lq-pushbtn-${row.id}" onclick="lqPushSingle('${row.id}','${row.card_number}')">Push to eBay</button>
            <button class="btn btn-secondary" style="font-size:0.75rem;padding:4px 8px" onclick="lqSkip('${row.id}')">Skip</button>
          </div>`
       : pushedInfo || '<span class="muted small">—</span>';
@@ -207,15 +207,8 @@ async function lqSkip(id) {
   showToast('Skipped.');
 }
 
-// ── Open push modal ───────────────────────────────────────────────────────────
-function lqOpenPush(id) {
-  const fileInput = document.getElementById(`lq-file-${id}`);
-  if (!fileInput || fileInput.files.length === 0) {
-    showToast('Select at least one photo first.', 'error');
-    return;
-  }
-  const condEl  = document.getElementById(`lq-cond-${id}`);
-  const edEl    = document.getElementById(`lq-ed-${id}`);
+// ── Push a single card to eBay via URI scheme ─────────────────────────────────
+function lqPushSingle(id, cardNumber) {
   const priceEl = document.getElementById(`lq-price-${id}`);
   const price   = parseFloat(priceEl?.value || '0');
   if (!price || price <= 0) {
@@ -223,66 +216,28 @@ function lqOpenPush(id) {
     return;
   }
 
-  // Read row data from DOM for confirmation
   const row  = document.getElementById(`lq-row-${id}`);
-  const name = row?.querySelector('td:nth-child(2) div')?.textContent || '';
-  const num  = row?.querySelector('td:nth-child(2) .muted')?.textContent || '';
+  const name = row?.querySelector('td:nth-child(2) div')?.textContent?.trim() || cardNumber;
 
-  if (!confirm(`Push "${name}" (${num}) to eBay for $${price.toFixed(2)} USD?`)) return;
-  lqPush(id);
-}
+  if (!confirm(`Push "${name}" (${cardNumber}) to eBay.ca for C$${price.toFixed(2)}?\n\nThis will open PowerShell — confirm in that window to complete the listing.`)) return;
 
-// ── Push listing to eBay via Netlify function ─────────────────────────────────
-async function lqPush(queueId) {
-  const btn = document.querySelector(`#lq-row-${queueId} .btn-primary`);
-  if (btn) { btn.disabled = true; btn.textContent = 'Pushing…'; }
+  // Fire URI scheme with card number so PS script uses -CardNumber flag
+  window.location.href = `ygoexclusives://push/${encodeURIComponent(cardNumber)}`;
 
-  try {
-    // Gather row data
-    const condEl  = document.getElementById(`lq-cond-${queueId}`);
-    const edEl    = document.getElementById(`lq-ed-${queueId}`);
-    const priceEl = document.getElementById(`lq-price-${queueId}`);
-    const fileInput = document.getElementById(`lq-file-${queueId}`);
-
-    // Fetch full row from Supabase for card fields
-    const res  = await fetch(`${SUPABASE_URL}/rest/v1/listing_queue?id=eq.${queueId}&select=*`, { headers: DB_HEADERS_RETURN });
-    const rows = await res.json();
-    const row  = rows[0];
-    if (!row) throw new Error('Queue entry not found');
-
-    const form = new FormData();
-    form.append('queue_id',     queueId);
-    form.append('inventory_id', row.card_inventory_id || '');
-    form.append('card_number',  row.card_number);
-    form.append('card_name',    row.card_name || '');
-    form.append('set_name',     row.set_name  || '');
-    form.append('rarity',       row.rarity    || '');
-    form.append('condition',    condEl?.value  || 'NM');
-    form.append('edition',      edEl?.value    || 'unlimited');
-    form.append('price_cad',    priceEl?.value || '0');
-
-    const files = fileInput?.files || [];
-    for (let i = 0; i < Math.min(files.length, 2); i++) {
-      form.append(`photo_${i}`, files[i]);
-    }
-
-    const pushRes  = await fetch('/.netlify/functions/ebay-list', { method: 'POST', body: form });
-    const pushData = await pushRes.json();
-
-    if (!pushRes.ok || !pushData.success) {
-      throw new Error(pushData.error || 'Unknown error from eBay');
-    }
-
-    // Update row in UI
-    const tableRow = document.getElementById(`lq-row-${queueId}`);
-    if (tableRow) tableRow.remove();
-
-    showToast(`Listed! eBay ID: ${pushData.ebay_listing_id}`);
-    lqRenderStats(document.getElementById('lq-status-filter').value);
-
-  } catch (e) {
-    showToast('Push failed: ' + e.message, 'error');
-    if (btn) { btn.disabled = false; btn.textContent = 'Push to eBay'; }
+  // Disable button + show countdown while PS script runs
+  const btn = document.getElementById(`lq-pushbtn-${id}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Pushing…';
+    let secs = 30;
+    const iv = setInterval(() => {
+      secs--;
+      if (btn) btn.textContent = `Done in ${secs}s…`;
+      if (secs <= 0) {
+        clearInterval(iv);
+        lqLoad();
+      }
+    }, 1000);
   }
 }
 
