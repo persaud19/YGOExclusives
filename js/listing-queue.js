@@ -159,6 +159,35 @@ async function lqSaveField(id, field, value) {
   }
 }
 
+// ── Trigger push via URI scheme ──────────────────────────────────────────────
+function lqTriggerPush() {
+  const pendingWithPrice = document.querySelectorAll('#lq-tbody tr[id^="lq-row-"]').length;
+  if (!confirm('This will open PowerShell and push all priced pending cards to eBay.ca.\n\nMake sure prices and conditions are set first.\n\nProceed?')) return;
+
+  // Launch the local push script via URI scheme
+  window.location.href = 'ygoexclusives://push';
+
+  // Show countdown and auto-refresh queue after script likely finishes
+  const btn = document.querySelector('[onclick="lqTriggerPush()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Pushed — refreshing in 30s…';
+    let secs = 30;
+    const interval = setInterval(() => {
+      secs--;
+      if (btn) btn.textContent = `Pushed — refreshing in ${secs}s…`;
+      if (secs <= 0) {
+        clearInterval(interval);
+        lqLoad();
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '▶ Push to eBay';
+        }
+      }
+    }, 1000);
+  }
+}
+
 // ── Skip a card ───────────────────────────────────────────────────────────────
 async function lqSkip(id) {
   if (!confirm('Skip this card? You can find it again under the Skipped filter.')) return;

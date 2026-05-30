@@ -1316,13 +1316,16 @@
       <!-- Header row -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
         <h2 class="cinzel" style="color:var(--gold);font-size:1.1rem;margin:0">eBay Listing Queue</h2>
-        <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;align-items:center">
           <select id="lq-status-filter" class="input" style="width:140px" onchange="lqLoad()">
             <option value="pending">Pending</option>
             <option value="pushed">Pushed</option>
             <option value="skipped">Skipped</option>
           </select>
           <button class="btn btn-secondary" onclick="lqLoad()">Refresh</button>
+          <button class="btn btn-primary" style="background:var(--green);border-color:var(--green)" onclick="lqTriggerPush()">
+            ▶ Push to eBay
+          </button>
         </div>
       </div>
 
