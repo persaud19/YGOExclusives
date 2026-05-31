@@ -8,7 +8,7 @@ let lqTotal = 0;
 async function lqLoad() {
   const status = document.getElementById('lq-status-filter').value;
   const tbody  = document.getElementById('lq-tbody');
-  tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center;padding:24px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="12" class="muted" style="text-align:center;padding:24px">Loading…</td></tr>';
 
   try {
     const offset = lqPage * LQ_PAGE_SIZE;
@@ -36,11 +36,12 @@ async function lqLoad() {
     lqRenderStats(status);
     lqRenderRows(rows, status);
     lqRenderPagination();
+    lqFetchEbayPrices(rows);
   } catch (e) {
     const msg = e.message.includes('relation') || e.message.includes('does not exist')
       ? 'listing_queue table not created yet — run backups/listing-queue-setup.sql in Supabase first.'
       : `Error loading queue: ${e.message}`;
-    tbody.innerHTML = `<tr><td colspan="11" style="color:var(--yellow);text-align:center;padding:24px">${msg}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" style="color:var(--yellow);text-align:center;padding:24px">${msg}</td></tr>`;
   }
 }
 
@@ -71,7 +72,7 @@ async function lqRenderStats(activeStatus) {
 function lqRenderRows(rows, status) {
   const tbody = document.getElementById('lq-tbody');
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="11" class="muted" style="text-align:center;padding:32px">No ${status} items in queue.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="muted" style="text-align:center;padding:32px">No ${status} items in queue.</td></tr>`;
     return;
   }
 
@@ -127,6 +128,9 @@ function lqRenderRows(rows, status) {
       </td>
       <td style="color:var(--muted);font-size:0.85rem">
         ${row.tcg_low_cad ? `<span style="color:var(--blue)">$${Number(row.tcg_low_cad).toFixed(2)}</span>` : '<span class="muted">—</span>'}
+      </td>
+      <td id="lq-ebay-${row.id}" style="font-size:0.85rem">
+        <span class="muted">…</span>
       </td>
       <td>
         <input class="input" type="text" inputmode="numeric" style="font-size:0.8rem;padding:3px 6px;width:80px"
@@ -205,6 +209,45 @@ async function lqSkip(id) {
   await lqSaveField(id, 'status', 'skipped');
   document.getElementById(`lq-row-${id}`)?.remove();
   showToast('Skipped.');
+}
+
+// ── Fetch eBay lowest listed price for each visible row ───────────────────────
+async function lqFetchEbayPrices(rows) {
+  if (!rows || rows.length === 0) return;
+
+  // Get live USD→CAD rate (cached in pricer.js, falls back to 1.38)
+  const cadRate = await getPricerUsdCadRate().catch(() => 1.38);
+
+  // Fire requests concurrently — one per row
+  await Promise.all(rows.map(async row => {
+    const cell = document.getElementById(`lq-ebay-${row.id}`);
+    if (!cell) return;
+
+    if (!row.card_number || !row.rarity) {
+      cell.innerHTML = '<span class="muted">—</span>';
+      return;
+    }
+
+    try {
+      const url = `/.netlify/functions/ebay-prices?card_number=${encodeURIComponent(row.card_number)}&rarity=${encodeURIComponent(row.rarity)}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      if (data.error === 'rate_limit') {
+        cell.innerHTML = '<span class="muted" title="eBay rate limit hit — resets midnight PT">limit</span>';
+        return;
+      }
+
+      if (data.lowestListed) {
+        const cad = (data.lowestListed * cadRate).toFixed(2);
+        cell.innerHTML = `<span style="color:var(--green)" title="eBay lowest listed (price+shipping) converted to CAD">C$${cad}</span>`;
+      } else {
+        cell.innerHTML = '<span class="muted">—</span>';
+      }
+    } catch (e) {
+      cell.innerHTML = '<span class="muted">—</span>';
+    }
+  }));
 }
 
 // ── Push a single card to eBay via URI scheme ─────────────────────────────────
