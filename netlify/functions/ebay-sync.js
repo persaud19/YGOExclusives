@@ -110,9 +110,10 @@ function buildRecords(orders) {
         item.deliveryCost?.shippingCost?.value ||
         order.pricingSummary?.deliveryCost?.value || 0
       );
-      const fvf       = Math.round(salePrice * EBAY_FVF_PCT * 100) / 100;
-      const payout    = Math.round((salePrice + shippingCharged - fvf) * 100) / 100;
-      const netProfit = Math.round((payout - shipCostOut) * 100) / 100;
+      const totalReceived = salePrice + shippingCharged;
+      const fvf           = Math.round(totalReceived * EBAY_FVF_PCT * 100) / 100;
+      const payout        = Math.round((totalReceived - fvf) * 100) / 100;
+      const netProfit     = Math.round((payout - shipCostOut) * 100) / 100;
 
       records.push({
         id:                  randomUUID(),
