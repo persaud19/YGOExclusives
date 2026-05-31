@@ -18,6 +18,7 @@ const EBAY_FINANCES   = 'https://apiz.ebay.com/sell/finances/v1/transaction';
 async function getAccessToken(appId, certId, refreshToken) {
   const creds = Buffer.from(`${appId}:${certId}`).toString('base64');
   const scope = [
+    'https://api.ebay.com/oauth/api_scope',
     'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
     'https://api.ebay.com/oauth/api_scope/sell.finances',
   ].join(' ');
