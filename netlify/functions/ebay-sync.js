@@ -15,7 +15,13 @@ const CORS_HEADERS = {
 };
 
 const EBAY_FVF_PCT = 0.1325;
-const CHIT_CHATS   = 5.50;
+const CHIT_CHATS   = 5.50;  // tracked via Chit Chats
+const LETTERMAIL   = 2.00;  // CA lettermail (untracked, cheap)
+
+const LETTERMAIL_SERVICES = new Set([
+  'CA_PostLettermail',
+  'CA_PostLetterMailInternational',
+]);
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
@@ -92,9 +98,11 @@ function buildRecords(orders) {
     const shipStep = (order.fulfillmentStartInstructions || [])[0]?.shippingStep || {};
     const shipTo   = shipStep.shipTo?.contactAddress || {};
 
-    const city    = shipTo.city            || regAddr.city            || null;
-    const country = shipTo.countryCode     || regAddr.countryCode     || null;
-    const prov    = shipTo.stateOrProvince || regAddr.stateOrProvince || null;
+    const city           = shipTo.city            || regAddr.city            || null;
+    const country        = shipTo.countryCode     || regAddr.countryCode     || null;
+    const prov           = shipTo.stateOrProvince || regAddr.stateOrProvince || null;
+    const shippingService = shipStep.shippingServiceCode || null;
+    const shipCostOut    = LETTERMAIL_SERVICES.has(shippingService) ? LETTERMAIL : CHIT_CHATS;
 
     for (const item of order.lineItems || []) {
       const salePrice       = parseFloat(item.lineItemCost?.value || 0);
@@ -104,7 +112,7 @@ function buildRecords(orders) {
       );
       const fvf       = Math.round(salePrice * EBAY_FVF_PCT * 100) / 100;
       const payout    = Math.round((salePrice + shippingCharged - fvf) * 100) / 100;
-      const netProfit = Math.round((payout - CHIT_CHATS) * 100) / 100;
+      const netProfit = Math.round((payout - shipCostOut) * 100) / 100;
 
       records.push({
         id:                  randomUUID(),
@@ -118,7 +126,7 @@ function buildRecords(orders) {
         quantity:            item.quantity || 1,
         sale_price:          salePrice,
         shipping_charged:    shippingCharged,
-        shipping_cost_out:   CHIT_CHATS,
+        shipping_cost_out:   shipCostOut,
         acquisition_cost:    null,
         final_value_fee:     fvf,
         promoted_listing_fee: null,
