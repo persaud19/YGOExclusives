@@ -898,6 +898,25 @@ tr:hover td { background: var(--surf2); }
 .profit-positive { color: var(--green); }
 .profit-negative { color: var(--red); }
 
+.sale-ch-tab {
+  background: var(--b1);
+  border: 1px solid var(--dim);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 7px 4px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.sale-ch-tab:hover { background: var(--b2); color: var(--txt); }
+.sale-ch-tab.active {
+  background: rgba(96,160,240,0.15);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
 /* ─── Reports ──────────────────────────────────────────────────────────────── */
 .report-section {
   background: var(--surf2);
