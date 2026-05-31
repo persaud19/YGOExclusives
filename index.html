@@ -570,7 +570,10 @@
 
       <!-- Action bar -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-        <button class="btn btn-secondary btn-sm" id="ebay-sync-btn" onclick="triggerEbaySync()">⟳ Sync eBay Sales</button>
+        <div style="display:flex;align-items:stretch">
+          <button class="btn btn-secondary btn-sm" id="ebay-sync-btn" onclick="triggerEbaySync()" style="border-radius:8px 0 0 8px;border-right:1px solid rgba(255,255,255,0.1)">⟳ Sync eBay Sales</button>
+          <button class="btn btn-secondary btn-sm" onclick="triggerEbaySyncFrom()" title="Sync from a specific date" style="border-radius:0 8px 8px 0;padding:0 10px">▾</button>
+        </div>
         <span id="ebay-sync-status" class="small muted" style="flex:1"></span>
         <button class="btn btn-primary btn-sm" onclick="openSaleModal()">+ Log Sale</button>
       </div>

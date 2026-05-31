@@ -406,17 +406,26 @@ async function submitSale(e) {
 
 // ─── eBay Sync trigger ────────────────────────────────────────────────────────
 
-async function triggerEbaySync() {
+function triggerEbaySyncFrom() {
+  const since = prompt('Sync eBay sales from date (YYYY-MM-DD):', '2026-01-01');
+  if (!since) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(since)) { alert('Invalid date format. Use YYYY-MM-DD.'); return; }
+  triggerEbaySync(since);
+}
+
+async function triggerEbaySync(since) {
   const btn    = document.getElementById('ebay-sync-btn');
   const status = document.getElementById('ebay-sync-status');
   btn.disabled = true;
-  status.textContent = 'Syncing…';
+  status.textContent = since ? `Syncing from ${since}…` : 'Syncing…';
   status.style.color = 'var(--muted)';
 
   try {
     const apiKey = localStorage.getItem('ygoexclusives_sync_key') || '';
-    const res    = await fetch(`/.netlify/functions/ebay-sync?api_key=${encodeURIComponent(apiKey)}`);
-    const data   = await res.json();
+    const params = new URLSearchParams({ api_key: apiKey });
+    if (since) params.set('since', since);
+    const res  = await fetch(`/.netlify/functions/ebay-sync?${params}`);
+    const data = await res.json();
 
     if (!res.ok) throw new Error(data.error || res.status);
 
