@@ -145,6 +145,119 @@ function calcNetProfit() {
   }
 }
 
+// ─── Log Sale Modal ───────────────────────────────────────────────────────────
+
+function openSaleModal() {
+  document.getElementById('sale-modal-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  switchSaleChannel(activeSaleChannel);
+}
+
+function closeSaleModal() {
+  document.getElementById('sale-modal-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+// ─── Sale Detail Panel ────────────────────────────────────────────────────────
+
+function openSaleDetail(sale) {
+  document.getElementById('sale-detail-inner').innerHTML = renderSaleDetail(sale);
+  document.getElementById('sale-detail-panel').classList.add('open');
+  document.getElementById('sale-detail-backdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSaleDetail() {
+  document.getElementById('sale-detail-panel').classList.remove('open');
+  document.getElementById('sale-detail-backdrop').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function renderSaleDetail(s) {
+  const ch    = s.platform || 'ebay';
+  const meta  = CHANNEL_META[ch] || CHANNEL_META.ebay;
+  const profit = parseFloat(s.net_profit);
+  const profitColor = isNaN(profit) ? 'var(--muted)' : profit >= 0 ? 'var(--green)' : 'var(--red)';
+  const profitStr   = isNaN(profit) ? '—' : (profit >= 0 ? '+' : '') + '$' + Math.abs(profit).toFixed(2);
+  const fmtMoney = v => (v != null && v !== '') ? '$' + Number(v).toFixed(2) : '<span class="sdp-placeholder">—</span>';
+  const fmtText  = v => v ? escHtml(v) : '<span class="sdp-placeholder">—</span>';
+
+  const feeLabel = ch === 'ygo_store' ? 'Processor Fee' : ch === 'ebay' ? 'Final Value Fee' : 'Platform Fee';
+  const feeVal   = ch === 'ebay' ? (s.final_value_fee ?? s.platform_fee)
+                 : ch === 'ygo_store' ? s.payment_processor_fee
+                 : s.platform_fee;
+
+  let channelRows = '';
+  if (ch === 'ebay') {
+    channelRows = `
+      <div class="sdp-row"><span class="sdp-row-label">eBay Order ID</span><span class="sdp-row-val">${fmtText(s.ebay_order_id)}</span></div>
+      <div class="sdp-row"><span class="sdp-row-label">eBay Item ID</span><span class="sdp-row-val">${fmtText(s.ebay_item_id)}</span></div>
+      ${s.promoted_listing_fee ? `<div class="sdp-row"><span class="sdp-row-label">Promoted Listing Fee</span><span class="sdp-row-val">${fmtMoney(s.promoted_listing_fee)}</span></div>` : ''}
+      ${s.payout_amount != null ? `<div class="sdp-row"><span class="sdp-row-label">eBay Payout</span><span class="sdp-row-val" style="color:var(--green)">${fmtMoney(s.payout_amount)}</span></div>` : ''}`;
+  } else if (ch === 'facebook') {
+    channelRows = `<div class="sdp-row"><span class="sdp-row-label">Facebook Group</span><span class="sdp-row-val">${fmtText(s.fb_group_name)}</span></div>`;
+  } else if (ch === 'in_person') {
+    channelRows = `<div class="sdp-row"><span class="sdp-row-label">Location</span><span class="sdp-row-val">${fmtText(s.in_person_location)}</span></div>`;
+  }
+
+  const hasShipping = ch !== 'in_person';
+
+  return `
+    <div class="sdp-header">
+      <div style="flex:1">
+        <div class="sdp-card-name">${escHtml(s.card_name || '—')}</div>
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${s.card_number ? `<span class="badge badge-muted">${escHtml(s.card_number)}</span>` : ''}
+          <span class="badge ${meta.badge}">${meta.label}</span>
+          ${s.rarity ? `<span class="badge badge-gold">${escHtml(s.rarity)}</span>` : ''}
+        </div>
+        <div class="small muted" style="margin-top:6px">${s.sale_date || ''}</div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="closeSaleDetail()" style="flex-shrink:0">✕</button>
+    </div>
+
+    <div class="sdp-money">
+      <div class="sdp-money-item">
+        <div class="sdp-money-label">Sale Price</div>
+        <div class="sdp-money-val">$${Number(s.sale_price || 0).toFixed(2)}</div>
+      </div>
+      <div class="sdp-money-item">
+        <div class="sdp-money-label">Net Profit</div>
+        <div class="sdp-money-val" style="color:${profitColor}">${profitStr}</div>
+      </div>
+    </div>
+
+    <div class="sdp-section">
+      <div class="sdp-section-title">Financials</div>
+      <div class="sdp-row"><span class="sdp-row-label">Qty</span><span class="sdp-row-val">${s.quantity || 1}</span></div>
+      ${hasShipping ? `<div class="sdp-row"><span class="sdp-row-label">Shipping to Buyer</span><span class="sdp-row-val">${fmtMoney(s.shipping_charged)}</span></div>` : ''}
+      ${hasShipping ? `<div class="sdp-row"><span class="sdp-row-label">Shipping Cost Out</span><span class="sdp-row-val">${fmtMoney(s.shipping_cost_out)}</span></div>` : ''}
+      <div class="sdp-row"><span class="sdp-row-label">${feeLabel}</span><span class="sdp-row-val">${fmtMoney(feeVal)}</span></div>
+      <div class="sdp-row"><span class="sdp-row-label">Acquisition Cost</span><span class="sdp-row-val sdp-placeholder">— (next build)</span></div>
+      ${channelRows}
+    </div>
+
+    <div class="sdp-section">
+      <div class="sdp-section-title">Buyer</div>
+      <div class="sdp-row"><span class="sdp-row-label">Name</span><span class="sdp-row-val">${fmtText(s.buyer_name)}</span></div>
+      ${s.buyer_username ? `<div class="sdp-row"><span class="sdp-row-label">Username</span><span class="sdp-row-val">${fmtText(s.buyer_username)}</span></div>` : ''}
+      ${(s.buyer_city || s.buyer_country) ? `<div class="sdp-row"><span class="sdp-row-label">Location</span><span class="sdp-row-val">${[s.buyer_city, s.buyer_province, s.buyer_country].filter(Boolean).map(escHtml).join(', ')}</span></div>` : ''}
+      ${s.payment_method ? `<div class="sdp-row"><span class="sdp-row-label">Payment</span><span class="sdp-row-val">${fmtText(s.payment_method)}</span></div>` : ''}
+    </div>
+
+    ${hasShipping ? `
+    <div class="sdp-section">
+      <div class="sdp-section-title">Fulfillment</div>
+      <div class="sdp-row"><span class="sdp-row-label">Service</span><span class="sdp-row-val">${fmtText(s.shipping_service)}</span></div>
+      <div class="sdp-row"><span class="sdp-row-label">Tracking</span><span class="sdp-row-val">${s.tracking_number ? `<span class="sdp-tracking">${escHtml(s.tracking_number)}</span>` : '<span class="sdp-placeholder">—</span>'}</span></div>
+      ${s.shipping_carrier ? `<div class="sdp-row"><span class="sdp-row-label">Carrier</span><span class="sdp-row-val">${fmtText(s.shipping_carrier)}</span></div>` : ''}
+    </div>` : ''}
+
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--b1)">
+      <button class="btn btn-danger btn-sm" style="width:100%" onclick="deleteSaleRow('${s.id}');closeSaleDetail()">Delete Sale Record</button>
+    </div>`;
+}
+
 // ─── Load & render ────────────────────────────────────────────────────────────
 
 async function loadSalesPage() {
@@ -172,29 +285,30 @@ function renderSalesRows(rows, tbody) {
     tbody.innerHTML = '<tr><td colspan="8" class="muted text-center" style="padding:24px">No sales yet</td></tr>';
     return;
   }
+  // Store rows on window so click handler can look them up by id
+  window._salesRowCache = {};
+  rows.forEach(s => { window._salesRowCache[s.id] = s; });
+
   tbody.innerHTML = rows.map(s => {
-    const profit  = parseFloat(s.net_profit) || 0;
-    const ch      = s.platform || 'ebay';
-    const meta    = CHANNEL_META[ch] || CHANNEL_META.ebay;
-    const profitCls = profit >= 0 ? 'var(--green)' : 'var(--red)';
-    const tracking  = s.tracking_number
-      ? `<span class="small" style="font-family:monospace;color:var(--muted)">${escHtml(s.tracking_number)}</span>`
-      : '<span class="muted small">—</span>';
-    return `<tr>
-      <td class="small muted">${s.sale_date}</td>
-      <td style="max-width:160px">
-        <div style="font-weight:500">${escHtml(s.card_name)}</div>
+    const profit     = parseFloat(s.net_profit);
+    const ch         = s.platform || 'ebay';
+    const meta       = CHANNEL_META[ch] || CHANNEL_META.ebay;
+    const profitColor = isNaN(profit) ? 'var(--muted)' : profit >= 0 ? 'var(--green)' : 'var(--red)';
+    const profitStr   = isNaN(profit) ? '—' : (profit >= 0 ? '+' : '') + '$' + Math.abs(profit).toFixed(2);
+    const buyer       = s.buyer_name || s.buyer_username || '';
+    return `<tr class="sale-log-row" onclick="openSaleDetail(window._salesRowCache['${s.id}'])" style="cursor:pointer">
+      <td class="small muted" style="white-space:nowrap">${s.sale_date || ''}</td>
+      <td style="max-width:180px">
+        <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.card_name || '')}</div>
         ${s.card_number ? `<div class="small muted">${escHtml(s.card_number)}</div>` : ''}
       </td>
       <td><span class="badge ${meta.badge}">${meta.label}</span></td>
-      <td class="cinzel" style="text-align:right">$${Number(s.sale_price||0).toFixed(2)}</td>
-      <td class="cinzel" style="text-align:right;color:${profitCls}">
-        ${profit >= 0 ? '+' : ''}$${Math.abs(profit).toFixed(2)}
-      </td>
-      <td>${tracking}</td>
-      <td class="small muted">${escHtml(s.buyer_name || '')}</td>
-      <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteSaleRow('${s.id}')">✕</button>
+      <td class="small" style="text-align:right;color:var(--muted)">${s.quantity || 1}</td>
+      <td class="cinzel" style="text-align:right;white-space:nowrap">$${Number(s.sale_price || 0).toFixed(2)}</td>
+      <td class="cinzel" style="text-align:right;white-space:nowrap;color:${profitColor}">${profitStr}</td>
+      <td class="small muted" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(buyer)}</td>
+      <td style="padding:0 8px">
+        <span class="muted" style="font-size:1rem">›</span>
       </td>
     </tr>`;
   }).join('');
@@ -283,6 +397,7 @@ async function submitSale(e) {
     document.getElementById('sale-net-preview').textContent = '$0.00';
     document.getElementById('sale-net-preview').style.color = 'var(--green)';
     switchSaleChannel(ch); // re-apply channel visibility after reset
+    closeSaleModal();
     showToast('Sale logged!');
   } catch (err) {
     showToast('Failed: ' + err.message);
