@@ -233,9 +233,14 @@ exports.handler = async (event) => {
     const supabaseUrl  = process.env.SUPABASE_URL;
     const serviceKey   = process.env.SUPABASE_SERVICE_KEY;
 
-    if (!appId || !certId || !refreshToken || !supabaseUrl || !serviceKey) {
-      throw new Error('Missing required environment variables');
-    }
+    const missing = [
+      !appId        && 'EBAY_APP_ID',
+      !certId       && 'EBAY_CERT_ID',
+      !refreshToken && 'EBAY_REFRESH_TOKEN',
+      !supabaseUrl  && 'SUPABASE_URL',
+      !serviceKey   && 'SUPABASE_SERVICE_KEY',
+    ].filter(Boolean);
+    if (missing.length) throw new Error(`Missing env vars: ${missing.join(', ')}`);
 
     // 1. Auth
     const token = await getAccessToken(appId, certId, refreshToken);
