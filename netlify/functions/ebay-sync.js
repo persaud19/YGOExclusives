@@ -59,7 +59,8 @@ async function fetchOrders(token, since) {
     url = data.next || null;
   }
 
-  return orders.filter(o => o.orderPaymentStatus === 'PAID');
+  const paid = orders.filter(o => o.orderPaymentStatus === 'PAID');
+  return { orders: paid, debug: { raw: orders.length, paid: paid.length, statuses: [...new Set(orders.map(o => o.orderPaymentStatus))] } };
 }
 
 async function fetchTracking(token, orderId) {
@@ -261,10 +262,12 @@ exports.handler = async (event) => {
     const token = await getAccessToken(appId, certId, refreshToken);
 
     // 2. Fetch orders + transactions in parallel
-    const [orders, txns] = await Promise.all([
+    const [ordersResult, txns] = await Promise.all([
       fetchOrders(token, since),
       fetchTransactions(token, since),
     ]);
+    const orders    = ordersResult.orders;
+    const orderDbg  = ordersResult.debug;
 
     // 3. Index transactions by orderId
     const txnsByOrderId = {};
@@ -293,6 +296,8 @@ exports.handler = async (event) => {
         ok:    true,
         since: since.toISOString(),
         orders_fetched: orders.length,
+        orders_debug:   orderDbg,
+        txns_fetched:   txns.length,
         ...result,
       }),
     };
