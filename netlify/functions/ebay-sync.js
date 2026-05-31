@@ -239,10 +239,10 @@ exports.handler = async (event) => {
     const params  = event.queryStringParameters || {};
     const dryRun  = params.dry_run === '1';
 
-    // Default: last 48h (catches late payment confirmations)
+    // Default: last 7 days (catches late payments, shipping updates, and missed runs)
     const since = params.since
       ? new Date(params.since)
-      : new Date(Date.now() - 48 * 60 * 60 * 1000);
+      : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const appId        = process.env.EBAY_APP_ID;
     const certId       = process.env.EBAY_CERT_ID;
