@@ -36,7 +36,6 @@ async function lqLoad() {
     lqRenderStats(status);
     lqRenderRows(rows, status);
     lqRenderPagination();
-    lqFetchEbayPrices(rows);
   } catch (e) {
     const msg = e.message.includes('relation') || e.message.includes('does not exist')
       ? 'listing_queue table not created yet — run backups/listing-queue-setup.sql in Supabase first.'
@@ -129,8 +128,10 @@ function lqRenderRows(rows, status) {
       <td style="color:var(--muted);font-size:0.85rem">
         ${row.tcg_low_cad ? `<span style="color:var(--blue)">$${Number(row.tcg_low_cad).toFixed(2)}</span>` : '<span class="muted">—</span>'}
       </td>
-      <td id="lq-ebay-${row.id}" style="font-size:0.85rem">
-        <span class="muted">…</span>
+      <td style="font-size:0.85rem">
+        ${row.ebay_low_cad > 0
+          ? `<span style="color:var(--green)">C$${Number(row.ebay_low_cad).toFixed(2)}</span>`
+          : '<span class="muted">—</span>'}
       </td>
       <td>
         <input class="input" type="text" inputmode="numeric" style="font-size:0.8rem;padding:3px 6px;width:80px"
@@ -211,43 +212,31 @@ async function lqSkip(id) {
   showToast('Skipped.');
 }
 
-// ── Fetch eBay lowest listed price for each visible row ───────────────────────
-async function lqFetchEbayPrices(rows) {
-  if (!rows || rows.length === 0) return;
-
-  // Get live USD→CAD rate (cached in pricer.js, falls back to 1.38)
-  const cadRate = await getPricerUsdCadRate().catch(() => 1.38);
-
-  // Fire requests concurrently — one per row
-  await Promise.all(rows.map(async row => {
-    const cell = document.getElementById(`lq-ebay-${row.id}`);
-    if (!cell) return;
-
-    if (!row.card_number || !row.rarity) {
-      cell.innerHTML = '<span class="muted">—</span>';
-      return;
+// ── Refresh eBay prices via Netlify function (writes to DB then reloads) ──────
+async function lqRefreshEbayPrices() {
+  const btn = document.getElementById('lq-ebay-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Fetching…'; }
+  try {
+    const syncKey = localStorage.getItem('ygoexclusives_sync_key') || '';
+    const res  = await fetch('/.netlify/functions/ebay-queue-prices', {
+      headers: { 'X-Api-Key': syncKey },
+    });
+    const data = await res.json();
+    if (res.status === 429) {
+      showToast('eBay rate limit hit — resets midnight PT', 'error');
+    } else if (res.status === 401) {
+      showToast('Sync key missing — set it in Settings', 'error');
+    } else if (res.ok) {
+      showToast(`eBay prices updated: ${data.updated} of ${data.total} cards.`);
+      lqLoad();
+    } else {
+      showToast('Error: ' + (data.error || res.status), 'error');
     }
-
-    try {
-      const url = `/.netlify/functions/ebay-prices?card_number=${encodeURIComponent(row.card_number)}&rarity=${encodeURIComponent(row.rarity)}`;
-      const res  = await fetch(url);
-      const data = await res.json();
-
-      if (data.error === 'rate_limit') {
-        cell.innerHTML = '<span class="muted" title="eBay rate limit hit — resets midnight PT">limit</span>';
-        return;
-      }
-
-      if (data.lowestListed) {
-        const cad = (data.lowestListed * cadRate).toFixed(2);
-        cell.innerHTML = `<span style="color:var(--green)" title="eBay lowest listed (price+shipping) converted to CAD">C$${cad}</span>`;
-      } else {
-        cell.innerHTML = '<span class="muted">—</span>';
-      }
-    } catch (e) {
-      cell.innerHTML = '<span class="muted">—</span>';
-    }
-  }));
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↺ eBay Prices'; }
+  }
 }
 
 // ── Push a single card to eBay via URI scheme ─────────────────────────────────

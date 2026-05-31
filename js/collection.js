@@ -134,6 +134,7 @@ function renderCollectionRows(rows, tbody) {
             : '<span class="muted">—</span>'}
       </td>
       <td class="cinzel" style="color:var(--gold2);white-space:nowrap">${card.tcg_low_price > 0 ? '$'+Number(card.tcg_low_price).toFixed(2) : '—'}</td>
+      <td style="white-space:nowrap">${card.ebay_low_cad > 0 ? `<span style="color:var(--green)">C$${Number(card.ebay_low_cad).toFixed(2)}</span>` : '<span class="muted">—</span>'}</td>
       <td class="small muted">${(card.acquisition_cost > 0) ? '$'+Number(card.acquisition_cost).toFixed(2) : '—'}</td>
       <td class="small muted">${escHtml(card.location||'')}</td>
       <td class="cinzel" style="color:var(--gold2);text-align:center;font-weight:700">${(card.fe_nm||0)+(card.fe_lp||0)+(card.fe_mp||0)+(card.un_nm||0)+(card.un_lp||0)+(card.un_mp||0)}</td>

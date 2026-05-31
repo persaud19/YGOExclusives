@@ -394,6 +394,7 @@
               <th data-sort="set_name">Set <span class="sort-arrow"> ↕</span></th>
               <th data-sort="tcg_price_cad">TCG Market (CAD) <span class="sort-arrow"> ↕</span></th>
               <th data-sort="tcg_low_price">TCG Low <span class="sort-arrow"> ↕</span></th>
+              <th>eBay Low (CAD)</th>
               <th data-sort="acquisition_cost">Cost In <span class="sort-arrow"> ↕</span></th>
               <th data-sort="location">Location <span class="sort-arrow"> ↕</span></th>
               <th>Qty</th>
@@ -404,7 +405,7 @@
             </tr>
           </thead>
           <tbody id="col-tbody">
-            <tr><td colspan="15" class="muted text-center" style="padding:24px">Loading collection…</td></tr>
+            <tr><td colspan="16" class="muted text-center" style="padding:24px">Loading collection…</td></tr>
           </tbody>
         </table>
       </div>
@@ -1337,6 +1338,7 @@
             <option value="skipped">Skipped</option>
           </select>
           <button class="btn btn-secondary" onclick="lqLoad()">Refresh</button>
+          <button class="btn btn-secondary" id="lq-ebay-refresh-btn" onclick="lqRefreshEbayPrices()">↺ eBay Prices</button>
           <button class="btn btn-primary" style="background:var(--green);border-color:var(--green)" onclick="lqTriggerPush()">
             ▶ Push to eBay
           </button>
