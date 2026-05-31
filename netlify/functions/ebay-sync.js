@@ -212,6 +212,14 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   }
 
+  // Env var debug endpoint — no auth required, safe (returns only key names not values)
+  if ((event.queryStringParameters || {}).debug_env === '1') {
+    const keys = ['EBAY_APP_ID','EBAY_CERT_ID','EBAY_REFRESH_TOKEN','SUPABASE_URL','SUPABASE_SERVICE_KEY','SYNC_API_KEY'];
+    const state = {};
+    keys.forEach(k => { state[k] = process.env[k] ? `set (${process.env[k].length} chars)` : 'MISSING'; });
+    return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify(state) };
+  }
+
   // Require a simple shared secret to prevent public triggering
   const apiKey = event.headers['x-api-key'] || event.queryStringParameters?.api_key;
   if (apiKey !== process.env.SYNC_API_KEY) {
