@@ -87,58 +87,53 @@ function buildOrderCard(items) {
   // Build card rows HTML
   const rowsHtml = items.map(item => `
     <tr>
-      <td style="padding:8px 12px;font-weight:600;color:var(--txt)">${escHtml(item.card_name || '—')}</td>
-      <td style="padding:8px 12px;color:var(--muted);font-size:0.85rem">${escHtml(item.card_number || '—')}</td>
-      <td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--gold);font-size:1rem">${item.quantity || 1}</td>
+      <td class="oc-card-name">${escHtml(item.card_name || '—')}</td>
+      <td class="oc-card-num">${escHtml(item.card_number || '—')}</td>
+      <td class="oc-card-qty">${item.quantity || 1}</td>
     </tr>
   `).join('');
+
+  const isTrackedClass = isTracked ? 'oc-badge-tracked' : 'oc-badge-letter';
 
   const card = document.createElement('div');
   card.className = 'order-card';
   card.dataset.orderGroup = JSON.stringify(items.map(i => i.id));
 
   card.innerHTML = `
-    <div class="order-card-header no-print-actions">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:0.75rem;color:var(--muted);font-family:monospace">${escHtml(first.ebay_order_id || 'Manual')}</span>
-        <span style="font-size:0.75rem;color:var(--muted)">${formatDate(first.sale_date)}</span>
-        <span style="
-          background:${shipColor}22;
-          color:${shipColor};
-          border:1px solid ${shipColor}44;
-          border-radius:99px;
-          padding:2px 10px;
-          font-size:0.75rem;
-          font-weight:600;
-        ">${shipLabel}</span>
+    <div class="order-card-header">
+      <div class="oc-meta">
+        <span class="oc-order-id">${escHtml(first.ebay_order_id || 'Manual')}</span>
+        <span class="oc-date">${formatDate(first.sale_date)}</span>
+        <span class="oc-ship-badge ${isTrackedClass}">${shipLabel}</span>
       </div>
-      <button class="btn btn-sm no-print" style="background:var(--green);color:#fff;border:none;cursor:pointer"
-        onclick="markShipped(this)">
-        ✓ Mark Shipped
-      </button>
+      <button class="oc-ship-btn no-print" onclick="markShipped(this)">✓ Mark Shipped</button>
     </div>
 
     <div class="order-card-body">
-      <!-- Left: buyer info -->
+      <!-- Left: ship-to address -->
       <div class="order-buyer-block">
-        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">Ship To</div>
-        <div style="font-weight:700;font-size:1rem;color:var(--txt);margin-bottom:2px">${escHtml(first.buyer_name || first.buyer_username || 'Unknown Buyer')}</div>
-        ${first.buyer_username ? `<div style="font-size:0.8rem;color:var(--muted);margin-bottom:8px">@${escHtml(first.buyer_username)}</div>` : ''}
-        ${hasAddress
-          ? `<div style="font-size:0.88rem;color:var(--txt);line-height:1.6">${addressParts.map(p => escHtml(p)).join('<br>')}</div>`
-          : `<div style="font-size:0.82rem;color:var(--yellow)">⚠ Address not captured — check eBay</div>`
-        }
+        <div class="oc-section-label">Ship To</div>
+        <div class="oc-buyer-name">${escHtml(first.buyer_name || 'Unknown Buyer')}</div>
+        ${hasAddress ? `
+          <div class="oc-address">
+            ${first.buyer_address_line1 ? `<div>${escHtml(first.buyer_address_line1)}</div>` : ''}
+            ${first.buyer_address_line2 ? `<div>${escHtml(first.buyer_address_line2)}</div>` : ''}
+            <div>${[first.buyer_city, first.buyer_province].filter(Boolean).map(escHtml).join(', ')}</div>
+            ${first.buyer_postal_code ? `<div>${escHtml(first.buyer_postal_code)}</div>` : ''}
+            <div>${escHtml(first.buyer_country || '')}</div>
+          </div>
+        ` : `<div class="oc-addr-warn">⚠ Address not captured — check eBay<br><small>eBay: @${escHtml(first.buyer_username || '—')}</small></div>`}
       </div>
 
-      <!-- Right: items table -->
+      <!-- Right: cards to pick -->
       <div class="order-items-block">
-        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px">Cards to Pick</div>
-        <table style="width:100%;border-collapse:collapse">
+        <div class="oc-section-label">Cards to Pick</div>
+        <table class="oc-table">
           <thead>
-            <tr style="border-bottom:1px solid var(--b2)">
-              <th style="padding:4px 12px 6px;text-align:left;font-size:0.75rem;color:var(--muted);font-weight:600">Card</th>
-              <th style="padding:4px 12px 6px;text-align:left;font-size:0.75rem;color:var(--muted);font-weight:600">Number</th>
-              <th style="padding:4px 12px 6px;text-align:center;font-size:0.75rem;color:var(--muted);font-weight:600">Qty</th>
+            <tr>
+              <th>Card</th>
+              <th>Set Number</th>
+              <th>Qty</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
