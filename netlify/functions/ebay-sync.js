@@ -35,6 +35,14 @@ async function getAccessToken(appId, certId, refreshToken) {
   return data.access_token;
 }
 
+// ── Safe JSON parse ───────────────────────────────────────────────────────────
+
+async function safeJson(res) {
+  const text = await res.text();
+  if (!text || !text.trim()) return {};
+  try { return JSON.parse(text); } catch (_) { return {}; }
+}
+
 // ── eBay Fulfillment API ──────────────────────────────────────────────────────
 
 async function fetchOrders(token, since) {
@@ -44,14 +52,13 @@ async function fetchOrders(token, since) {
   let   url      = `${EBAY_FULFILL}?filter=${encodeURIComponent(filter)}&limit=200`;
 
   while (url) {
-    const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) throw new Error(`fetchOrders failed: ${res.status} ${await res.text()}`);
-    const data = await res.json();
+    const data = await safeJson(res);
     orders.push(...(data.orders || []));
     url = data.next || null;
   }
 
-  // Only paid orders
   return orders.filter(o => o.orderPaymentStatus === 'PAID');
 }
 
@@ -60,7 +67,7 @@ async function fetchTracking(token, orderId) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return [];
-  const data = await res.json();
+  const data = await safeJson(res);
   return data.fulfillments || [];
 }
 
@@ -73,9 +80,9 @@ async function fetchTransactions(token, since) {
   let   url      = `${EBAY_FINANCES}?filter=${encodeURIComponent(filter)}&transactionType=SALE&limit=200`;
 
   while (url) {
-    const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) throw new Error(`fetchTransactions failed: ${res.status} ${await res.text()}`);
-    const data = await res.json();
+    const data = await safeJson(res);
     txns.push(...(data.transactions || []));
     url = data.next || null;
   }
