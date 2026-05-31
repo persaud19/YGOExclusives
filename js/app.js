@@ -5,11 +5,14 @@ let pinBuffer   = '';
 let correctPin  = DEFAULT_PIN;
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
-function showToast(msg, duration = 2200) {
+function showToast(msg, durationOrType = 2200) {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  const isType   = typeof durationOrType === 'string';
+  const duration = isType ? (durationOrType === 'error' ? 4000 : 2200) : durationOrType;
+  t.style.background = (durationOrType === 'error') ? 'var(--red)' : '';
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), duration);
+  setTimeout(() => { t.classList.remove('show'); t.style.background = ''; }, duration);
 }
 
 // ─── Start Screen ─────────────────────────────────────────────────────────────

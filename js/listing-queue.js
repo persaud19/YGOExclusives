@@ -216,6 +216,15 @@ async function lqSkip(id) {
 async function lqRefreshEbayPrices() {
   const btn = document.getElementById('lq-ebay-refresh-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Fetching…'; }
+
+  const setBtn = (label, ok = true) => {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.textContent = label;
+    btn.style.color = ok ? '' : 'var(--red)';
+    setTimeout(() => { btn.textContent = '↺ eBay Prices'; btn.style.color = ''; }, 4000);
+  };
+
   try {
     const syncKey = localStorage.getItem('ygoexclusives_sync_key') || '';
     const res  = await fetch('/.netlify/functions/ebay-queue-prices', {
@@ -223,19 +232,24 @@ async function lqRefreshEbayPrices() {
     });
     const data = await res.json();
     if (res.status === 429) {
+      setBtn('Rate limit — try tomorrow', false);
       showToast('eBay rate limit hit — resets midnight PT', 'error');
     } else if (res.status === 401) {
-      showToast('Sync key missing — set it in Settings', 'error');
+      setBtn('Auth failed — check sync key', false);
+      showToast('Sync key not set — add ygoexclusives_sync_key to localStorage', 'error');
     } else if (res.ok) {
+      setBtn(`✓ Updated ${data.updated}/${data.total}`);
       showToast(`eBay prices updated: ${data.updated} of ${data.total} cards.`);
       lqLoad();
     } else {
+      setBtn('Error — see console', false);
+      console.error('ebay-queue-prices error:', data);
       showToast('Error: ' + (data.error || res.status), 'error');
     }
   } catch (e) {
+    setBtn('Failed — see console', false);
+    console.error('lqRefreshEbayPrices:', e);
     showToast('Error: ' + e.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '↺ eBay Prices'; }
   }
 }
 

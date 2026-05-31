@@ -51,7 +51,8 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: CORS_HEADERS, body: '' };
   }
 
-  const apiKey = event.headers['x-api-key'];
+  const params = event.queryStringParameters || {};
+  const apiKey = event.headers['x-api-key'] || params.api_key;
   if (apiKey !== process.env.SYNC_API_KEY) {
     return { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: 'unauthorized' }) };
   }
