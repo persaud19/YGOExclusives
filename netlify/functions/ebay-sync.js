@@ -261,10 +261,13 @@ exports.handler = async (event) => {
     // 1. Auth
     const token = await getAccessToken(appId, certId, refreshToken);
 
-    // 2. Fetch orders + transactions in parallel
+    // 2. Fetch orders + transactions in parallel (finances non-fatal)
     const [ordersResult, txns] = await Promise.all([
       fetchOrders(token, since),
-      fetchTransactions(token, since),
+      fetchTransactions(token, since).catch(err => {
+        console.warn('fetchTransactions skipped:', err.message);
+        return [];
+      }),
     ]);
     const orders    = ordersResult.orders;
     const orderDbg  = ordersResult.debug;
