@@ -253,6 +253,29 @@ async function lqRefreshEbayPrices() {
   }
 }
 
+// ── Launch a workflow script via URI scheme ───────────────────────────────────
+function lqLaunchScript(action, label) {
+  const messages = {
+    'process-photos': 'This will open PowerShell and run the photo processor.\n\nIt scans Card Photos\\Incoming\\ with Claude Vision, sorts photos into named folders in Cards Processed\\, and logs results.\n\nMake sure photos are in the Incoming folder first.\n\nProceed?',
+    'build-queue':    'This will open PowerShell and build the listing queue.\n\nIt scans Cards Processed\\ folders, matches each to card_inventory, inserts queue entries, and moves folders to Cards Listed\\.\n\nProceed?',
+  };
+  if (!confirm(messages[action] || `Run ${label}?`)) return;
+
+  window.location.href = `ygoexclusives://${action}`;
+
+  const btns = document.querySelectorAll(`[onclick="lqLaunchScript('${action}','${label}')"]`);
+  btns.forEach(btn => {
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Running in PowerShell…';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = original;
+      if (action === 'build-queue') lqLoad();
+    }, 15000);
+  });
+}
+
 // ── Push a single card to eBay via URI scheme ─────────────────────────────────
 function lqPushSingle(id, cardNumber) {
   const priceEl = document.getElementById(`lq-price-${id}`);
