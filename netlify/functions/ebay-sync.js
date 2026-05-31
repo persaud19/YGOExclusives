@@ -110,20 +110,14 @@ const CHIT_CHATS_DEFAULT = 5.50;
 
 // ── Build sale records ────────────────────────────────────────────────────────
 
-async function buildRecords(orders, txnsByOrderId, token) {
+async function buildRecords(orders, txnsByOrderId) {
   const records = [];
-
-  // Fetch all tracking in parallel instead of sequentially
-  const trackingResults = await Promise.all(
-    orders.map(o => fetchTracking(token, o.orderId).catch(() => []))
-  );
 
   for (let i = 0; i < orders.length; i++) {
     const order = orders[i];
-    const fulfillments = trackingResults[i];
-    const first = fulfillments[0];
-    const trackingNumber  = first?.trackingNumber  || null;
-    const shippingCarrier = first?.shippingCarrier || null;
+    // Tracking omitted from sync — not worth the extra API calls per order
+    const trackingNumber  = null;
+    const shippingCarrier = null;
 
     const buyer   = order.buyer || {};
     const regAddr = buyer.buyerRegistrationAddress?.contactAddress || {};
@@ -279,7 +273,7 @@ exports.handler = async (event) => {
     }
 
     // 4. Build sale records (fetches tracking per order)
-    const records = await buildRecords(orders, txnsByOrderId, token);
+    const records = await buildRecords(orders, txnsByOrderId);
 
     if (dryRun) {
       return {
