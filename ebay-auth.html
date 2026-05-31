@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>eBay Auth — YGOExclusives</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #070710; color: #e0e0f0; font-family: system-ui, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { background: #0d0d1e; border: 1px solid #2e2e55; border-radius: 16px; padding: 36px; max-width: 560px; width: 100%; }
+    h1 { font-size: 1.3rem; color: #f0b030; margin-bottom: 8px; }
+    .sub { color: #6868a0; font-size: 0.88rem; margin-bottom: 28px; line-height: 1.5; }
+    .step { display: flex; gap: 14px; margin-bottom: 20px; align-items: flex-start; }
+    .step-num { background: #2e2e55; color: #f0b030; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+    .step-body { flex: 1; }
+    .step-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+    .step-desc { font-size: 0.82rem; color: #6868a0; line-height: 1.5; }
+    .url-box { background: #131328; border: 1px solid #2e2e55; border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 0.8rem; color: #60a0f0; margin-top: 8px; word-break: break-all; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .copy-btn { background: none; border: 1px solid #2e2e55; border-radius: 6px; color: #6868a0; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; white-space: nowrap; }
+    .copy-btn:hover { border-color: #f0b030; color: #f0b030; }
+    label { display: block; font-size: 0.78rem; color: #6868a0; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    input { width: 100%; background: #131328; border: 1px solid #2e2e55; border-radius: 8px; padding: 10px 14px; color: #e0e0f0; font-size: 0.88rem; outline: none; }
+    input:focus { border-color: #f0b030; }
+    .btn { display: block; width: 100%; background: #c8950c; color: #000; border: none; border-radius: 8px; padding: 14px; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 20px; transition: background 0.15s; }
+    .btn:hover { background: #f0b030; }
+    .btn:disabled { background: #2e2e55; color: #6868a0; cursor: not-allowed; }
+    .divider { border: none; border-top: 1px solid #1e1e40; margin: 28px 0; }
+    .warn { background: rgba(200,149,12,0.1); border: 1px solid rgba(200,149,12,0.3); border-radius: 8px; padding: 12px 16px; font-size: 0.82rem; color: #f0b030; line-height: 1.5; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>eBay Re-Authorization</h1>
+  <p class="sub">Your current token is missing the <code>sell.fulfillment</code> and <code>sell.finances</code> scopes needed for the sales sync. Follow these steps to get a new refresh token.</p>
+
+  <div class="warn">
+    ⚠ Do this once and keep the resulting refresh token safe — it lasts 18 months.
+  </div>
+
+  <!-- Step 1 -->
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Register the callback URL in eBay Developer Portal</div>
+      <div class="step-desc">
+        Go to <a href="https://developer.ebay.com/my/auth?env=production" target="_blank" style="color:#60a0f0">developer.ebay.com → User Tokens</a>, find your app, and add this as an <strong>Accepted redirect_uri</strong>. Copy the <strong>RuName</strong> eBay assigns to it.
+      </div>
+      <div class="url-box">
+        <span id="callback-url">https://ygoexclusives.netlify.app/.netlify/functions/ebay-auth-callback</span>
+        <button class="copy-btn" onclick="copyText('callback-url', this)">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Add EBAY_RU_NAME to Netlify env vars</div>
+      <div class="step-desc">Netlify → Site Settings → Environment Variables → add <code>EBAY_RU_NAME</code> = the RuName from step 1. Then redeploy once.</div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Enter your RuName and authorize</div>
+      <div class="step-desc" style="margin-bottom:10px">Paste the RuName here, then click Authorize. You'll be sent to eBay's consent screen.</div>
+      <label for="ru-name">RuName</label>
+      <input id="ru-name" type="text" placeholder="e.g. RyanPers-Shadowre-PRD-abcde12-abcde1234" oninput="updateBtn()">
+      <button class="btn" id="auth-btn" disabled onclick="authorize()">Authorize with eBay →</button>
+    </div>
+  </div>
+
+  <hr class="divider">
+  <p style="font-size:0.78rem;color:#6868a0;text-align:center">After authorizing, eBay will redirect back here automatically and display your new refresh token.</p>
+</div>
+
+<script>
+  const EBAY_APP_ID = 'RyanPers-Shadowre-PRD-c40bfc456-765f07b2';
+  const SCOPES = [
+    'https://api.ebay.com/oauth/api_scope',
+    'https://api.ebay.com/oauth/api_scope/sell.item',
+    'https://api.ebay.com/oauth/api_scope/sell.item.draft',
+    'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
+    'https://api.ebay.com/oauth/api_scope/sell.finances',
+    'https://api.ebay.com/oauth/api_scope/sell.marketing',
+    'https://api.ebay.com/oauth/api_scope/sell.analytics.readonly',
+  ].join(' ');
+
+  function updateBtn() {
+    const ru = document.getElementById('ru-name').value.trim();
+    document.getElementById('auth-btn').disabled = !ru;
+  }
+
+  function authorize() {
+    const ruName = document.getElementById('ru-name').value.trim();
+    if (!ruName) return;
+    const state = Math.random().toString(36).slice(2);
+    const url = 'https://auth.ebay.com/oauth2/authorize?' + new URLSearchParams({
+      client_id:     EBAY_APP_ID,
+      response_type: 'code',
+      redirect_uri:  ruName,
+      scope:         SCOPES,
+      state:         state,
+    }).toString();
+    window.location.href = url;
+  }
+
+  function copyText(id, btn) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+  }
+</script>
+</body>
+</html>
