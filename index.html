@@ -250,6 +250,9 @@
     <button class="tab-btn active" data-tab="inventory" data-mode="inventory,owner">
       Inventory
     </button>
+    <button class="tab-btn hidden" data-tab="orders" data-mode="inventory,owner">
+      Orders
+    </button>
     <button class="tab-btn hidden" data-tab="collection" data-mode="owner">
       Collection
     </button>
@@ -1373,6 +1376,32 @@
     </div>
   </div>
 
+  <!-- ─── ORDERS TAB ───────────────────────────────────────────────────────── -->
+  <div id="tab-orders" class="tab-panel">
+    <div class="tab-content" style="max-width:100%">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+        <h2 class="cinzel" style="color:var(--gold);font-size:1.1rem;margin:0">📦 Orders to Ship</h2>
+        <span id="orders-count-badge" style="background:var(--red);color:#fff;border-radius:99px;padding:2px 10px;font-size:0.78rem;font-weight:600;display:none"></span>
+        <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-secondary btn-sm" id="orders-refresh-btn">↻ Refresh</button>
+          <button class="btn btn-primary btn-sm" id="orders-print-btn" onclick="window.print()">🖨 Print Order Sheet</button>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="orders-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--muted)">
+        <div style="font-size:2.5rem;margin-bottom:12px">✅</div>
+        <div style="font-size:1rem;color:var(--txt)">All caught up — no pending orders.</div>
+      </div>
+
+      <!-- Orders list -->
+      <div id="orders-list"></div>
+
+    </div>
+  </div>
+
 </div><!-- /#app -->
 
 <!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
@@ -1389,6 +1418,7 @@
 <script src="js/listing.js"></script>
 <script src="js/listing-queue.js"></script>
 <script src="js/pricer.js"></script>
+<script src="js/orders.js"></script>
 <script src="js/app.js"></script>
 
 <script>

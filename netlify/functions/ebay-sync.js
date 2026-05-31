@@ -101,6 +101,9 @@ function buildRecords(orders) {
     const city           = shipTo.city            || regAddr.city            || null;
     const country        = shipTo.countryCode     || regAddr.countryCode     || null;
     const prov           = shipTo.stateOrProvince || regAddr.stateOrProvince || null;
+    const addrLine1      = shipTo.addressLine1    || regAddr.addressLine1    || null;
+    const addrLine2      = shipTo.addressLine2    || regAddr.addressLine2    || null;
+    const postalCode     = shipTo.postalCode      || regAddr.postalCode      || null;
     const shippingService = shipStep.shippingServiceCode || null;
     const shipCostOut    = LETTERMAIL_SERVICES.has(shippingService) ? LETTERMAIL : CHIT_CHATS;
 
@@ -134,11 +137,14 @@ function buildRecords(orders) {
         platform_fee:        fvf,
         payout_amount:       payout,
         net_profit:          netProfit,
-        buyer_name:          buyer.buyerRegistrationAddress?.fullName || null,
-        buyer_username:      buyer.username || null,
-        buyer_city:          city,
-        buyer_province:      prov,
-        buyer_country:       country,
+        buyer_name:           buyer.buyerRegistrationAddress?.fullName || null,
+        buyer_username:       buyer.username || null,
+        buyer_address_line1:  addrLine1,
+        buyer_address_line2:  addrLine2,
+        buyer_city:           city,
+        buyer_province:       prov,
+        buyer_postal_code:    postalCode,
+        buyer_country:        country,
         ebay_order_id:       order.orderId,
         ebay_item_id:        item.legacyItemId || null,
         ebay_transaction_id: item.lineItemId   || null,

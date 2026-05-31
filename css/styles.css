@@ -1483,4 +1483,112 @@ tr:hover td { background: var(--surf2); }
   vertical-align: middle;
 }
 .pricer-table tbody tr:last-child td { border-bottom: none; }
+
+/* ─── Orders Tab ─────────────────────────────────────────────────────────── */
+
+.order-card {
+  background: var(--surf);
+  border: 1px solid var(--b2);
+  border-radius: 10px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.order-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--b2);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.order-card-body {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+}
+
+.order-buyer-block {
+  padding: 18px;
+  border-right: 1px solid var(--b2);
+}
+
+.order-items-block {
+  padding: 18px;
+}
+
+/* ─── Print styles ───────────────────────────────────────────────────────── */
+
+@media print {
+  /* Hide everything except the orders tab content */
+  body > *:not(#app) { display: none !important; }
+  #app > *:not(#tab-orders) { display: none !important; }
+  #tab-orders { display: block !important; }
+
+  header,
+  nav.tabs,
+  .no-print,
+  #orders-refresh-btn,
+  #orders-print-btn,
+  .order-card-header .btn { display: none !important; }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+  }
+
+  .tab-content {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  h2.cinzel {
+    color: #000 !important;
+    font-size: 14pt !important;
+    margin-bottom: 12pt !important;
+  }
+
+  #orders-count-badge { display: none !important; }
+
+  .order-card {
+    background: #fff !important;
+    border: 1.5px solid #999 !important;
+    border-radius: 4px !important;
+    margin-bottom: 18pt !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .order-card-header {
+    background: #f0f0f0 !important;
+    border-bottom: 1px solid #ccc !important;
+    padding: 8pt 12pt !important;
+  }
+
+  .order-card-body {
+    grid-template-columns: 240pt 1fr;
+  }
+
+  .order-buyer-block {
+    border-right: 1px solid #ccc !important;
+    padding: 10pt 12pt !important;
+  }
+
+  .order-items-block {
+    padding: 10pt 12pt !important;
+  }
+
+  /* Re-colour text for print */
+  .order-buyer-block *,
+  .order-items-block * {
+    color: #000 !important;
+    background: transparent !important;
+  }
+
+  table th, table td { color: #000 !important; }
+}
 .pricer-table tbody tr:hover { background: rgba(255,255,255,0.02); }

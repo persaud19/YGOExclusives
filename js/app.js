@@ -97,6 +97,8 @@ function onTabActivated(tabId) {
   } else if (tabId === 'listing-queue' && typeof lqLoad === 'function') {
     lqPage = 0;
     lqLoad();
+  } else if (tabId === 'orders' && typeof initOrders === 'function') {
+    initOrders();
   }
 }
 
