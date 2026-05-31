@@ -11,7 +11,7 @@ const CORS_HEADERS = {
 
 const EBAY_TOKEN_URL  = 'https://api.ebay.com/identity/v1/oauth2/token';
 const EBAY_FULFILL    = 'https://api.ebay.com/sell/fulfillment/v1/order';
-const EBAY_FINANCES   = 'https://api.ebay.com/sell/finances/v1/transaction';
+const EBAY_FINANCES   = 'https://apiz.ebay.com/sell/finances/v1/transaction';
 
 // ── OAuth ─────────────────────────────────────────────────────────────────────
 
