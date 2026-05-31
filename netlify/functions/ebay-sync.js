@@ -1,9 +1,12 @@
 // ebay-sync.js — Daily eBay sold-order sync
-// Only uses Fulfillment API (2 calls: token + orders). FVF calculated at 13.25%.
-// GET /.netlify/functions/ebay-sync              → sync last 7 days
-// GET /.netlify/functions/ebay-sync?since=YYYY-MM-DD → sync from date
-// GET /.netlify/functions/ebay-sync?dry_run=1   → return records without saving
-// GET /.netlify/functions/ebay-sync?debug_env=1 → check env vars (no auth needed)
+// Uses https module (no fetch dependency) — works on any Node version.
+// GET /.netlify/functions/ebay-sync                    → sync last 7 days
+// GET /.netlify/functions/ebay-sync?since=YYYY-MM-DD   → sync from date
+// GET /.netlify/functions/ebay-sync?dry_run=1          → return without saving
+// GET /.netlify/functions/ebay-sync?debug_env=1        → check env vars (no auth)
+
+const https = require('https');
+const { randomUUID } = require('crypto');
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
@@ -11,45 +14,64 @@ const CORS_HEADERS = {
   'Content-Type':                 'application/json',
 };
 
-const EBAY_TOKEN_URL = 'https://api.ebay.com/identity/v1/oauth2/token';
-const EBAY_FULFILL   = 'https://api.ebay.com/sell/fulfillment/v1/order';
-const EBAY_FVF_PCT   = 0.1325; // Standard eBay final value fee
-const CHIT_CHATS     = 5.50;   // Default shipping cost out (CAD)
+const EBAY_FVF_PCT = 0.1325;
+const CHIT_CHATS   = 5.50;
+
+// ── HTTP helper ───────────────────────────────────────────────────────────────
+
+function request(options, body) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: data ? JSON.parse(data) : {} }); }
+        catch (_) { resolve({ status: res.statusCode, body: data }); }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+function post(host, path, headers, body) {
+  return request({ method: 'POST', host, path, headers }, body);
+}
+
+function get(host, path, headers) {
+  return request({ method: 'GET', host, path, headers }, null);
+}
 
 // ── OAuth ─────────────────────────────────────────────────────────────────────
 
 async function getAccessToken(appId, certId, refreshToken) {
   const creds = Buffer.from(`${appId}:${certId}`).toString('base64');
-  const res = await fetch(EBAY_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${creds}`,
-    },
-    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&scope=${encodeURIComponent('https://api.ebay.com/oauth/api_scope/sell.fulfillment')}`,
-  });
-  const data = await res.json();
-  if (!data.access_token) throw new Error(`Token refresh failed: ${JSON.stringify(data)}`);
-  return data.access_token;
+  const body  = `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&scope=${encodeURIComponent('https://api.ebay.com/oauth/api_scope/sell.fulfillment')}`;
+  const res   = await post('api.ebay.com', '/identity/v1/oauth2/token', {
+    'Content-Type':  'application/x-www-form-urlencoded',
+    'Authorization': `Basic ${creds}`,
+    'Content-Length': Buffer.byteLength(body),
+  }, body);
+  if (!res.body.access_token) throw new Error(`Token refresh failed: ${JSON.stringify(res.body)}`);
+  return res.body.access_token;
 }
 
 // ── Fetch orders ──────────────────────────────────────────────────────────────
 
 async function fetchOrders(token, since) {
   const sinceStr = new Date(since).toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const filter   = `lastmodifieddate:[${sinceStr}..]`;
+  const filter   = encodeURIComponent(`lastmodifieddate:[${sinceStr}..]`);
   const orders   = [];
-  let   url      = `${EBAY_FULFILL}?filter=${encodeURIComponent(filter)}&limit=200`;
+  let   path     = `/sell/fulfillment/v1/order?filter=${filter}&limit=200`;
 
-  while (url) {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`fetchOrders ${res.status}: ${body.slice(0, 200)}`);
-    }
-    const data = await res.json();
-    orders.push(...(data.orders || []));
-    url = data.next || null;
+  while (path) {
+    const res = await get('api.ebay.com', path, { Authorization: `Bearer ${token}` });
+    if (res.status !== 200) throw new Error(`fetchOrders ${res.status}: ${JSON.stringify(res.body).slice(0, 200)}`);
+    orders.push(...(res.body.orders || []));
+    // next is a full URL — extract just the path+query
+    const next = res.body.next;
+    path = next ? next.replace('https://api.ebay.com', '') : null;
   }
 
   return orders.filter(o => o.orderPaymentStatus === 'PAID');
@@ -62,14 +84,11 @@ function extractCardNumber(title) {
   return m ? m[1].toUpperCase() : null;
 }
 
-// ── Build sale records from order data ────────────────────────────────────────
-
 function buildRecords(orders) {
   const records = [];
-
   for (const order of orders) {
-    const buyer   = order.buyer || {};
-    const regAddr = buyer.buyerRegistrationAddress?.contactAddress || {};
+    const buyer    = order.buyer || {};
+    const regAddr  = buyer.buyerRegistrationAddress?.contactAddress || {};
     const shipStep = (order.fulfillmentStartInstructions || [])[0]?.shippingStep || {};
     const shipTo   = shipStep.shipTo?.contactAddress || {};
 
@@ -77,10 +96,7 @@ function buildRecords(orders) {
     const country = shipTo.countryCode     || regAddr.countryCode     || null;
     const prov    = shipTo.stateOrProvince || regAddr.stateOrProvince || null;
 
-    const lineCount = (order.lineItems || []).length;
-
     for (const item of order.lineItems || []) {
-      const title           = item.title || '';
       const salePrice       = parseFloat(item.lineItemCost?.value || 0);
       const shippingCharged = parseFloat(
         item.deliveryCost?.shippingCost?.value ||
@@ -91,12 +107,12 @@ function buildRecords(orders) {
       const netProfit = Math.round((payout - CHIT_CHATS) * 100) / 100;
 
       records.push({
-        id:                  crypto.randomUUID(),
+        id:                  randomUUID(),
         platform:            'ebay',
         source:              'ebay_sync',
         sale_date:           (order.creationDate || '').slice(0, 10),
-        card_name:           title,
-        card_number:         extractCardNumber(title),
+        card_name:           item.title || '',
+        card_number:         extractCardNumber(item.title || ''),
         set_name:            null,
         rarity:              null,
         quantity:            item.quantity || 1,
@@ -124,7 +140,6 @@ function buildRecords(orders) {
       });
     }
   }
-
   return records;
 }
 
@@ -132,17 +147,16 @@ function buildRecords(orders) {
 
 async function upsertSales(records, supabaseUrl, serviceKey) {
   if (!records.length) return { upserted: 0 };
-  const res = await fetch(`${supabaseUrl}/rest/v1/sales?on_conflict=ebay_transaction_id`, {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'apikey':        serviceKey,
-      'Authorization': `Bearer ${serviceKey}`,
-      'Prefer':        'resolution=merge-duplicates,return=minimal',
-    },
-    body: JSON.stringify(records),
-  });
-  if (!res.ok) throw new Error(`Supabase upsert ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const url  = new URL(`${supabaseUrl}/rest/v1/sales?on_conflict=ebay_transaction_id`);
+  const body = JSON.stringify(records);
+  const res  = await post(url.host, url.pathname + url.search, {
+    'Content-Type':  'application/json',
+    'apikey':        serviceKey,
+    'Authorization': `Bearer ${serviceKey}`,
+    'Prefer':        'resolution=merge-duplicates,return=minimal',
+    'Content-Length': Buffer.byteLength(body),
+  }, body);
+  if (res.status >= 300) throw new Error(`Supabase upsert ${res.status}: ${JSON.stringify(res.body).slice(0, 200)}`);
   return { upserted: records.length };
 }
 
@@ -155,12 +169,10 @@ exports.handler = async (event) => {
 
   const params = event.queryStringParameters || {};
 
-  // Env var debug — no auth needed, returns key names and lengths only
   if (params.debug_env === '1') {
     const keys = ['EBAY_APP_ID','EBAY_CERT_ID','EBAY_REFRESH_TOKEN','SUPABASE_URL','SUPABASE_SERVICE_KEY','SYNC_API_KEY'];
     return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
+      statusCode: 200, headers: CORS_HEADERS,
       body: JSON.stringify(Object.fromEntries(
         keys.map(k => [k, process.env[k] ? `set (${process.env[k].length} chars)` : 'MISSING'])
       )),
@@ -178,14 +190,15 @@ exports.handler = async (event) => {
       ? new Date(params.since)
       : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    const { EBAY_APP_ID, EBAY_CERT_ID, EBAY_REFRESH_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
     const missing = ['EBAY_APP_ID','EBAY_CERT_ID','EBAY_REFRESH_TOKEN','SUPABASE_URL','SUPABASE_SERVICE_KEY']
       .filter(k => !process.env[k]);
     if (missing.length) throw new Error(`Missing env vars: ${missing.join(', ')}`);
 
+    const { EBAY_APP_ID, EBAY_CERT_ID, EBAY_REFRESH_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
+
     const token   = await getAccessToken(EBAY_APP_ID, EBAY_CERT_ID, EBAY_REFRESH_TOKEN);
     const orders  = await fetchOrders(token, since);
-    const records = buildRecords(orders);  // sync — no extra API calls
+    const records = buildRecords(orders);
 
     if (dryRun) {
       return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ dry_run: true, count: records.length, records }) };
@@ -194,8 +207,7 @@ exports.handler = async (event) => {
     const result = await upsertSales(records, SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
     return {
-      statusCode: 200,
-      headers: CORS_HEADERS,
+      statusCode: 200, headers: CORS_HEADERS,
       body: JSON.stringify({ ok: true, since: since.toISOString(), orders_fetched: orders.length, ...result }),
     };
   } catch (err) {
