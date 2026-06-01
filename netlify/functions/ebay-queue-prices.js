@@ -57,9 +57,12 @@ exports.handler = async (event) => {
     return { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: 'unauthorized' }) };
   }
 
-  const { SUPABASE_URL, SUPABASE_SERVICE_KEY, EBAY_CLIENT_ID } = process.env;
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !EBAY_CLIENT_ID) {
-    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Missing env vars' }) };
+  const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
+  // Accept either env var name — EBAY_APP_ID is the canonical one set by ebay-sync/list/auth
+  const EBAY_APP_ID = process.env.EBAY_APP_ID || process.env.EBAY_CLIENT_ID;
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !EBAY_APP_ID) {
+    const missing = [!SUPABASE_URL && 'SUPABASE_URL', !SUPABASE_SERVICE_KEY && 'SUPABASE_SERVICE_KEY', !EBAY_APP_ID && 'EBAY_APP_ID'].filter(Boolean);
+    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: `Missing env vars: ${missing.join(', ')}` }) };
   }
 
   const sbHeaders = {
@@ -87,41 +90,67 @@ exports.handler = async (event) => {
     if (rateData?.rates?.CAD) cadRate = rateData.rates.CAD;
   } catch (_) {}
 
-  // 3. Fetch eBay prices concurrently for all pending items
-  const results = await Promise.all(items.map(async item => {
-    if (!item.card_number || !item.rarity) return { ...item, ebay_low_cad: null };
-    try {
-      const query = `${item.card_number} ${getRarityKeyword(item.rarity)}`;
-      const url   = `https://svcs.ebay.com/services/search/FindingService/v1`
-        + `?OPERATION-NAME=findItemsAdvanced`
-        + `&SERVICE-VERSION=1.0.0`
-        + `&SECURITY-APPNAME=${encodeURIComponent(EBAY_CLIENT_ID)}`
-        + `&RESPONSE-DATA-FORMAT=JSON`
-        + `&keywords=${encodeURIComponent(query)}`
-        + `&sortOrder=PricePlusShippingLowest`
-        + `&paginationInput.entriesPerPage=5`;
+  // 3. Fetch eBay prices in small batches to avoid burst/concurrent limits
+  // eBay Finding API allows 5000/day but can reject a flood of simultaneous requests
+  const BATCH_SIZE  = 5;
+  const BATCH_DELAY = 300; // ms between batches
+  const results     = [];
+  let firstEbayError = null;
 
-      const res  = await fetch(url);
-      const data = await res.json();
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(batch.map(async item => {
+      if (!item.card_number || !item.rarity) return { ...item, ebay_low_cad: null };
+      try {
+        const query = `${item.card_number} ${getRarityKeyword(item.rarity)}`;
+        const url   = `https://svcs.ebay.com/services/search/FindingService/v1`
+          + `?OPERATION-NAME=findItemsAdvanced`
+          + `&SERVICE-VERSION=1.0.0`
+          + `&SECURITY-APPNAME=${encodeURIComponent(EBAY_APP_ID)}`
+          + `&RESPONSE-DATA-FORMAT=JSON`
+          + `&keywords=${encodeURIComponent(query)}`
+          + `&sortOrder=PricePlusShippingLowest`
+          + `&paginationInput.entriesPerPage=5`;
 
-      if (data?.errorMessage?.[0]?.error?.[0]?.errorId?.[0] === '10001') {
-        return { ...item, ebay_low_cad: null, rateLimited: true };
+        const res  = await fetch(url);
+        const data = await res.json();
+
+        // Capture any eBay-level error for diagnostics
+        const ebayErr = data?.errorMessage?.[0]?.error?.[0];
+        if (ebayErr) {
+          const errId  = ebayErr.errorId?.[0];
+          const errMsg = ebayErr.message?.[0] || 'unknown';
+          if (!firstEbayError) firstEbayError = { errorId: errId, message: errMsg };
+          // 10001 = rate limit / service unavailable
+          if (errId === '10001') return { ...item, ebay_low_cad: null, rateLimited: true };
+          return { ...item, ebay_low_cad: null };
+        }
+
+        const activeItems = data?.findItemsAdvancedResponse?.[0]?.searchResult?.[0]?.item || [];
+        const prices      = parseFindingPrices(activeItems);
+        const lowestUsd   = prices[0] || null;
+        return { ...item, ebay_low_cad: lowestUsd ? +(lowestUsd * cadRate).toFixed(2) : null };
+      } catch (e) {
+        return { ...item, ebay_low_cad: null };
       }
+    }));
+    results.push(...batchResults);
 
-      const activeItems = data?.findItemsAdvancedResponse?.[0]?.searchResult?.[0]?.item || [];
-      const prices      = parseFindingPrices(activeItems);
-      const lowestUsd   = prices[0] || null;
-      return { ...item, ebay_low_cad: lowestUsd ? +(lowestUsd * cadRate).toFixed(2) : null };
-    } catch (_) {
-      return { ...item, ebay_low_cad: null };
+    // Delay between batches (skip after last batch)
+    if (i + BATCH_SIZE < items.length) {
+      await new Promise(r => setTimeout(r, BATCH_DELAY));
     }
-  }));
+  }
 
   if (results.some(r => r.rateLimited)) {
     return {
       statusCode: 429,
       headers:    CORS_HEADERS,
-      body:       JSON.stringify({ error: 'rate_limit', message: 'eBay API daily call quota exceeded — resets midnight PT' }),
+      body:       JSON.stringify({
+        error:   'rate_limit',
+        message: 'eBay API quota exceeded — resets midnight PT',
+        ebayError: firstEbayError,
+      }),
     };
   }
 
