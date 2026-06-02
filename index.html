@@ -271,6 +271,9 @@
     <button class="tab-btn hidden" data-tab="listing-queue" data-mode="owner">
       List Queue
     </button>
+    <button class="tab-btn hidden" data-tab="acq-review" data-mode="owner">
+      Import Review
+    </button>
   </nav>
 
   <!-- ─── INVENTORY TAB ──────────────────────────────────────────────────── -->
@@ -1434,6 +1437,81 @@
     </div>
   </div>
 
+  <!-- ─── ACQUISITION IMPORT REVIEW TAB ───────────────────────────────────── -->
+  <div id="tab-acq-review" class="tab-panel">
+    <div class="tab-content" style="max-width:860px;margin:0 auto">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <h2 class="cinzel" style="color:var(--gold);font-size:1.1rem;margin:0">🗂 Import Review</h2>
+        <span id="review-progress-badge" style="background:var(--surf2);color:var(--muted);border-radius:99px;padding:2px 10px;font-size:0.78rem"></span>
+        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+          <select id="review-filter" class="input" style="width:auto;font-size:0.82rem">
+            <option value="needs_review">Needs Review (594)</option>
+            <option value="no_match">No Match (329)</option>
+            <option value="auto_matched">Auto Matched (660)</option>
+          </select>
+          <button class="btn btn-primary btn-sm" id="review-push-matched-btn">⬆ Push Auto-Matched to Acquisitions</button>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div style="background:var(--surf2);border-radius:6px;height:6px;margin-bottom:24px;overflow:hidden">
+        <div id="review-progress-bar" style="height:100%;background:var(--gold);width:0%;transition:width 0.3s"></div>
+      </div>
+
+      <!-- Card under review -->
+      <div id="review-card" style="display:none">
+
+        <!-- What was purchased -->
+        <div style="background:var(--surf);border:1px solid var(--b1);border-radius:10px;padding:20px;margin-bottom:16px">
+          <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Purchased</div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+            <div>
+              <div id="review-card-name" style="font-size:1.25rem;font-weight:700;color:var(--txt)"></div>
+              <div id="review-card-rarity" style="font-size:0.88rem;color:var(--gold);margin-top:2px"></div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div id="review-card-price" style="font-size:1.1rem;font-weight:700;color:var(--green)"></div>
+              <div id="review-card-meta" style="font-size:0.8rem;color:var(--muted);margin-top:2px"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Candidate matches -->
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
+          Pick the correct printing — <span style="color:var(--txt)">↑↓ navigate · Enter accept · S skip · N no match · / search</span>
+        </div>
+
+        <!-- Inventory search (shown when no pre-matched candidates) -->
+        <div id="review-search-box" style="display:none;margin-bottom:12px">
+          <input id="review-search-input" type="text"
+            placeholder="Search inventory by card name… or press Enter to save without a match"
+            style="width:100%;padding:10px 14px;border-radius:8px;border:2px solid var(--gold);background:var(--surf2);color:var(--txt);font-size:0.95rem;box-sizing:border-box;outline:none">
+        </div>
+
+        <div id="review-candidates" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px"></div>
+
+        <!-- Actions -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="review-skip-btn">Skip (S)</button>
+          <button class="btn btn-secondary" id="review-nomatch-btn">No Match (N)</button>
+          <div style="margin-left:auto;font-size:0.8rem;color:var(--muted);align-self:center" id="review-position"></div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="review-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--muted)">
+        <div style="font-size:2.5rem;margin-bottom:12px">✅</div>
+        <div style="font-size:1rem;color:var(--txt)">All done — queue is empty.</div>
+      </div>
+
+      <!-- Loading state -->
+      <div id="review-loading" style="text-align:center;padding:60px;color:var(--muted)">Loading queue...</div>
+
+    </div>
+  </div>
+
 </div><!-- /#app -->
 
 <!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
@@ -1451,6 +1529,7 @@
 <script src="js/pricer.js"></script>
 <script src="js/listing-queue.js"></script>
 <script src="js/orders.js"></script>
+<script src="js/acq-review.js"></script>
 <script src="js/app.js"></script>
 
 <script>
