@@ -102,13 +102,24 @@
     el('review-empty').style.display = 'none';
     el('review-card').style.display = 'block';
 
-    // Price display: prefer price_per_card × qty, fall back to total_cost
+    // Price display
     let priceStr = '—';
-    if (item.price_per_card) {
-      priceStr = `$${parseFloat(item.price_per_card).toFixed(2)} × ${item.quantity || 1}`;
-      if (item.total_cost) priceStr += ` = $${parseFloat(item.total_cost).toFixed(2)}`;
-    } else if (item.total_cost) {
-      priceStr = `$${parseFloat(item.total_cost).toFixed(2)} total`;
+    const ppc = item.price_per_card ? parseFloat(item.price_per_card) : null;
+    const tc  = item.total_cost     ? parseFloat(item.total_cost)     : null;
+    const qty = item.quantity || 1;
+    if (ppc && tc) {
+      const expected = parseFloat((ppc * qty).toFixed(2));
+      if (Math.abs(expected - tc) < 0.02) {
+        // They agree — show formula
+        priceStr = qty > 1 ? `$${ppc.toFixed(2)} × ${qty} = $${tc.toFixed(2)}` : `$${tc.toFixed(2)}`;
+      } else {
+        // They disagree — show both without implying equality
+        priceStr = `$${ppc.toFixed(2)}/card · $${tc.toFixed(2)} total`;
+      }
+    } else if (ppc) {
+      priceStr = qty > 1 ? `$${ppc.toFixed(2)} × ${qty}` : `$${ppc.toFixed(2)}`;
+    } else if (tc) {
+      priceStr = `$${tc.toFixed(2)} total`;
     }
 
     el('review-card-name').innerHTML = `${sourceBadge(item.source)} &nbsp;${item.card_name || '—'}`;
