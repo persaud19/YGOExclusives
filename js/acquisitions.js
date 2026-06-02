@@ -119,6 +119,21 @@ function initAcquisitions() {
   document.getElementById('acq-file-input').addEventListener('change', handleCSVUpload);
   document.getElementById('acq-import-btn').addEventListener('click', runBulkImport);
 
+  // Filters (Tier 2)
+  document.getElementById('acq-filter-name')?.addEventListener('input',  () => acqFilterDebounce(() => loadAcquisitionLog(true)));
+  document.getElementById('acq-filter-vendor')?.addEventListener('change', () => loadAcquisitionLog(true));
+  document.getElementById('acq-filter-year')?.addEventListener('change',  () => loadAcquisitionLog(true));
+  document.getElementById('acq-filter-clear')?.addEventListener('click',  () => {
+    document.getElementById('acq-filter-name').value   = '';
+    document.getElementById('acq-filter-vendor').value = '';
+    document.getElementById('acq-filter-year').value   = '';
+    loadAcquisitionLog(true);
+  });
+
+  // Pagination
+  document.getElementById('acq-log-prev')?.addEventListener('click', () => { acqLogPage--; loadAcquisitionLog(false); });
+  document.getElementById('acq-log-next')?.addEventListener('click', () => { acqLogPage++; loadAcquisitionLog(false); });
+
   loadRecentAcquisitions();
 }
 
@@ -400,39 +415,203 @@ async function saveManualAcquisition() {
   }
 }
 
-// ── Recent Acquisitions Log ────────────────────────────────────────────────────
-async function loadRecentAcquisitions() {
+// ── Acquisition Stats + Log + Vendor Breakdown ────────────────────────────────
+let acqLogPage     = 0;
+const ACQ_PAGE     = 50;
+let acqLogTotal    = 0;
+let acqSummaryData = [];   // lightweight: total_cost, quantity, acquisition_date, purchased_from
+
+let acqFilterTimer = null;
+function acqFilterDebounce(fn) {
+  clearTimeout(acqFilterTimer);
+  acqFilterTimer = setTimeout(fn, 400);
+}
+
+// ── Load lightweight summary (stats + vendor) ─────────────────────────────────
+async function loadAcquisitionSummary() {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/acquisitions?select=total_cost,quantity,acquisition_date,purchased_from&order=acquisition_date.desc&limit=10000`,
+      { headers: DB_HEADERS }
+    );
+    if (!res.ok) return;
+    acqSummaryData = await res.json();
+    renderAcqStats();
+    renderVendorBreakdown();
+    populateAcqFilters();
+  } catch (e) { console.warn('acq summary error', e); }
+}
+
+function fmtCAD(n)  { return '$' + Number(n || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function fmtCAD2(n) { return '$' + Number(n || 0).toFixed(2); }
+
+function renderAcqStats() {
+  const thisYear = new Date().getFullYear();
+  const lastYear = thisYear - 1;
+
+  const totalSpend    = acqSummaryData.reduce((s, r) => s + (parseFloat(r.total_cost) || 0), 0);
+  const totalQty      = acqSummaryData.reduce((s, r) => s + (parseInt(r.quantity)     || 0), 0);
+  const avg           = totalQty > 0 ? totalSpend / totalQty : 0;
+  const thisYearSpend = acqSummaryData
+    .filter(r => (r.acquisition_date || '').startsWith(String(thisYear)))
+    .reduce((s, r) => s + (parseFloat(r.total_cost) || 0), 0);
+  const lastYearSpend = acqSummaryData
+    .filter(r => (r.acquisition_date || '').startsWith(String(lastYear)))
+    .reduce((s, r) => s + (parseFloat(r.total_cost) || 0), 0);
+
+  document.getElementById('acq-stat-total').textContent          = fmtCAD(totalSpend);
+  document.getElementById('acq-stat-count').textContent          = totalQty.toLocaleString();
+  document.getElementById('acq-stat-avg').textContent            = fmtCAD2(avg);
+  document.getElementById('acq-stat-year').textContent           = fmtCAD(thisYearSpend);
+  document.getElementById('acq-stat-lastyear').textContent       = fmtCAD(lastYearSpend);
+  document.getElementById('acq-stat-year-label').textContent     = `${thisYear} Spend`;
+  document.getElementById('acq-stat-lastyear-label').textContent = `${lastYear} Spend`;
+}
+
+function populateAcqFilters() {
+  const vendors = [...new Set(acqSummaryData.map(r => r.purchased_from).filter(Boolean))].sort();
+  const vsel = document.getElementById('acq-filter-vendor');
+  const curV = vsel ? vsel.value : '';
+  if (vsel) {
+    vsel.innerHTML = '<option value="">All Vendors</option>' +
+      vendors.map(v => `<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    if (curV) vsel.value = curV;
+  }
+
+  const years = [...new Set(
+    acqSummaryData.map(r => (r.acquisition_date || '').substring(0, 4)).filter(y => y.length === 4)
+  )].sort().reverse();
+  const ysel = document.getElementById('acq-filter-year');
+  const curY = ysel ? ysel.value : '';
+  if (ysel) {
+    ysel.innerHTML = '<option value="">All Years</option>' +
+      years.map(y => `<option value="${y}">${y}</option>`).join('');
+    if (curY) ysel.value = curY;
+  }
+}
+
+// ── Vendor Breakdown ──────────────────────────────────────────────────────────
+function renderVendorBreakdown() {
+  const tbody = document.getElementById('acq-vendor-tbody');
+  if (!tbody) return;
+
+  const map = {};
+  for (const r of acqSummaryData) {
+    const v = r.purchased_from || '(unknown)';
+    if (!map[v]) map[v] = { purchases: 0, qty: 0, spend: 0, first: null, last: null };
+    map[v].purchases++;
+    map[v].qty   += parseInt(r.quantity)     || 0;
+    map[v].spend += parseFloat(r.total_cost) || 0;
+    const d = r.acquisition_date;
+    if (d) {
+      if (!map[v].first || d < map[v].first) map[v].first = d;
+      if (!map[v].last  || d > map[v].last)  map[v].last  = d;
+    }
+  }
+
+  const rows = Object.entries(map).sort((a, b) => b[1].spend - a[1].spend);
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">No data.</td></tr>';
+    return;
+  }
+
+  const rankColor = ['var(--gold)', 'var(--muted)', '#cd7f32'];
+  tbody.innerHTML = rows.map(([vendor, d], i) => {
+    const avg = d.qty > 0 ? d.spend / d.qty : 0;
+    const c   = rankColor[i] || 'var(--txt)';
+    const fw  = i < 3 ? '600' : '400';
+    return `<tr>
+      <td style="color:${c};font-weight:${fw}">${vendor}</td>
+      <td style="text-align:right;color:var(--muted)">${d.purchases.toLocaleString()}</td>
+      <td style="text-align:right;color:var(--muted)">${d.qty.toLocaleString()}</td>
+      <td style="text-align:right;color:var(--green);font-weight:600">${fmtCAD(d.spend)}</td>
+      <td style="text-align:right;color:var(--muted)">${fmtCAD2(avg)}</td>
+      <td class="muted small">${d.first || '—'}</td>
+      <td class="muted small">${d.last  || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Paginated Log ─────────────────────────────────────────────────────────────
+async function loadAcquisitionLog(resetPage) {
+  if (resetPage) acqLogPage = 0;
+
   const tbody = document.getElementById('acq-log-tbody');
-  tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;padding:16px">Loading…</td></tr>';
+  const prev  = document.getElementById('acq-log-prev');
+  const next  = document.getElementById('acq-log-next');
+  const info  = document.getElementById('acq-log-page-info');
+  const label = document.getElementById('acq-log-total-label');
+
+  if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="muted" style="text-align:center;padding:16px">Loading…</td></tr>`;
+
+  const nameVal   = (document.getElementById('acq-filter-name')?.value   || '').trim();
+  const vendorVal = (document.getElementById('acq-filter-vendor')?.value || '');
+  const yearVal   = (document.getElementById('acq-filter-year')?.value   || '');
+
+  const params = new URLSearchParams({
+    order:  'acquisition_date.desc',
+    limit:  String(ACQ_PAGE),
+    offset: String(acqLogPage * ACQ_PAGE),
+  });
+  if (nameVal)   params.set('card_name',      `ilike.*${nameVal}*`);
+  if (vendorVal) params.set('purchased_from', `eq.${vendorVal}`);
+  if (yearVal) {
+    params.append('acquisition_date', `gte.${yearVal}-01-01`);
+    params.append('acquisition_date', `lt.${parseInt(yearVal) + 1}-01-01`);
+  }
 
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/acquisitions?order=created_at.desc&limit=100`,
-      { headers: DB_HEADERS }
+      `${SUPABASE_URL}/rest/v1/acquisitions?${params}`,
+      { headers: { ...DB_HEADERS, 'Prefer': 'count=exact' } }
     );
     if (!res.ok) throw new Error(await res.text());
     const rows = await res.json();
 
+    const cr    = res.headers.get('Content-Range') || '';
+    const match = cr.match(/\/(\d+)$/);
+    acqLogTotal = match ? parseInt(match[1]) : rows.length;
+
+    const totalPages = Math.max(1, Math.ceil(acqLogTotal / ACQ_PAGE));
+    const from = acqLogPage * ACQ_PAGE + 1;
+    const to   = Math.min(from + rows.length - 1, acqLogTotal);
+
+    if (label) label.textContent = acqLogTotal.toLocaleString() + ' records';
+    if (info)  info.textContent  = rows.length ? `${from}–${to} of ${acqLogTotal.toLocaleString()}` : 'No results';
+    if (prev)  prev.disabled     = acqLogPage === 0;
+    if (next)  next.disabled     = acqLogPage >= totalPages - 1;
+
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;padding:16px">No acquisitions yet.</td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center;padding:20px">No matching records.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = rows.map(r => `
-      <tr>
-        <td class="muted small">${r.acquisition_date || '—'}</td>
-        <td class="cinzel" style="color:var(--gold2)">${r.card_number}</td>
-        <td>${r.card_name || '—'}</td>
-        <td class="small muted">${r.rarity || '—'}</td>
-        <td>${r.edition  || '—'}</td>
-        <td style="text-align:center">${r.condition || '—'}</td>
-        <td class="muted small">${r.purchased_from || '—'}</td>
-        <td style="text-align:center">${r.quantity}</td>
-        <td style="text-align:right;color:var(--green)">$${Number(r.total_cost || 0).toFixed(2)}</td>
-      </tr>`).join('');
+    if (tbody) tbody.innerHTML = rows.map(r => {
+      const ppc = parseFloat(r.price_per_card) || 0;
+      const tc  = parseFloat(r.total_cost)     || 0;
+      const qty = parseInt(r.quantity)          || 1;
+      return `<tr>
+        <td class="muted small" style="white-space:nowrap">${r.acquisition_date || '—'}</td>
+        <td class="cinzel small" style="color:var(--gold2);white-space:nowrap">${r.card_number || '—'}</td>
+        <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis" title="${(r.card_name||'').replace(/"/g,'&quot;')}">${r.card_name || '—'}</td>
+        <td class="muted small" style="white-space:nowrap">${r.rarity || '—'}</td>
+        <td class="muted small" style="white-space:nowrap">${r.purchased_from || '—'}</td>
+        <td style="text-align:center">${qty}</td>
+        <td style="text-align:right;color:var(--muted)">${ppc > 0 ? fmtCAD2(ppc) : '—'}</td>
+        <td style="text-align:right;color:var(--green)">${tc > 0 ? fmtCAD2(tc) : '—'}</td>
+      </tr>`;
+    }).join('');
+
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="9" style="color:var(--red);padding:12px">${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="color:var(--red);padding:12px">${err.message}</td></tr>`;
   }
+}
+
+// Alias — keeps existing save/import callers working
+function loadRecentAcquisitions() {
+  loadAcquisitionLog(true);
+  loadAcquisitionSummary();
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

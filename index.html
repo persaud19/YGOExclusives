@@ -543,9 +543,51 @@
 
       </div><!-- /.acq-grid -->
 
-      <!-- ── Recent Acquisitions Log ── -->
-      <div style="margin-top:36px">
-        <h3 class="cinzel" style="color:var(--gold2);margin-bottom:14px">Recent Acquisitions</h3>
+      <!-- ══ TIER 1 — Stats Bar ══════════════════════════════════════════════ -->
+      <div id="acq-stats-bar" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:32px;margin-bottom:8px">
+        <div class="acq-stat-card">
+          <div class="acq-stat-label">All-Time Spend</div>
+          <div class="acq-stat-val cinzel" id="acq-stat-total">—</div>
+        </div>
+        <div class="acq-stat-card">
+          <div class="acq-stat-label">Cards Bought</div>
+          <div class="acq-stat-val cinzel" id="acq-stat-count">—</div>
+        </div>
+        <div class="acq-stat-card">
+          <div class="acq-stat-label">Avg Cost / Card</div>
+          <div class="acq-stat-val cinzel" id="acq-stat-avg">—</div>
+        </div>
+        <div class="acq-stat-card">
+          <div class="acq-stat-label" id="acq-stat-year-label">This Year</div>
+          <div class="acq-stat-val cinzel" id="acq-stat-year">—</div>
+        </div>
+        <div class="acq-stat-card">
+          <div class="acq-stat-label" id="acq-stat-lastyear-label">Last Year</div>
+          <div class="acq-stat-val cinzel" id="acq-stat-lastyear">—</div>
+        </div>
+      </div>
+
+      <!-- ══ TIER 2 — Filters + Paginated Log ═══════════════════════════════ -->
+      <div style="margin-top:28px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <h3 class="cinzel" style="color:var(--gold2);margin:0">Acquisition Log</h3>
+          <span id="acq-log-total-label" class="muted small"></span>
+        </div>
+
+        <!-- Filter Row -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+          <input id="acq-filter-name" type="text" class="input" placeholder="Search card name…"
+            style="flex:1;min-width:180px;padding:8px 12px;font-size:0.85rem">
+          <select id="acq-filter-vendor" class="input" style="flex:0 0 170px;padding:8px 12px;font-size:0.85rem">
+            <option value="">All Vendors</option>
+          </select>
+          <select id="acq-filter-year" class="input" style="flex:0 0 100px;padding:8px 12px;font-size:0.85rem">
+            <option value="">All Years</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" id="acq-filter-clear" style="white-space:nowrap">Clear</button>
+        </div>
+
+        <!-- Table -->
         <div style="overflow-x:auto">
           <table class="acq-log-table">
             <thead>
@@ -554,15 +596,44 @@
                 <th>Card #</th>
                 <th>Name</th>
                 <th>Rarity</th>
-                <th>Edition</th>
-                <th>Cond</th>
-                <th>Source</th>
-                <th>Qty</th>
-                <th>Total Cost</th>
+                <th>Vendor</th>
+                <th style="text-align:center">Qty</th>
+                <th style="text-align:right">$/Card</th>
+                <th style="text-align:right">Total</th>
               </tr>
             </thead>
             <tbody id="acq-log-tbody">
-              <tr><td colspan="9" class="muted" style="text-align:center;padding:20px">Loading…</td></tr>
+              <tr><td colspan="8" class="muted" style="text-align:center;padding:20px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+          <button class="btn btn-secondary btn-sm" id="acq-log-prev" disabled>← Prev</button>
+          <span id="acq-log-page-info" class="muted small" style="flex:1;text-align:center"></span>
+          <button class="btn btn-secondary btn-sm" id="acq-log-next">Next →</button>
+        </div>
+      </div>
+
+      <!-- ══ TIER 3 — Vendor Breakdown ══════════════════════════════════════ -->
+      <div style="margin-top:36px">
+        <h3 class="cinzel" style="color:var(--gold2);margin-bottom:14px">Vendor Breakdown</h3>
+        <div style="overflow-x:auto">
+          <table class="acq-log-table">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th style="text-align:right">Purchases</th>
+                <th style="text-align:right">Cards Bought</th>
+                <th style="text-align:right">Total Spend</th>
+                <th style="text-align:right">Avg / Card</th>
+                <th>First Deal</th>
+                <th>Last Deal</th>
+              </tr>
+            </thead>
+            <tbody id="acq-vendor-tbody">
+              <tr><td colspan="7" class="muted" style="text-align:center;padding:20px">Loading…</td></tr>
             </tbody>
           </table>
         </div>

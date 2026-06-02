@@ -1220,6 +1220,34 @@ tr:hover td { background: var(--surf2); }
 }
 .acq-log-table tbody tr:hover td { background: var(--surf2); }
 
+/* ─── Acquisition Stats Cards ───────────────────────────────────────────── */
+.acq-stat-card {
+  background: var(--surf);
+  border: 1px solid var(--b2);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.acq-stat-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.acq-stat-val {
+  font-size: 1.35rem;
+  color: var(--gold);
+  font-weight: 700;
+  line-height: 1.2;
+}
+@media (max-width: 768px) {
+  #acq-stats-bar { grid-template-columns: repeat(2, 1fr) !important; }
+  #acq-stats-bar .acq-stat-card:last-child { display: none; }
+}
+
 /* ─── Rarity Sets Tab ────────────────────────────────────────────────────── */
 .rs-header-bar {
   display: flex; align-items: center; justify-content: space-between;
