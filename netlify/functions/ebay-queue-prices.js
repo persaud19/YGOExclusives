@@ -90,57 +90,45 @@ exports.handler = async (event) => {
     if (rateData?.rates?.CAD) cadRate = rateData.rates.CAD;
   } catch (_) {}
 
-  // 3. Fetch eBay prices in small batches to avoid burst/concurrent limits
-  // eBay Finding API allows 5000/day but can reject a flood of simultaneous requests
-  const BATCH_SIZE  = 5;
-  const BATCH_DELAY = 300; // ms between batches
-  const results     = [];
+  // 3. Fetch eBay prices concurrently — all at once, no delays
+  // Previous "rate limit" was a bad env var (EBAY_CLIENT_ID vs EBAY_APP_ID), not a quota issue.
+  // 42 concurrent requests resolve in ~2-3s, well within Netlify's 10s timeout.
   let firstEbayError = null;
 
-  for (let i = 0; i < items.length; i += BATCH_SIZE) {
-    const batch = items.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(batch.map(async item => {
-      if (!item.card_number || !item.rarity) return { ...item, ebay_low_cad: null };
-      try {
-        const query = `${item.card_number} ${getRarityKeyword(item.rarity)}`;
-        const url   = `https://svcs.ebay.com/services/search/FindingService/v1`
-          + `?OPERATION-NAME=findItemsAdvanced`
-          + `&SERVICE-VERSION=1.0.0`
-          + `&SECURITY-APPNAME=${encodeURIComponent(EBAY_APP_ID)}`
-          + `&RESPONSE-DATA-FORMAT=JSON`
-          + `&keywords=${encodeURIComponent(query)}`
-          + `&sortOrder=PricePlusShippingLowest`
-          + `&paginationInput.entriesPerPage=5`;
+  const results = await Promise.all(items.map(async item => {
+    if (!item.card_number || !item.rarity) return { ...item, ebay_low_cad: null };
+    try {
+      const query = `${item.card_number} ${getRarityKeyword(item.rarity)}`;
+      const url   = `https://svcs.ebay.com/services/search/FindingService/v1`
+        + `?OPERATION-NAME=findItemsAdvanced`
+        + `&SERVICE-VERSION=1.0.0`
+        + `&SECURITY-APPNAME=${encodeURIComponent(EBAY_APP_ID)}`
+        + `&RESPONSE-DATA-FORMAT=JSON`
+        + `&keywords=${encodeURIComponent(query)}`
+        + `&sortOrder=PricePlusShippingLowest`
+        + `&paginationInput.entriesPerPage=5`;
 
-        const res  = await fetch(url);
-        const data = await res.json();
+      const res  = await fetch(url);
+      const data = await res.json();
 
-        // Capture any eBay-level error for diagnostics
-        const ebayErr = data?.errorMessage?.[0]?.error?.[0];
-        if (ebayErr) {
-          const errId  = ebayErr.errorId?.[0];
-          const errMsg = ebayErr.message?.[0] || 'unknown';
-          if (!firstEbayError) firstEbayError = { errorId: errId, message: errMsg };
-          // 10001 = rate limit / service unavailable
-          if (errId === '10001') return { ...item, ebay_low_cad: null, rateLimited: true };
-          return { ...item, ebay_low_cad: null };
-        }
-
-        const activeItems = data?.findItemsAdvancedResponse?.[0]?.searchResult?.[0]?.item || [];
-        const prices      = parseFindingPrices(activeItems);
-        const lowestUsd   = prices[0] || null;
-        return { ...item, ebay_low_cad: lowestUsd ? +(lowestUsd * cadRate).toFixed(2) : null };
-      } catch (e) {
+      // Capture any eBay-level error for diagnostics
+      const ebayErr = data?.errorMessage?.[0]?.error?.[0];
+      if (ebayErr) {
+        const errId  = ebayErr.errorId?.[0];
+        const errMsg = ebayErr.message?.[0] || 'unknown';
+        if (!firstEbayError) firstEbayError = { errorId: errId, message: errMsg };
+        if (errId === '10001') return { ...item, ebay_low_cad: null, rateLimited: true };
         return { ...item, ebay_low_cad: null };
       }
-    }));
-    results.push(...batchResults);
 
-    // Delay between batches (skip after last batch)
-    if (i + BATCH_SIZE < items.length) {
-      await new Promise(r => setTimeout(r, BATCH_DELAY));
+      const activeItems = data?.findItemsAdvancedResponse?.[0]?.searchResult?.[0]?.item || [];
+      const prices      = parseFindingPrices(activeItems);
+      const lowestUsd   = prices[0] || null;
+      return { ...item, ebay_low_cad: lowestUsd ? +(lowestUsd * cadRate).toFixed(2) : null };
+    } catch (e) {
+      return { ...item, ebay_low_cad: null };
     }
-  }
+  }));
 
   if (results.some(r => r.rateLimited)) {
     return {
