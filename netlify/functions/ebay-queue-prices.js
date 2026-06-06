@@ -111,7 +111,15 @@ exports.handler = async (event) => {
         + `&paginationInput.entriesPerPage=5`;
 
       const res  = await fetch(url);
-      const data = await res.json();
+      const text = await res.text();
+
+      // Parse JSON safely — eBay sometimes returns HTML error pages
+      let data;
+      try { data = JSON.parse(text); }
+      catch (_) {
+        if (!firstEbayError) firstEbayError = { errorId: 'JSON_PARSE_FAIL', httpStatus: res.status, body: text.substring(0, 300) };
+        return { ...item, ebay_low_cad: null };
+      }
 
       // Capture any eBay-level error for diagnostics
       const ebayErr = data?.errorMessage?.[0]?.error?.[0];
@@ -128,6 +136,7 @@ exports.handler = async (event) => {
       const lowestUsd   = prices[0] || null;
       return { ...item, ebay_low_cad: lowestUsd ? +(lowestUsd * cadRate).toFixed(2) : null };
     } catch (e) {
+      if (!firstEbayError) firstEbayError = { errorId: 'FETCH_ERROR', message: e.message };
       return { ...item, ebay_low_cad: null };
     }
   }));
