@@ -58,8 +58,9 @@ exports.handler = async (event) => {
   }
 
   const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-  // Accept either env var name — EBAY_APP_ID is the canonical one set by ebay-sync/list/auth
-  const EBAY_APP_ID = process.env.EBAY_APP_ID || process.env.EBAY_CLIENT_ID;
+  // EBAY_CLIENT_ID is used by Finding API (ebay-prices.js); EBAY_APP_ID is used by Trading API
+  // Finding API needs the Client ID specifically — try EBAY_CLIENT_ID first
+  const EBAY_APP_ID = process.env.EBAY_CLIENT_ID || process.env.EBAY_APP_ID;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !EBAY_APP_ID) {
     const missing = [!SUPABASE_URL && 'SUPABASE_URL', !SUPABASE_SERVICE_KEY && 'SUPABASE_SERVICE_KEY', !EBAY_APP_ID && 'EBAY_APP_ID'].filter(Boolean);
     return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: `Missing env vars: ${missing.join(', ')}` }) };
@@ -93,7 +94,8 @@ exports.handler = async (event) => {
   // 3. Fetch eBay prices concurrently — all at once, no delays
   // Previous "rate limit" was a bad env var (EBAY_CLIENT_ID vs EBAY_APP_ID), not a quota issue.
   // 42 concurrent requests resolve in ~2-3s, well within Netlify's 10s timeout.
-  let firstEbayError = null;
+  let firstEbayError    = null;
+  let firstRawResponse  = null; // first 500 chars of first eBay response for debugging
 
   const skippedNoRarity = items.filter(i => !i.card_number || !i.rarity);
 
@@ -112,6 +114,7 @@ exports.handler = async (event) => {
 
       const res  = await fetch(url);
       const text = await res.text();
+      if (!firstRawResponse) firstRawResponse = { httpStatus: res.status, body: text.substring(0, 500) };
 
       // Parse JSON safely — eBay sometimes returns HTML error pages
       let data;
@@ -187,6 +190,7 @@ exports.handler = async (event) => {
       // diagnostics — remove once working
       skippedNoRarity:  skippedNoRarity.length,
       firstEbayError:   firstEbayError,
+      firstRawResponse: firstRawResponse,
       sampleItem:       items[0] || null,
       sampleQuery:      items[0]?.card_number && items[0]?.rarity
                           ? `${items[0].card_number} ${getRarityKeyword(items[0].rarity)}`
