@@ -95,8 +95,10 @@ exports.handler = async (event) => {
   // 42 concurrent requests resolve in ~2-3s, well within Netlify's 10s timeout.
   let firstEbayError = null;
 
+  const skippedNoRarity = items.filter(i => !i.card_number || !i.rarity);
+
   const results = await Promise.all(items.map(async item => {
-    if (!item.card_number || !item.rarity) return { ...item, ebay_low_cad: null };
+    if (!item.card_number || !item.rarity) return { ...item, ebay_low_cad: null, skipped: true };
     try {
       const query = `${item.card_number} ${getRarityKeyword(item.rarity)}`;
       const url   = `https://svcs.ebay.com/services/search/FindingService/v1`
@@ -169,6 +171,17 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers:    CORS_HEADERS,
-    body:       JSON.stringify({ updated: withPrice.length, total: items.length, cadRate: +cadRate.toFixed(4) }),
+    body:       JSON.stringify({
+      updated:          withPrice.length,
+      total:            items.length,
+      cadRate:          +cadRate.toFixed(4),
+      // diagnostics — remove once working
+      skippedNoRarity:  skippedNoRarity.length,
+      firstEbayError:   firstEbayError,
+      sampleItem:       items[0] || null,
+      sampleQuery:      items[0]?.card_number && items[0]?.rarity
+                          ? `${items[0].card_number} ${getRarityKeyword(items[0].rarity)}`
+                          : null,
+    }),
   };
 };

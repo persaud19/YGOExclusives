@@ -238,6 +238,7 @@ async function lqRefreshEbayPrices() {
       setBtn('Auth failed — check sync key', false);
       showToast('Sync key not set — add ygoexclusives_sync_key to localStorage', 'error');
     } else if (res.ok) {
+      console.log('ebay-queue-prices result:', data);
       setBtn(`✓ Updated ${data.updated}/${data.total}`);
       showToast(`eBay prices updated: ${data.updated} of ${data.total} cards.`);
       lqLoad();
