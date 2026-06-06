@@ -1,5 +1,6 @@
 // ebay-queue-prices.js
 // Fetches eBay lowest listed price for all pending listing_queue items.
+// Uses Browse API (Finding API was shut down by eBay).
 // Writes ebay_low_cad back to listing_queue AND card_inventory (matched by card_number+rarity).
 // GET /.netlify/functions/ebay-queue-prices  (requires X-Api-Key header)
 
@@ -35,11 +36,28 @@ function getRarityKeyword(rarity) {
   return rarity.replace(/'/g, '').toLowerCase();
 }
 
-function parseFindingPrices(items) {
+// Get OAuth app token via Client Credentials grant (no user login needed)
+async function getAppToken(clientId, clientSecret) {
+  const creds = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const res = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Authorization':  `Basic ${creds}`,
+      'Content-Type':   'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error(`Token error: ${JSON.stringify(data)}`);
+  return data.access_token;
+}
+
+// Parse Browse API item summaries → sorted array of (price + shipping) in USD
+function parseBrowsePrices(items) {
   return (items || [])
     .map(item => {
-      const price    = parseFloat(item.sellingStatus?.[0]?.currentPrice?.[0]?.__value__ || 0);
-      const shipping = parseFloat(item.shippingInfo?.[0]?.shippingServiceCost?.[0]?.__value__ || 0);
+      const price    = parseFloat(item.price?.value || 0);
+      const shipping = parseFloat(item.shippingOptions?.[0]?.shippingCost?.value || 0);
       return price + shipping;
     })
     .filter(p => p > 0)
@@ -57,12 +75,14 @@ exports.handler = async (event) => {
     return { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: 'unauthorized' }) };
   }
 
-  const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-  // EBAY_CLIENT_ID is used by Finding API (ebay-prices.js); EBAY_APP_ID is used by Trading API
-  // Finding API needs the Client ID specifically — try EBAY_CLIENT_ID first
-  const EBAY_APP_ID = process.env.EBAY_CLIENT_ID || process.env.EBAY_APP_ID;
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !EBAY_APP_ID) {
-    const missing = [!SUPABASE_URL && 'SUPABASE_URL', !SUPABASE_SERVICE_KEY && 'SUPABASE_SERVICE_KEY', !EBAY_APP_ID && 'EBAY_APP_ID'].filter(Boolean);
+  const { SUPABASE_URL, SUPABASE_SERVICE_KEY, EBAY_APP_ID, EBAY_CERT_ID } = process.env;
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !EBAY_APP_ID || !EBAY_CERT_ID) {
+    const missing = [
+      !SUPABASE_URL        && 'SUPABASE_URL',
+      !SUPABASE_SERVICE_KEY && 'SUPABASE_SERVICE_KEY',
+      !EBAY_APP_ID         && 'EBAY_APP_ID',
+      !EBAY_CERT_ID        && 'EBAY_CERT_ID',
+    ].filter(Boolean);
     return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: `Missing env vars: ${missing.join(', ')}` }) };
   }
 
@@ -91,32 +111,37 @@ exports.handler = async (event) => {
     if (rateData?.rates?.CAD) cadRate = rateData.rates.CAD;
   } catch (_) {}
 
-  // 3. Fetch eBay prices concurrently — all at once, no delays
-  // Previous "rate limit" was a bad env var (EBAY_CLIENT_ID vs EBAY_APP_ID), not a quota issue.
-  // 42 concurrent requests resolve in ~2-3s, well within Netlify's 10s timeout.
-  let firstEbayError    = null;
-  let firstRawResponse  = null; // first 500 chars of first eBay response for debugging
+  // 3. Get eBay OAuth app token (Client Credentials — no user login needed)
+  let appToken;
+  try {
+    appToken = await getAppToken(EBAY_APP_ID, EBAY_CERT_ID);
+  } catch (e) {
+    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: `eBay token failed: ${e.message}` }) };
+  }
+
+  // 4. Fetch eBay prices concurrently via Browse API
+  let firstEbayError   = null;
+  let firstRawResponse = null;
 
   const skippedNoRarity = items.filter(i => !i.card_number || !i.rarity);
 
   const results = await Promise.all(items.map(async item => {
     if (!item.card_number || !item.rarity) return { ...item, ebay_low_cad: null, skipped: true };
     try {
-      const query = `${item.card_number} ${getRarityKeyword(item.rarity)}`;
-      const url   = `https://svcs.ebay.com/services/search/FindingService/v1`
-        + `?OPERATION-NAME=findItemsAdvanced`
-        + `&SERVICE-VERSION=1.0.0`
-        + `&SECURITY-APPNAME=${encodeURIComponent(EBAY_APP_ID)}`
-        + `&RESPONSE-DATA-FORMAT=JSON`
-        + `&keywords=${encodeURIComponent(query)}`
-        + `&sortOrder=PricePlusShippingLowest`
-        + `&paginationInput.entriesPerPage=5`;
+      const query  = `${item.card_number} ${getRarityKeyword(item.rarity)}`;
+      const params = new URLSearchParams({ q: query, sort: 'price', limit: '5' });
+      const url    = `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`;
 
-      const res  = await fetch(url);
+      const res  = await fetch(url, {
+        headers: {
+          'Authorization':             `Bearer ${appToken}`,
+          'X-EBAY-C-MARKETPLACE-ID':   'EBAY_US',
+          'Content-Type':              'application/json',
+        },
+      });
       const text = await res.text();
-      if (!firstRawResponse) firstRawResponse = { httpStatus: res.status, body: text.substring(0, 500) };
+      if (!firstRawResponse) firstRawResponse = { httpStatus: res.status, body: text.substring(0, 400) };
 
-      // Parse JSON safely — eBay sometimes returns HTML error pages
       let data;
       try { data = JSON.parse(text); }
       catch (_) {
@@ -124,18 +149,13 @@ exports.handler = async (event) => {
         return { ...item, ebay_low_cad: null };
       }
 
-      // Capture any eBay-level error for diagnostics
-      const ebayErr = data?.errorMessage?.[0]?.error?.[0];
-      if (ebayErr) {
-        const errId  = ebayErr.errorId?.[0];
-        const errMsg = ebayErr.message?.[0] || 'unknown';
-        if (!firstEbayError) firstEbayError = { errorId: errId, message: errMsg };
-        if (errId === '10001') return { ...item, ebay_low_cad: null, rateLimited: true };
+      if (!res.ok) {
+        if (!firstEbayError) firstEbayError = { errorId: data?.errors?.[0]?.errorId || res.status, message: data?.errors?.[0]?.message || text.substring(0, 200) };
         return { ...item, ebay_low_cad: null };
       }
 
-      const activeItems = data?.findItemsAdvancedResponse?.[0]?.searchResult?.[0]?.item || [];
-      const prices      = parseFindingPrices(activeItems);
+      const browseItems = data?.itemSummaries || [];
+      const prices      = parseBrowsePrices(browseItems);
       const lowestUsd   = prices[0] || null;
       return { ...item, ebay_low_cad: lowestUsd ? +(lowestUsd * cadRate).toFixed(2) : null };
     } catch (e) {
@@ -144,21 +164,9 @@ exports.handler = async (event) => {
     }
   }));
 
-  if (results.some(r => r.rateLimited)) {
-    return {
-      statusCode: 429,
-      headers:    CORS_HEADERS,
-      body:       JSON.stringify({
-        error:   'rate_limit',
-        message: 'eBay API quota exceeded — resets midnight PT',
-        ebayError: firstEbayError,
-      }),
-    };
-  }
-
   const withPrice = results.filter(r => r.ebay_low_cad !== null);
 
-  // 4. Write ebay_low_cad back to listing_queue rows
+  // 5. Write ebay_low_cad back to listing_queue rows
   await Promise.all(withPrice.map(r =>
     fetch(`${SUPABASE_URL}/rest/v1/listing_queue?id=eq.${r.id}`, {
       method:  'PATCH',
@@ -167,13 +175,13 @@ exports.handler = async (event) => {
     })
   ));
 
-  // 5. Write ebay_low_cad to card_inventory matching card_number + rarity
+  // 6. Write ebay_low_cad to card_inventory matching card_number + rarity
   await Promise.all(withPrice.map(r => {
-    const params = new URLSearchParams({
+    const ciParams = new URLSearchParams({
       card_number: `eq.${r.card_number}`,
       rarity:      `eq.${r.rarity}`,
     });
-    return fetch(`${SUPABASE_URL}/rest/v1/card_inventory?${params}`, {
+    return fetch(`${SUPABASE_URL}/rest/v1/card_inventory?${ciParams}`, {
       method:  'PATCH',
       headers: sbHeaders,
       body:    JSON.stringify({ ebay_low_cad: r.ebay_low_cad }),
@@ -187,7 +195,7 @@ exports.handler = async (event) => {
       updated:          withPrice.length,
       total:            items.length,
       cadRate:          +cadRate.toFixed(4),
-      // diagnostics — remove once working
+      // diagnostics — remove once confirmed working
       skippedNoRarity:  skippedNoRarity.length,
       firstEbayError:   firstEbayError,
       firstRawResponse: firstRawResponse,
