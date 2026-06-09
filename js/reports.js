@@ -540,7 +540,7 @@ function renderSetsInInventory(rows) {
         </tr>
       </thead>
     </table>
-    <div style="max-height:calc(25 * 41px);overflow-y:auto">
+    <div style="max-height:calc(10 * 41px);overflow-y:auto">
     <table style="width:100%;border-collapse:collapse">
       <tbody>
         ${notInInventory.map(([name], i) => `<tr>
