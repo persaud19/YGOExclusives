@@ -6,7 +6,7 @@ YuGiOh card resale business management app for Ryan Persaud. Replaces CSV spread
 ## Tech Stack
 - **Frontend**: Vanilla HTML/CSS/JS — NO framework, NO Supabase SDK
 - **Database**: Supabase PostgreSQL at `https://cioijkralojzgelytbfc.supabase.co`
-- **Hosting**: Netlify auto-deploy from GitHub `persaud19/shadowrealm-emporium` master branch
+- **Hosting**: Netlify auto-deploy from GitHub `persaud19/YGOExclusives` master branch → `https://ygoexclusives.netlify.app`
 - **Card data**: YGOPRODeck API (free, no key needed)
 - **Local dev**: `C:\ygo-serve\start-server.bat` on port 8888 via `.claude/launch.json`
 - **All Supabase calls**: plain `fetch()` to REST API — never use SDK

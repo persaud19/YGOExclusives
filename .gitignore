@@ -15,3 +15,10 @@ Thumbs.db
 serve*.bat
 serve*.ps1
 serve*.sh
+
+# Local env for netlify dev
+.env
+.env.local
+
+# Local Netlify folder
+.netlify

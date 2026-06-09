@@ -8,6 +8,9 @@ const RS_NORMAL_RARITY = new Set(['Common','Rare','Short Print','Super Rare','Ul
 // Preferred display order for rarity columns
 const RS_RARITY_ORDER = [
   'Super Rare','Ultra Rare','Secret Rare',
+  'Ultimate Rare',
+  "Collector's Rare",
+  'Starlight Rare',
   'Platinum Secret Rare','Prismatic Ultimate Rare',
   "Prismatic Collector's Rare",'Quarter Century Secret Rare'
 ];
@@ -17,6 +20,11 @@ const RS_CSV_MAP = {
   'Super Rare'                   : 'Super Rare',
   'Ultra Rare'                   : 'Ultra Rare',
   'Secret Rare'                  : 'Secret Rare',
+  'Ultimate Rare'                : 'Ultimate Rare',
+  "Collector's Rare"             : "Collector's Rare",
+  'Collectors Rare'              : "Collector's Rare",
+  'Collector Rare'               : "Collector's Rare",
+  'Starlight Rare'               : 'Starlight Rare',
   'Platinum Secret Rare'         : 'Platinum Secret Rare',
   'Prismatic Ultimate Rare'      : 'Prismatic Ultimate Rare',
   "Prismatic Collector's Rare"   : "Prismatic Collector's Rare",
@@ -55,7 +63,7 @@ async function loadRaritySetList() {
 
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?card_number=ilike.RA*&select=set_name&order=set_name`,
+      `${SUPABASE_URL}/rest/v1/card_inventory?card_number=ilike.RA*&select=set_name&order=set_name`,
       { headers: DB_HEADERS }
     );
     if (!res.ok) throw new Error(await res.text());
@@ -85,7 +93,7 @@ async function loadRaritySetCards(setName) {
 
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?set_name=eq.${encodeURIComponent(setName)}&card_number=ilike.RA*&select=id,card_number,card_name,rarity,un_nm,hr_qty_nm&order=card_number,rarity`,
+      `${SUPABASE_URL}/rest/v1/card_inventory?set_name=eq.${encodeURIComponent(setName)}&card_number=ilike.RA*&select=id,card_number,card_name,rarity,qty_fe_nm&order=card_number,rarity`,
       { headers: DB_HEADERS }
     );
     if (!res.ok) throw new Error(await res.text());
@@ -109,15 +117,17 @@ function renderRarityTable() {
   const normalR  = rsRarities.filter(r =>  RS_NORMAL_RARITY.has(r));
   const hrR      = rsRarities.filter(r => !RS_NORMAL_RARITY.has(r));
 
-  // Group cards by card_number
+  // Group cards by card_number + card_name so alternate arts (same card#, different art)
+  // each get their own row (e.g. RA04-EN107 "Dark Magician Girl (3rd Art)" vs "(7th Art)")
   const groups   = {};
   const order    = [];
   for (const c of rsCards) {
-    if (!groups[c.card_number]) {
-      groups[c.card_number] = { name: c.card_name, byRarity: {} };
-      order.push(c.card_number);
+    const key = `${c.card_number}||${c.card_name}`;
+    if (!groups[key]) {
+      groups[key] = { cardNum: c.card_number, name: c.card_name, byRarity: {} };
+      order.push(key);
     }
-    groups[c.card_number].byRarity[c.rarity] = c;
+    groups[key].byRarity[c.rarity] = c;
   }
 
   if (!order.length) {
@@ -142,9 +152,9 @@ function renderRarityTable() {
     </thead>`;
 
   /* ── Body ── */
-  let ci = 0;
-  const rows = order.map(cardNum => {
-    const g   = groups[cardNum];
+  const rows = order.map(key => {
+    const g       = groups[key];
+    const cardNum = g.cardNum;
     let total = 0;
     let cells = '';
 
@@ -152,18 +162,18 @@ function renderRarityTable() {
       const card   = g.byRarity[r];
       const isHR   = !RS_NORMAL_RARITY.has(r);
       const isSep  = (idx === 0) ? 'rs-col-sep' : (idx === normalR.length ? 'rs-col-hr-sep' : '');
-      const field  = isHR ? 'hr_qty_nm' : 'un_nm';
+      const field  = 'qty_fe_nm';
       const qty    = card ? (Number(card[field]) || 0) : null;
       if (qty !== null) total += qty;
       cells += buildRsQtyCell(card, field, qty, idx, isHR, isSep);
     });
 
     return `
-      <tr data-cardnum="${cardNum}">
+      <tr>
         <td class="rs-td-num cinzel">${cardNum}</td>
         <td class="rs-td-name">${g.name || '—'}</td>
         ${cells}
-        <td class="rs-td-total" id="rs-tot-${cardNum}">${total}</td>
+        <td class="rs-td-total">${total}</td>
       </tr>`;
   });
 
@@ -228,11 +238,10 @@ function wireRsInput(input) {
 }
 
 function updateRowTotal(input) {
-  const tr    = input.closest('tr');
-  const num   = tr.dataset.cardnum;
-  let total   = 0;
+  const tr  = input.closest('tr');
+  let total = 0;
   tr.querySelectorAll('.rs-qty-input').forEach(i => { total += parseInt(i.value) || 0; });
-  const el = document.getElementById(`rs-tot-${num}`);
+  const el = tr.querySelector('.rs-td-total');
   if (el) el.textContent = total;
 }
 
@@ -245,7 +254,7 @@ async function saveRsCell(input) {
 
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/cards?id=eq.${encodeURIComponent(id)}`,
+      `${SUPABASE_URL}/rest/v1/card_inventory?id=eq.${encodeURIComponent(id)}`,
       { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify({ [field]: val }) }
     );
     if (!res.ok) throw new Error(await res.text());
@@ -300,7 +309,7 @@ async function handleRsCSVImport(file) {
         const qty  = parseInt(raw);
         const card = lookup[`${cardNum}|${rarity}`];
         if (!card) { skipped++; continue; }
-        const field = RS_NORMAL_RARITY.has(rarity) ? 'un_nm' : 'hr_qty_nm';
+        const field = 'qty_fe_nm';
         patches.push({ id: card.id, field, qty });
       }
     }
@@ -317,7 +326,7 @@ async function handleRsCSVImport(file) {
     for (let i = 0; i < patches.length; i += 100) {
       const batch = patches.slice(i, i + 100);
       await Promise.allSettled(batch.map(p =>
-        fetch(`${SUPABASE_URL}/rest/v1/cards?id=eq.${encodeURIComponent(p.id)}`,
+        fetch(`${SUPABASE_URL}/rest/v1/card_inventory?id=eq.${encodeURIComponent(p.id)}`,
           { method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify({ [p.field]: p.qty }) })
       ));
       done += batch.length;
