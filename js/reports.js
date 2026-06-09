@@ -236,8 +236,8 @@ function renderHighValueUnlisted(cards, cadRate) {
 
   container.innerHTML = `
     <div style="overflow-x:auto">
-    <table style="width:100%">
-      <thead>
+    <table style="width:100%;border-collapse:collapse">
+      <thead style="position:sticky;top:0;z-index:1;background:var(--surf)">
         <tr>
           <th class="muted small" style="width:28px;text-align:center">#</th>
           <th>Card</th>
@@ -250,6 +250,9 @@ function renderHighValueUnlisted(cards, cadRate) {
           <th>Cost In</th>
         </tr>
       </thead>
+    </table>
+    <div style="max-height:calc(10 * 41px);overflow-y:auto">
+    <table style="width:100%;border-collapse:collapse">
       <tbody>
         ${top50.map((c, i) => {
           const low    = parseFloat(c.tcg_low_price)    || 0;
@@ -273,7 +276,7 @@ function renderHighValueUnlisted(cards, cadRate) {
         }).join('')}
       </tbody>
     </table>
-    </div>`;
+    </div></div>`;
 }
 
 // ─── High Qty Unlisted — top 50 by qty (TCG Low > $5) ────────────────────────
@@ -315,8 +318,8 @@ function renderHighQtyUnlisted(cards, cadRate) {
 
   container.innerHTML = `
     <div style="overflow-x:auto">
-    <table style="width:100%">
-      <thead>
+    <table style="width:100%;border-collapse:collapse">
+      <thead style="position:sticky;top:0;z-index:1;background:var(--surf)">
         <tr>
           <th class="muted small" style="width:28px;text-align:center">#</th>
           <th>Card</th>
@@ -329,6 +332,9 @@ function renderHighQtyUnlisted(cards, cadRate) {
           <th>Cost In</th>
         </tr>
       </thead>
+    </table>
+    <div style="max-height:calc(10 * 41px);overflow-y:auto">
+    <table style="width:100%;border-collapse:collapse">
       <tbody>
         ${top50.map((c, i) => {
           const low      = parseFloat(c.tcg_low_price)    || 0;
@@ -352,7 +358,7 @@ function renderHighQtyUnlisted(cards, cadRate) {
         }).join('')}
       </tbody>
     </table>
-    </div>`;
+    </div></div>`;
 }
 
 // ─── Monthly P&L (reads from sales — works with new schema) ──────────────────
@@ -381,12 +387,15 @@ function renderMonthlyPL(sales) {
   }
 
   container.innerHTML = `
-    <table style="width:100%">
-      <thead>
+    <table style="width:100%;border-collapse:collapse">
+      <thead style="position:sticky;top:0;z-index:1;background:var(--surf)">
         <tr>
           <th>Month</th><th>Sales</th><th>Revenue</th><th>Platform Fees</th><th>COGS</th><th>Shipping Out</th><th>Net Profit</th><th>Margin</th>
         </tr>
       </thead>
+    </table>
+    <div style="max-height:calc(10 * 41px);overflow-y:auto">
+    <table style="width:100%;border-collapse:collapse">
       <tbody>
         ${sorted.map(([mo, d]) => {
           const margin = d.revenue > 0 ? ((d.net / d.revenue) * 100).toFixed(1) + '%' : '—';
@@ -402,7 +411,8 @@ function renderMonthlyPL(sales) {
           </tr>`;
         }).join('')}
       </tbody>
-    </table>`;
+    </table>
+    </div>`;
 }
 
 // ─── Inventory Value by Set (top 10 · TCG Low × qty, in CAD) ─────────────────
@@ -711,8 +721,11 @@ function renderPriceMovers(data, period = 'week') {
 
   const mkTable = (rows, color) => rows.length === 0 ? '<p class="muted small">None this period.</p>' : `
     <div style="overflow-x:auto">
-    <table style="width:100%">
-      <thead><tr><th>Card</th><th>Rarity</th><th>Prior</th><th>Now</th><th>Change</th></tr></thead>
+    <table style="width:100%;border-collapse:collapse">
+      <thead style="position:sticky;top:0;z-index:1;background:var(--surf)"><tr><th>Card</th><th>Rarity</th><th>Prior</th><th>Now</th><th>Change</th></tr></thead>
+    </table>
+    <div style="max-height:calc(10 * 41px);overflow-y:auto">
+    <table style="width:100%;border-collapse:collapse">
       <tbody>
         ${rows.map(c => `<tr>
           <td>
@@ -725,7 +738,8 @@ function renderPriceMovers(data, period = 'week') {
           <td class="cinzel" style="color:${color};font-weight:700">${c.pct >= 0 ? '+' : ''}${c.pct.toFixed(0)}%</td>
         </tr>`).join('')}
       </tbody>
-    </table></div>`;
+    </table>
+    </div></div>`;
 
   container.innerHTML = `
     ${toggleHtml}
