@@ -254,6 +254,43 @@ async function lqRefreshEbayPrices() {
   }
 }
 
+// ── Sync listed status with live eBay active listings ────────────────────────
+async function lqSyncListedStatus() {
+  const btn = document.getElementById('lq-ebay-listed-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+
+  const setBtn = (label, ok = true) => {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.textContent = label;
+    btn.style.color = ok ? '' : 'var(--red)';
+    setTimeout(() => { btn.textContent = '⟳ Sync Listed'; btn.style.color = ''; }, 4000);
+  };
+
+  try {
+    const syncKey = localStorage.getItem('ygoexclusives_sync_key') || '';
+    const res  = await fetch('/.netlify/functions/ebay-active-sync', {
+      headers: { 'X-Api-Key': syncKey },
+    });
+    const data = await res.json();
+    if (res.status === 401) {
+      setBtn('Auth failed', false);
+      showToast('Sync key not set — add ygoexclusives_sync_key to localStorage', 'error');
+    } else if (res.ok) {
+      setBtn(`✓ ${data.matched_listed} listed / ${data.matched_unlisted} unlisted`);
+      showToast(`Listed sync done: ${data.matched_listed} marked listed, ${data.matched_unlisted} cleared.`);
+    } else {
+      setBtn('Error — see console', false);
+      console.error('ebay-active-sync error:', data);
+      showToast('Error: ' + (data.error || res.status), 'error');
+    }
+  } catch (e) {
+    setBtn('Failed — see console', false);
+    console.error('lqSyncListedStatus:', e);
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
 // ── Launch a workflow script via URI scheme ───────────────────────────────────
 function lqLaunchScript(action, label) {
   const messages = {

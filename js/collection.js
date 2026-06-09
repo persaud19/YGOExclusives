@@ -882,7 +882,17 @@ async function openSyncSetsModal() {
     const dbCodes  = new Set(dbRows.map(r => r.set_code));
 
     _syncMissingSets = ygoSets
-      .filter(s => s.set_code?.trim() && !dbCodes.has(s.set_code.trim()))
+      .filter(s => {
+        const code = s.set_code?.trim();
+        if (!code || dbCodes.has(code)) return false;
+        const name = (s.set_name || '').trim();
+        // Filter junk entries from YGOPRODeck API
+        if (/^\d+$/.test(name)) return false;                          // bare numbers like "2600"
+        if (/^\d+ Mega Pack$/.test(name)) return false;                // "2028 Mega Pack" etc.
+        if (/^Battles of Legend: Chapter \d+$/.test(name)) return false; // "Battles of Legend: Chapter 3" etc.
+        if (['Advanced Demo Deck Extra Pack', 'Anniversary Pack', 'Battle Pack Tournament Prize Cards'].includes(name)) return false;
+        return true;
+      })
       .map(s => ({ ...s, set_code: s.set_code.trim(), year: parseSetYear(s.tcg_date) }))
       .sort((a, b) => (b.tcg_date || '').localeCompare(a.tcg_date || '')); // newest first
 

@@ -896,8 +896,8 @@
       <!-- Sets in Inventory -->
       <div class="report-section">
         <div class="report-section-hdr">
-          <h3>Sets in Inventory <span class="muted small rsh-sub">(sets with &gt;3 cards · sorted by total qty)</span></h3>
-          <button class="rpt-dl-btn" onclick="dlReport('report-sets-in-inventory','sets-in-inventory.csv')">Download CSV</button>
+          <h3>Sets Not in Inventory <span class="muted small rsh-sub">(sets with 0 cards · alphabetical)</span></h3>
+          <button class="rpt-dl-btn" onclick="dlReport('report-sets-in-inventory','sets-not-in-inventory.csv')">Download CSV</button>
         </div>
         <div id="report-sets-in-inventory"><p class="muted small">Loading…</p></div>
       </div>
@@ -1412,6 +1412,7 @@
             <option value="skipped">Skipped</option>
           </select>
           <button class="btn btn-secondary" onclick="lqLoad()">Refresh</button>
+          <button class="btn btn-secondary" id="lq-ebay-listed-sync-btn" onclick="lqSyncListedStatus()">⟳ Sync Listed</button>
           <button class="btn btn-secondary" id="lq-ebay-refresh-btn" onclick="lqRefreshEbayPrices()">↺ eBay Prices</button>
         </div>
       </div>

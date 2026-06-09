@@ -127,7 +127,7 @@ function renderSummaryStats(sales) {
 }
 
 // ─── Inventory Overview ───────────────────────────────────────────────────────
-// Segments by TCG Low price: High-End $50+, B&B $5–49, Bulk <$5
+// Segments by TCG Low price (CAD): High-End ≥$40, B&B $2.50–39.99, Bulk <$2.50
 
 async function getInventoryOverviewRows() {
   const all = [];
@@ -163,9 +163,9 @@ function renderInventoryOverview(rows, cadRate) {
     const cad  = r.tcg_price_cad ? parseFloat(r.tcg_price_cad) : _cad(low, cadRate);
     totalQty += qty;
     const totalCardVal = cad * qty;
-    if (low >= 50) { hiQty  += qty; hiVal  += totalCardVal; }
-    else if (low >= 5) { bbQty  += qty; bbVal  += totalCardVal; }
-    else               { blkQty += qty; blkVal += totalCardVal; }
+    if (cad >= 40)   { hiQty  += qty; hiVal  += totalCardVal; }
+    else if (cad >= 2.5) { bbQty  += qty; bbVal  += totalCardVal; }
+    else                 { blkQty += qty; blkVal += totalCardVal; }
   }
 
   const totalVal = hiVal + bbVal + blkVal;
@@ -197,13 +197,13 @@ function renderInventoryOverview(rows, cadRate) {
     </div>
     <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:0.82rem">
       <span><span style="display:inline-block;width:10px;height:10px;background:var(--gold2);border-radius:2px;margin-right:5px;vertical-align:middle"></span>
-        <strong style="color:var(--gold2)">High-End</strong> (TCG Low ≥$50) &mdash; ${hiQty.toLocaleString()} cards · C$${hiVal.toLocaleString(undefined,{maximumFractionDigits:0})} · ${hiPct}%
+        <strong style="color:var(--gold2)">High-End</strong> (C$40+) &mdash; ${hiQty.toLocaleString()} cards · C$${hiVal.toLocaleString(undefined,{maximumFractionDigits:0})} · ${hiPct}%
       </span>
       <span><span style="display:inline-block;width:10px;height:10px;background:var(--blue);border-radius:2px;margin-right:5px;vertical-align:middle"></span>
-        <strong style="color:var(--blue)">Bread &amp; Butter</strong> ($5–49) &mdash; ${bbQty.toLocaleString()} cards · C$${bbVal.toLocaleString(undefined,{maximumFractionDigits:0})} · ${bbPct}%
+        <strong style="color:var(--blue)">Bread &amp; Butter</strong> (C$2.50–39.99) &mdash; ${bbQty.toLocaleString()} cards · C$${bbVal.toLocaleString(undefined,{maximumFractionDigits:0})} · ${bbPct}%
       </span>
       <span><span style="display:inline-block;width:10px;height:10px;background:var(--dim);border-radius:2px;margin-right:5px;vertical-align:middle"></span>
-        <strong class="muted">Bulk</strong> (&lt;$5) &mdash; ${blkQty.toLocaleString()} cards · C$${blkVal.toLocaleString(undefined,{maximumFractionDigits:0})} · ${blkPct}%
+        <strong class="muted">Bulk</strong> (&lt;C$2.50) &mdash; ${blkQty.toLocaleString()} cards · C$${blkVal.toLocaleString(undefined,{maximumFractionDigits:0})} · ${blkPct}%
       </span>
     </div>
     <div class="muted small" style="margin-top:8px">Rate used: 1 USD = C$${cadRate.toFixed(4)} &nbsp;·&nbsp; Cards without a TCG Low price are excluded from value totals</div>`;
@@ -511,46 +511,38 @@ function renderSetsInInventory(rows) {
     sets[name].totalQty += r.qty_total || 0;
   });
 
-  const counted    = Object.entries(sets).filter(([, d]) => d.totalQty > 3).sort((a, b) => b[1].totalQty - a[1].totalQty);
-  const notCounted = Object.entries(sets).filter(([, d]) => d.totalQty === 0).sort((a, b) => a[0].localeCompare(b[0]));
+  const notInInventory = Object.entries(sets)
+    .filter(([, d]) => d.totalQty === 0)
+    .sort((a, b) => a[0].localeCompare(b[0]));
 
-  const mkTable = (entries, color, emptyMsg) => {
-    if (!entries.length) return `<p class="muted small">${emptyMsg}</p>`;
-    return `
-      <div style="overflow-x:auto">
-      <table style="width:100%">
-        <thead>
-          <tr>
-            <th class="muted small" style="width:40px;text-align:center">#</th>
-            <th>Set Name</th>
-            <th style="text-align:center">Total Cards</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${entries.map(([name, d], i) => `<tr>
-            <td class="muted small" style="text-align:center">${i + 1}</td>
-            <td style="font-weight:500">${_e(name)}</td>
-            <td class="cinzel" style="text-align:center;color:${color};font-weight:700;font-size:1.05rem">${d.totalQty.toLocaleString()}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-      </div>`;
-  };
+  if (!notInInventory.length) {
+    container.innerHTML = '<p class="muted small">All sets have at least one card in inventory.</p>';
+    return;
+  }
 
   container.innerHTML = `
-    <div style="display:flex;gap:20px;margin-bottom:10px;flex-wrap:wrap">
-      <span style="color:var(--green);font-size:0.82rem;font-weight:600">✓ ${counted.length} sets counted</span>
-      <span style="color:var(--red);font-size:0.82rem;font-weight:600">✗ ${notCounted.length} sets not counted</span>
+    <div style="margin-bottom:10px">
+      <span style="color:var(--red);font-size:0.82rem;font-weight:600">${notInInventory.length} set${notInInventory.length !== 1 ? 's' : ''} with no inventory</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-      <div>
-        <div style="font-size:0.78rem;font-weight:600;color:var(--green);margin-bottom:8px;letter-spacing:0.05em">COUNTED (qty &gt; 3)</div>
-        ${mkTable(counted, 'var(--green)', 'No sets with more than 3 cards yet.')}
-      </div>
-      <div>
-        <div style="font-size:0.78rem;font-weight:600;color:var(--red);margin-bottom:8px;letter-spacing:0.05em">NOT COUNTED (qty = 0)</div>
-        ${mkTable(notCounted, 'var(--muted)', 'All sets have been counted!')}
-      </div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse">
+      <thead style="position:sticky;top:0;z-index:1;background:var(--surf)">
+        <tr>
+          <th class="muted small" style="width:40px;text-align:center">#</th>
+          <th>Set Name</th>
+        </tr>
+      </thead>
+    </table>
+    <div style="max-height:calc(25 * 41px);overflow-y:auto">
+    <table style="width:100%;border-collapse:collapse">
+      <tbody>
+        ${notInInventory.map(([name], i) => `<tr>
+          <td class="muted small" style="width:40px;text-align:center">${i + 1}</td>
+          <td style="font-weight:500">${_e(name)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
     </div>`;
 }
 
