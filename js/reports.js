@@ -512,7 +512,14 @@ function renderSetsInInventory(rows) {
   });
 
   const notInInventory = Object.entries(sets)
-    .filter(([, d]) => d.totalQty === 0)
+    .filter(([name, d]) => {
+      if (d.totalQty !== 0) return false;
+      if (/^\d+$/.test(name)) return false;                            // bare numbers
+      if (/^\d+ Mega Pack$/.test(name)) return false;                  // "2028 Mega Pack" etc.
+      if (/^Battles of Legend: Chapter \d+$/.test(name)) return false; // "Battles of Legend: Chapter 3" etc.
+      if (['Advanced Demo Deck Extra Pack', 'Anniversary Pack', 'Battle Pack Tournament Prize Cards'].includes(name)) return false;
+      return true;
+    })
     .sort((a, b) => a[0].localeCompare(b[0]));
 
   if (!notInInventory.length) {
