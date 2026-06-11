@@ -8,7 +8,7 @@ let lqTotal = 0;
 async function lqLoad() {
   const status = document.getElementById('lq-status-filter').value;
   const tbody  = document.getElementById('lq-tbody');
-  tbody.innerHTML = '<tr><td colspan="12" class="muted" style="text-align:center;padding:24px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center;padding:24px">Loading…</td></tr>';
 
   try {
     const offset = lqPage * LQ_PAGE_SIZE;
@@ -40,7 +40,7 @@ async function lqLoad() {
     const msg = e.message.includes('relation') || e.message.includes('does not exist')
       ? 'listing_queue table not created yet — run backups/listing-queue-setup.sql in Supabase first.'
       : `Error loading queue: ${e.message}`;
-    tbody.innerHTML = `<tr><td colspan="12" style="color:var(--yellow);text-align:center;padding:24px">${msg}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" style="color:var(--yellow);text-align:center;padding:24px">${msg}</td></tr>`;
   }
 }
 
@@ -71,7 +71,7 @@ async function lqRenderStats(activeStatus) {
 function lqRenderRows(rows, status) {
   const tbody = document.getElementById('lq-tbody');
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" class="muted" style="text-align:center;padding:32px">No ${status} items in queue.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" class="muted" style="text-align:center;padding:32px">No ${status} items in queue.</td></tr>`;
     return;
   }
 
@@ -117,6 +117,11 @@ function lqRenderRows(rows, status) {
       <td style="text-align:center;font-size:0.85rem">
         <span style="color:var(--muted)">${row.qty_inventory ?? '—'}</span>
       </td>
+      <td style="text-align:center">
+        ${row.is_playset
+          ? `<span title="Photo is of a playset — divide inventory qty by ~3 for true listings" style="font-size:0.62rem;font-weight:700;background:var(--purple);color:#fff;border-radius:4px;padding:2px 6px;letter-spacing:0.04em;white-space:nowrap">PLAYSET</span>`
+          : '<span class="muted">—</span>'}
+      </td>
       <td>
         ${status === 'pending'
           ? `<input class="input" type="text" inputmode="numeric" style="font-size:0.8rem;padding:3px 6px;width:50px;text-align:center"
@@ -139,10 +144,10 @@ function lqRenderRows(rows, status) {
           onblur="lqSaveField('${row.id}','price_cad',parseFloat(this.value)||null)"
           id="lq-price-${row.id}">
       </td>
-      <td id="lq-photos-${row.id}">
-        ${row.photo_url_1
-          ? `<img src="${row.photo_url_1}" style="height:40px;border-radius:3px;cursor:pointer" onclick="window.open('${row.photo_url_1}')" title="Click to enlarge">`
-          : '<span class="muted small">No photo</span>'}
+      <td id="lq-photos-${row.id}" style="text-align:center;font-size:0.85rem">
+        ${row.photo_count > 0
+          ? `<span title="${row.photo_count} photo file(s) in folder">📷 ${row.photo_count}</span>`
+          : '<span class="muted small">—</span>'}
       </td>
       <td>${actionCell}</td>
     </tr>`;
