@@ -77,7 +77,7 @@ async function fetchAllInventory() {
 
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/card_inventory?select=id,card_number,card_name,rarity,higher_rarity,qty_total&limit=${PAGE}&offset=${offset}`,
+      `${SUPABASE_URL}/rest/v1/card_inventory?select=id,card_number,card_name,rarity,qty_total&limit=${PAGE}&offset=${offset}`,
       { headers: HEADERS }
     );
     if (!res.ok) throw new Error(`Supabase fetch failed: ${res.status} ${await res.text()}`);
@@ -125,7 +125,7 @@ async function insertPortfolioHistory(p, today) {
     unique_printings: p.printings,
   };
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/portfolio_history`,
+    `${SUPABASE_URL}/rest/v1/portfolio_history?on_conflict=snapshot_date`,
     {
       method: 'POST',
       headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates' },
@@ -191,21 +191,15 @@ async function main() {
       }
     }
 
-    // HR pricing via card name + higher_rarity lookup
-    let hrMarket = 0;
-    if (card.higher_rarity) {
-      const nameKey = (card.card_name || '').toLowerCase().trim();
-      const hrKey   = `${nameKey}|${card.higher_rarity.toLowerCase().trim()}`;
-      const hrEntry = byNameRarity.get(hrKey);
-      if (hrEntry) hrMarket = hrEntry.market || 0;
-    }
+    // NOTE: card_inventory has no higher_rarity / hr_tcg_price columns (stale schema
+    // removed). HR pricing is not tracked here; keep hrMarket=0 for history shape.
+    const hrMarket = 0;
 
     const patch = {};
     if (market > 0 || low > 0) {
       if (market > 0)   patch.tcg_price     = +market.toFixed(2);
       if (low    > 0)   patch.tcg_low_price = +low.toFixed(2);
       if (low    > 0)   patch.tcg_price_cad = +(low * cadRate).toFixed(2);
-      if (hrMarket > 0) patch.hr_tcg_price  = +hrMarket.toFixed(2);
       matched++;
     } else {
       skipped++;
