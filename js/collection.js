@@ -553,19 +553,33 @@ async function saveNewCard() {
   btn.textContent = 'Saving…';
 
   try {
-    const row = {
+    // Insert into cards (identity table) — ignore if card_number already exists
+    const ignoreHeaders = {
+      'Content-Type':  'application/json',
+      'apikey':        SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Prefer':        'resolution=ignore-duplicates,return=minimal',
+    };
+    await fetch(`${SUPABASE_URL}/rest/v1/cards`, {
+      method: 'POST', headers: ignoreHeaders,
+      body: JSON.stringify({ id: crypto.randomUUID(), card_number: num, card_name: name }),
+    });
+    // Fetch the actual card id (whether just inserted or pre-existing)
+    const cardRows = await dbGet('cards', { select: 'id', card_number: `eq.${num}`, limit: 1 });
+    const cardId = cardRows?.[0]?.id;
+    if (!cardId) throw new Error('Could not resolve card_id for card_number: ' + num);
+    const invRow = {
       id:          crypto.randomUUID(),
+      card_id:     cardId,
       card_number: num,
       card_name:   name,
-      rarity:      document.getElementById('ac-rarity')?.value   || '',
-      set_name:    document.getElementById('ac-set-name')?.value.trim() || '',
-      year:        document.getElementById('ac-year')?.value.trim()     || null,
-      location:    document.getElementById('ac-location')?.value        || '',
-      fe_nm: 0, fe_lp: 0, fe_mp: 0,
-      un_nm: 0, un_lp: 0, un_mp: 0,
+      rarity:      document.getElementById('ac-rarity')?.value.trim()    || '',
+      set_name:    document.getElementById('ac-set-name')?.value.trim()  || '',
+      qty_fe_nm: 0, qty_fe_lp: 0, qty_fe_mp: 0,
+      qty_un_nm: 0, qty_un_lp: 0, qty_un_mp: 0,
       listed: false,
     };
-    await dbInsert('cards', row);
+    await dbInsert('card_inventory', invRow);
     showToast(`Added: ${name}`);
     closeAddCardModal();
     colPage = 0;
