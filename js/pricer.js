@@ -98,6 +98,23 @@ function initPricer() {
     if (_pricerTcgLow) renderPricerResults();
   });
   document.getElementById('pricer-scale-pct').addEventListener('input', onScaleChange);
+
+  // ── Lookup (Deck Companion) wiring ──
+  document.getElementById('lookup-search-btn')?.addEventListener('click', runLookupSearch);
+  document.getElementById('lookup-search')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') runLookupSearch();
+  });
+  document.getElementById('lookup-template-btn')?.addEventListener('click', downloadLookupTemplate);
+  document.getElementById('lookup-file')?.addEventListener('change', onLookupFileChosen);
+}
+
+// ── Mode toggle: Lookup ↔ Deal Check ───────────────────────────────────────
+function switchPricerMode(mode) {
+  const isLookup = mode === 'lookup';
+  document.getElementById('lookup-panel').style.display    = isLookup ? ''     : 'none';
+  document.getElementById('dealcheck-panel').style.display = isLookup ? 'none' : '';
+  document.getElementById('lookup-seg-lookup').classList.toggle('active', isLookup);
+  document.getElementById('lookup-seg-deal').classList.toggle('active', !isLookup);
 }
 
 // ── Scale % handler ───────────────────────────────────────────────────────────
@@ -270,4 +287,273 @@ function renderPricerVerdict(verdict, calc, cost) {
     </div>
     <p style="color:var(--txt);margin:0;line-height:1.65;font-size:0.95rem">${desc}</p>
   `;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LOOKUP (Deck Companion) — "do I own this, how many, and WHERE is it?"
+//  Location (Binder vs Basement Box) is the key output. No prices.
+// ════════════════════════════════════════════════════════════════════════════
+
+function setLookupState(state, msg = '') {
+  document.getElementById('lookup-loading').style.display   = state === 'loading' ? 'flex'  : 'none';
+  document.getElementById('lookup-results').style.display   = state === 'results' ? 'block' : 'none';
+  document.getElementById('lookup-error-box').style.display = state === 'error'   ? 'block' : 'none';
+  if (state === 'error') document.getElementById('lookup-error-box').textContent = msg;
+}
+
+// ── Location + condition breakdown for a single inventory row ────────────────
+function lookupRowLocations(r) {
+  const basement = (r.qty_fe_nm||0)+(r.qty_fe_lp||0)+(r.qty_fe_mp||0)
+                 + (r.qty_un_nm||0)+(r.qty_un_lp||0)+(r.qty_un_mp||0);
+  const binder   = (r.qty_binder_fe_nm||0)+(r.qty_binder_un_nm||0);
+  const parts = [];
+  if (binder)   parts.push({ loc: 'Binder',       qty: binder,   cls: 'binder',   icon: '📒' });
+  if (basement) parts.push({ loc: 'Basement Box', qty: basement, cls: 'basement', icon: '📦' });
+  return parts;
+}
+
+function lookupRowConditions(r) {
+  return [
+    ['1st NM', r.qty_fe_nm], ['1st LP', r.qty_fe_lp], ['1st MP', r.qty_fe_mp],
+    ['Unl NM', r.qty_un_nm], ['Unl LP', r.qty_un_lp], ['Unl MP', r.qty_un_mp],
+    ['Binder 1st NM', r.qty_binder_fe_nm], ['Binder Unl NM', r.qty_binder_un_nm],
+  ].filter(([, q]) => (q||0) > 0).map(([l, q]) => `${l} ×${q}`);
+}
+
+// ── Render one printing row ──────────────────────────────────────────────────
+function renderLookupPrinting(r) {
+  const locs = lookupRowLocations(r);
+  const locHtml = locs.length
+    ? locs.map(p => `<span class="lookup-loc lookup-loc-${p.cls}">${p.icon} ${p.loc} ×${p.qty}</span>`).join('')
+    : '<span class="muted small">none in stock</span>';
+  const conds = lookupRowConditions(r).join(' · ');
+  return `
+    <div class="lookup-print">
+      <div class="lookup-print-id">
+        <span class="badge ${getRarityBadgeClass(r.rarity)}">${escHtml(r.rarity || '')}</span>
+        <span class="cinzel" style="color:var(--muted);font-size:0.72rem">${escHtml(r.card_number || '')}</span>
+        <span class="small muted">${escHtml(r.set_name || '')}</span>
+      </div>
+      <div class="lookup-print-loc">${locHtml}</div>
+      ${conds ? `<div class="muted small" style="margin-top:3px">${conds}</div>` : ''}
+    </div>`;
+}
+
+// ── Render one card group (name + its printings) ─────────────────────────────
+// Only printings the user actually OWNS (qty_total > 0) are shown — sorted
+// highest-rarity-first. need = requested qty (list mode) or null (single search).
+function renderLookupGroup(name, rows, need) {
+  const owned = rows.filter(r => (r.qty_total || 0) > 0); // already rarity-desc ordered
+  const have  = owned.reduce((s, r) => s + (r.qty_total || 0), 0);
+  const top   = owned[0]; // highest-rarity OWNED printing
+  const topLoc = top ? (lookupRowLocations(top)[0]?.loc || '—') : '—';
+
+  let verdict = '';
+  if (need != null) {
+    const ok = have >= need;
+    verdict = `<span class="lookup-verdict ${ok ? 'ok' : 'short'}">
+      need ${need} · have ${have} ${ok ? '✓' : `✗ short ${need - have}`}
+    </span>`;
+  } else {
+    verdict = `<span class="lookup-verdict ok">${have} owned</span>`;
+  }
+
+  const topBadge = top
+    ? `<span class="muted small">best: ${escHtml(top.rarity || '')} @ ${escHtml(topLoc)}</span>`
+    : '';
+
+  const bodyHtml = owned.length
+    ? owned.map(renderLookupPrinting).join('')
+    : `<div class="lookup-print"><span class="muted small">No copies in stock${
+        rows.length ? ` — ${rows.length} printing${rows.length !== 1 ? 's' : ''} catalogued but qty 0` : ''
+      }</span></div>`;
+
+  return `
+    <div class="lookup-group">
+      <div class="lookup-group-head">
+        <span class="lookup-group-name">${escHtml(name)}</span>
+        ${verdict}
+        ${topBadge}
+      </div>
+      <div class="lookup-group-body">
+        ${bodyHtml}
+      </div>
+    </div>`;
+}
+
+// ── Single-card search ───────────────────────────────────────────────────────
+async function runLookupSearch() {
+  const term = document.getElementById('lookup-search').value.trim();
+  if (!term) { showToast('Type a card name'); return; }
+  setLookupState('loading');
+  try {
+    const rows = await lookupInventorySearch(term);
+    setLookupState('results');
+    renderLookupSearchResults(term, rows);
+  } catch (e) {
+    setLookupState('error', 'Search failed: ' + e.message);
+  }
+}
+
+function renderLookupSearchResults(term, rows) {
+  const tally = document.getElementById('lookup-tally');
+  const body  = document.getElementById('lookup-body');
+
+  if (!rows.length) {
+    tally.innerHTML = `<span class="lookup-tally-miss">No match for "${escHtml(term)}" in your collection.</span>`;
+    body.innerHTML  = '';
+    return;
+  }
+
+  // Group fuzzy matches by exact card_name (a search can hit several distinct cards)
+  const groups = new Map();
+  rows.forEach(r => {
+    if (!groups.has(r.card_name)) groups.set(r.card_name, []);
+    groups.get(r.card_name).push(r);
+  });
+
+  // Only show cards the user actually owns at least one copy of
+  const ownedGroups = [...groups.entries()]
+    .filter(([, grp]) => grp.some(r => (r.qty_total || 0) > 0));
+
+  if (!ownedGroups.length) {
+    tally.innerHTML = `<span class="lookup-tally-miss">Matched ${groups.size} card${groups.size !== 1 ? 's' : ''} named like "${escHtml(term)}", but you own 0 copies.</span>`;
+    body.innerHTML  = '';
+    return;
+  }
+
+  const totalOwned = rows.reduce((s, r) => s + (r.qty_total || 0), 0);
+  tally.innerHTML = `<span class="lookup-tally-ok">${ownedGroups.length} card${ownedGroups.length !== 1 ? 's' : ''} owned · ${totalOwned} copies</span>`;
+  body.innerHTML = ownedGroups
+    .map(([name, grp]) => renderLookupGroup(name, grp, null))
+    .join('');
+}
+
+// ── CSV template download ────────────────────────────────────────────────────
+function downloadLookupTemplate() {
+  const lines = [
+    'Quantity,Card Name',
+    '3,Ash Blossom & Joyous Spring',
+    '1,Pot of Prosperity',
+    '2,Effect Veiler',
+  ];
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: 'ygo-decklist-template.csv',
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Template downloaded — fill Quantity + exact Card Name, then upload');
+}
+
+// ── CSV parse (handles quoted fields with commas) ────────────────────────────
+function parseCsvLine(line) {
+  const out = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+function onLookupFileChosen(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    runLookupList(String(reader.result || ''));
+    e.target.value = ''; // allow re-upload of same file
+  };
+  reader.onerror = () => setLookupState('error', 'Could not read the file.');
+  reader.readAsText(file);
+}
+
+// ── Decklist (CSV) lookup ────────────────────────────────────────────────────
+async function runLookupList(text) {
+  const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!rawLines.length) { setLookupState('error', 'The file was empty.'); return; }
+
+  // Skip header row if present
+  const first = parseCsvLine(rawLines[0]).map(c => c.toLowerCase());
+  const startIdx = (first[0] === 'quantity' || first[1] === 'card name') ? 1 : 0;
+
+  const requested = []; // { qty, name }
+  for (let i = startIdx; i < rawLines.length; i++) {
+    const cells = parseCsvLine(rawLines[i]);
+    if (cells.length < 2) continue;
+    const qty  = parseInt(cells[0], 10);
+    const name = cells.slice(1).join(',').trim(); // tolerate stray commas if unquoted
+    if (!name) continue;
+    requested.push({ qty: (qty > 0 ? qty : 1), name });
+  }
+
+  if (!requested.length) { setLookupState('error', 'No valid rows found. Use the template: Quantity,Card Name'); return; }
+
+  setLookupState('loading');
+  try {
+    const uniqueNames = [...new Set(requested.map(r => r.name))];
+    const rows = await lookupInventoryByNames(uniqueNames);
+
+    // Exact case-insensitive name → rows
+    const byName = new Map();
+    rows.forEach(r => {
+      const k = (r.card_name || '').toLowerCase();
+      if (!byName.has(k)) byName.set(k, []);
+      byName.get(k).push(r);
+    });
+
+    setLookupState('results');
+    renderLookupListResults(requested, byName);
+  } catch (e) {
+    setLookupState('error', 'Lookup failed: ' + e.message);
+  }
+}
+
+function renderLookupListResults(requested, byName) {
+  const tally = document.getElementById('lookup-tally');
+  const body  = document.getElementById('lookup-body');
+
+  let inStock = 0, shortCount = 0, notFound = 0;
+  const matchedHtml = [];
+  const missingHtml = [];
+
+  requested.forEach(req => {
+    const grp = byName.get(req.name.toLowerCase());
+    if (!grp || !grp.length) {
+      notFound++;
+      missingHtml.push(`<li>${escHtml(req.name)} <span class="muted small">(need ${req.qty})</span></li>`);
+      return;
+    }
+    const have = grp.reduce((s, r) => s + (r.qty_total || 0), 0);
+    if (have >= req.qty) inStock++; else shortCount++;
+    matchedHtml.push(renderLookupGroup(req.name, grp, req.qty));
+  });
+
+  const tallyParts = [
+    `<span class="lookup-tally-ok">${inStock} in stock</span>`,
+    `<span class="lookup-tally-short">${shortCount} short</span>`,
+  ];
+  if (notFound) tallyParts.push(`<span class="lookup-tally-miss">${notFound} not found</span>`);
+  tally.innerHTML = `${requested.length} card${requested.length !== 1 ? 's' : ''} checked &nbsp;·&nbsp; ` + tallyParts.join(' &nbsp;·&nbsp; ');
+
+  let html = matchedHtml.join('');
+  if (missingHtml.length) {
+    html += `
+      <div class="lookup-notfound">
+        <div class="lookup-notfound-head">⚠ Not found in your collection (no guessing — check spelling vs. official card name)</div>
+        <ul>${missingHtml.join('')}</ul>
+      </div>`;
+  }
+  body.innerHTML = html;
 }

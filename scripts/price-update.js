@@ -77,7 +77,7 @@ async function fetchAllInventory() {
 
   while (true) {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/card_inventory?select=id,card_number,card_name,rarity,higher_rarity&limit=${PAGE}&offset=${offset}`,
+      `${SUPABASE_URL}/rest/v1/card_inventory?select=id,card_number,card_name,rarity,higher_rarity,qty_total&limit=${PAGE}&offset=${offset}`,
       { headers: HEADERS }
     );
     if (!res.ok) throw new Error(`Supabase fetch failed: ${res.status} ${await res.text()}`);
@@ -113,6 +113,29 @@ async function insertPriceHistory(rows) {
   if (!res.ok) throw new Error(`History insert failed: ${await res.text()}`);
 }
 
+// ── Write a portfolio_history snapshot (one row per day, upsert) ─────────────
+async function insertPortfolioHistory(p, today) {
+  const row = {
+    snapshot_date:    today,
+    total_value_cad:  +p.total.toFixed(2),
+    high_end_cad:     +p.high.toFixed(2),
+    bread_butter_cad: +p.bb.toFixed(2),
+    bulk_cad:         +p.bulk.toFixed(2),
+    total_qty:        p.qty,
+    unique_printings: p.printings,
+  };
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/portfolio_history`,
+    {
+      method: 'POST',
+      headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify(row),
+    }
+  );
+  if (!res.ok) throw new Error(`Portfolio snapshot failed: ${await res.text()}`);
+  console.log(`Portfolio snapshot: C$${row.total_value_cad.toLocaleString()} total · ${row.total_qty.toLocaleString()} cards`);
+}
+
 // ── Step 5: Purge history older than 3 years (first Monday of month only) ────
 async function purgeOldHistory() {
   console.log('Purging price history older than 3 years...');
@@ -144,11 +167,29 @@ async function main() {
   const patches     = [];
   const historyRows = [];
 
+  // Portfolio snapshot accumulators (value = TCG Low CAD × qty_total, segmented)
+  const portfolio = { total: 0, high: 0, bb: 0, bulk: 0, qty: 0, printings: 0 };
+
   for (const card of inventory) {
     const codeKey = (card.card_number || '').toLowerCase().trim();
     const entry   = bySetCode.get(codeKey);
     const market  = entry?.market || 0;
     const low     = entry?.low    || 0;
+
+    // Accumulate portfolio value from this card's holdings
+    const qty = card.qty_total || 0;
+    if (qty > 0) {
+      portfolio.qty += qty;
+      portfolio.printings++;
+      if (low > 0) {
+        const cad = low * cadRate;
+        const val = cad * qty;
+        portfolio.total += val;
+        if (cad >= 40)       portfolio.high += val;
+        else if (cad >= 2.5) portfolio.bb   += val;
+        else                 portfolio.bulk += val;
+      }
+    }
 
     // HR pricing via card name + higher_rarity lookup
     let hrMarket = 0;
@@ -212,6 +253,13 @@ async function main() {
     await insertPriceHistory(historyRows.slice(i, i + HIST_BATCH));
   }
   console.log('History snapshots written');
+
+  // Write the weekly portfolio-value snapshot (non-fatal if the table is missing)
+  try {
+    await insertPortfolioHistory(portfolio, today);
+  } catch (e) {
+    console.error('Portfolio snapshot skipped:', e.message);
+  }
 
   // Purge on first Monday of the month (day 1–7)
   if (new Date().getDate() <= 7) {

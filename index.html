@@ -266,7 +266,7 @@
       Reports
     </button>
     <button class="tab-btn hidden" data-tab="pricer" data-mode="owner">
-      Deal Check
+      Lookup
     </button>
     <button class="tab-btn hidden" data-tab="listing-queue" data-mode="owner">
       List Queue
@@ -646,6 +646,15 @@
   <div id="tab-sales" class="tab-panel">
     <div class="tab-content">
 
+      <!-- Sub-view toggle -->
+      <div class="lookup-seg-wrap">
+        <button id="sales-seg-log"    class="lookup-seg active" onclick="switchSalesView('log')">Sales Log</button>
+        <button id="sales-seg-buyers" class="lookup-seg"        onclick="switchSalesView('buyers')">Buyers</button>
+      </div>
+
+      <!-- ══ SALES LOG VIEW ════════════════════════════════════════════════ -->
+      <div id="sales-log-view">
+
       <!-- Action bar -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
         <div style="display:flex;align-items:stretch">
@@ -680,6 +689,37 @@
         <button class="btn btn-secondary btn-sm" id="sales-prev-btn" disabled>← Prev</button>
         <span class="page-info" id="sales-page-info"></span>
         <button class="btn btn-secondary btn-sm" id="sales-next-btn">Next →</button>
+      </div>
+
+      </div><!-- /#sales-log-view -->
+
+      <!-- ══ BUYERS VIEW ═══════════════════════════════════════════════════ -->
+      <div id="buyers-view" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <span id="buyers-summary" class="small muted" style="flex:1"></span>
+          <input id="buyers-search" class="input" type="text" placeholder="Filter buyers…"
+                 autocomplete="off" style="max-width:220px;background:var(--b1)">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Buyer</th>
+                <th>Channels</th>
+                <th style="text-align:right">Orders</th>
+                <th style="text-align:right">Cards</th>
+                <th style="text-align:right">Total Spend</th>
+                <th style="text-align:right">Net to You</th>
+                <th>First</th>
+                <th>Last</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="buyers-tbody">
+              <tr><td colspan="9" class="muted text-center" style="padding:24px">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
@@ -873,6 +913,14 @@
 
       <!-- Summary stat cards -->
       <div class="stat-grid" id="report-stats"></div>
+
+      <!-- Portfolio value over time -->
+      <div class="report-section">
+        <div class="report-section-hdr">
+          <h3>Portfolio Value Over Time <span class="muted small rsh-sub">(inventory worth at TCG Low · CAD · snapshot every Monday)</span></h3>
+        </div>
+        <div id="report-portfolio"><p class="muted small">Loading…</p></div>
+      </div>
 
       <!-- Row 1: Inventory Overview (2/3) + Set Value (1/3) -->
       <div class="report-grid-2" style="grid-template-columns:2fr 1fr">
@@ -1247,9 +1295,55 @@
   </div>
 
 
-  <!-- ─── DEAL CHECK TAB ─────────────────────────────────────────────────── -->
+  <!-- ─── LOOKUP TAB (Lookup + Deal Check) ───────────────────────────────── -->
   <div id="tab-pricer" class="tab-panel">
     <div class="tab-content pricer-wrap">
+
+      <!-- ── Mode toggle ─────────────────────────────────────────────────── -->
+      <div class="lookup-seg-wrap">
+        <button id="lookup-seg-lookup" class="lookup-seg active" onclick="switchPricerMode('lookup')">🔍 Lookup</button>
+        <button id="lookup-seg-deal"   class="lookup-seg"        onclick="switchPricerMode('dealcheck')">💰 Deal Check</button>
+      </div>
+
+      <!-- ══ LOOKUP PANEL ════════════════════════════════════════════════ -->
+      <div id="lookup-panel">
+
+        <!-- Single-card search -->
+        <div class="pricer-search-panel">
+          <div class="pricer-search-row">
+            <div class="pricer-field" style="flex:1">
+              <label class="pricer-label">Find a card in your collection</label>
+              <input id="lookup-search" class="input pricer-input" type="text"
+                     autocomplete="off" spellcheck="false"
+                     placeholder="e.g. Ash Blossom &amp; Joyous Spring">
+            </div>
+            <button id="lookup-search-btn" class="btn btn-primary pricer-check-btn">Search</button>
+          </div>
+          <div class="muted small" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <span>Checking a whole decklist?</span>
+            <button id="lookup-template-btn" class="btn btn-ghost btn-sm">⤓ Download List Template (CSV)</button>
+            <label for="lookup-file" class="btn btn-ghost btn-sm" style="cursor:pointer">⤒ Upload Filled List</label>
+            <input id="lookup-file" type="file" accept=".csv,text/csv" style="display:none">
+          </div>
+        </div>
+
+        <!-- Loading / error -->
+        <div id="lookup-loading" class="pricer-loading" style="display:none">
+          <div class="pricer-spinner"></div>
+          <span>Searching your collection…</span>
+        </div>
+        <div id="lookup-error-box" class="pricer-error-box" style="display:none"></div>
+
+        <!-- Results -->
+        <div id="lookup-results" style="display:none">
+          <div id="lookup-tally" class="lookup-tally"></div>
+          <div id="lookup-body"></div>
+        </div>
+
+      </div><!-- /#lookup-panel -->
+
+      <!-- ══ DEAL CHECK PANEL ════════════════════════════════════════════ -->
+      <div id="dealcheck-panel" style="display:none">
 
       <!-- ── Search bar ──────────────────────────────────────────────────── -->
       <div class="pricer-search-panel">
@@ -1395,6 +1489,8 @@
 
       </div><!-- /#pricer-results -->
 
+      </div><!-- /#dealcheck-panel -->
+
     </div>
   </div>
 
@@ -1493,6 +1589,7 @@
         <h2 class="cinzel" style="color:var(--gold);font-size:1.1rem;margin:0">📦 Orders to Ship</h2>
         <span id="orders-count-badge" style="background:var(--red);color:#fff;border-radius:99px;padding:2px 10px;font-size:0.78rem;font-weight:600;display:none"></span>
         <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-secondary btn-sm" id="orders-sync-btn">⇅ Sync eBay</button>
           <button class="btn btn-secondary btn-sm" id="orders-refresh-btn">↻ Refresh</button>
           <button class="btn btn-primary btn-sm" id="orders-print-btn" onclick="window.print()">🖨 Print Order Sheet</button>
         </div>

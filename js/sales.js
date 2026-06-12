@@ -33,6 +33,194 @@ function initSales() {
   });
   switchSaleChannel('ebay');
   loadSalesPage();
+
+  document.getElementById('buyers-search')?.addEventListener('input', () => {
+    clearTimeout(_buyersSearchDebounce);
+    _buyersSearchDebounce = setTimeout(renderBuyers, 200);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  BUYERS VIEW — aggregate sales by buyer (LTV, repeat customers)
+//  Foundation of the long-term "manage my eBay store" Sales hub.
+// ════════════════════════════════════════════════════════════════════════════
+
+let _buyersLoaded = false;
+let _buyersData = [];               // [{ key, name, ... , sales:[] }]
+let _buyersSearchDebounce = null;
+
+function switchSalesView(view) {
+  const isLog = view === 'log';
+  document.getElementById('sales-log-view').style.display = isLog ? '' : 'none';
+  document.getElementById('buyers-view').style.display    = isLog ? 'none' : '';
+  document.getElementById('sales-seg-log').classList.toggle('active', isLog);
+  document.getElementById('sales-seg-buyers').classList.toggle('active', !isLog);
+  if (!isLog && !_buyersLoaded) loadBuyers();
+}
+
+async function loadBuyers() {
+  const tbody = document.getElementById('buyers-tbody');
+  tbody.innerHTML = '<tr><td colspan="9" class="muted text-center" style="padding:24px">Loading…</td></tr>';
+  try {
+    const sales = await getMonthlySales(); // all sales, ascending by date
+    _buyersData = aggregateBuyers(sales);
+    _buyersLoaded = true;
+    renderBuyers();
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="9" class="red text-center" style="padding:24px">Error: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function aggregateBuyers(sales) {
+  const map = new Map();
+  for (const s of sales) {
+    const display = (s.buyer_name || s.buyer_username || '').trim();
+    const key = (display || '(unknown)').toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        name:       display || '(unknown / no buyer info)',
+        username:   s.buyer_username || '',
+        orderIds:   new Set(),
+        cards:      0,
+        spend:      0,
+        net:        0,
+        platforms:  new Set(),
+        first:      s.sale_date || '',
+        last:       s.sale_date || '',
+        sales:      [],
+      });
+    }
+    const b = map.get(key);
+    b.orderIds.add(s.ebay_order_id || s.id);          // distinct order, fallback to line id
+    b.cards += parseInt(s.quantity, 10) || 1;
+    b.spend += parseFloat(s.sale_price) || 0;
+    b.net   += parseFloat(s.net_profit) || 0;
+    if (s.platform) b.platforms.add(s.platform);
+    if (s.sale_date) {
+      if (!b.first || s.sale_date < b.first) b.first = s.sale_date;
+      if (!b.last  || s.sale_date > b.last)  b.last  = s.sale_date;
+    }
+    b.sales.push(s);
+  }
+  return [...map.values()]
+    .map(b => ({ ...b, orders: b.orderIds.size }))
+    .sort((a, b) => b.spend - a.spend); // best customers first
+}
+
+function renderBuyers() {
+  const tbody = document.getElementById('buyers-tbody');
+  const summary = document.getElementById('buyers-summary');
+  if (!tbody) return;
+
+  const q = (document.getElementById('buyers-search')?.value || '').trim().toLowerCase();
+  const rows = q ? _buyersData.filter(b => b.name.toLowerCase().includes(q) || b.username.toLowerCase().includes(q)) : _buyersData;
+
+  const totalSpend = _buyersData.reduce((s, b) => s + b.spend, 0);
+  summary.textContent = `${_buyersData.length.toLocaleString()} buyers · C$${totalSpend.toLocaleString(undefined,{maximumFractionDigits:0})} lifetime revenue`;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="muted text-center" style="padding:24px">No buyers found</td></tr>';
+    return;
+  }
+
+  // cache for click-through
+  window._buyersByKey = {};
+  _buyersData.forEach(b => { window._buyersByKey[b.key] = b; });
+
+  const chMeta = (typeof CHANNEL_META !== 'undefined') ? CHANNEL_META : {};
+  tbody.innerHTML = rows.map(b => {
+    const platforms = [...b.platforms].map(p => {
+      const m = chMeta[p];
+      return `<span class="badge ${m ? m.badge : 'badge-muted'}" style="font-size:0.66rem">${m ? m.label : escHtml(p)}</span>`;
+    }).join(' ');
+    const netColor = b.net >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<tr class="sale-log-row" style="cursor:pointer" onclick="openBuyerDetail('${b.key.replace(/'/g,"\\'")}')">
+      <td style="max-width:200px">
+        <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(b.name)}</div>
+        ${b.username && b.username !== b.name ? `<div class="small muted">${escHtml(b.username)}</div>` : ''}
+      </td>
+      <td>${platforms || '<span class="muted">—</span>'}</td>
+      <td class="cinzel" style="text-align:right">${b.orders}</td>
+      <td class="small" style="text-align:right;color:var(--muted)">${b.cards}</td>
+      <td class="cinzel" style="text-align:right;white-space:nowrap;color:var(--gold2)">C$${b.spend.toFixed(2)}</td>
+      <td class="cinzel" style="text-align:right;white-space:nowrap;color:${netColor}">${b.net >= 0 ? '+' : ''}$${b.net.toFixed(2)}</td>
+      <td class="small muted" style="white-space:nowrap">${b.first || '—'}</td>
+      <td class="small muted" style="white-space:nowrap">${b.last || '—'}</td>
+      <td style="padding:0 8px"><span class="muted" style="font-size:1rem">›</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Buyer detail (reuses the sale-detail slide-in panel) ─────────────────────
+function openBuyerDetail(key) {
+  const b = window._buyersByKey?.[key];
+  if (!b) return;
+  document.getElementById('sale-detail-inner').innerHTML = renderBuyerDetail(b);
+  document.getElementById('sale-detail-panel').classList.add('open');
+  document.getElementById('sale-detail-backdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function renderBuyerDetail(b) {
+  const chMeta = (typeof CHANNEL_META !== 'undefined') ? CHANNEL_META : {};
+  const avg = b.orders ? b.spend / b.orders : 0;
+  const salesDesc = [...b.sales].sort((a, c) => (c.sale_date || '').localeCompare(a.sale_date || ''));
+
+  const history = salesDesc.map(s => {
+    const m = chMeta[s.platform] || {};
+    const profit = parseFloat(s.net_profit);
+    const pColor = isNaN(profit) ? 'var(--muted)' : profit >= 0 ? 'var(--green)' : 'var(--red)';
+    const pStr   = isNaN(profit) ? '—' : (profit >= 0 ? '+' : '') + '$' + Math.abs(profit).toFixed(2);
+    return `
+      <div class="sdp-row" style="align-items:flex-start">
+        <span class="sdp-row-label" style="flex:1">
+          ${escHtml(s.card_name || '—')}
+          <span class="small muted" style="display:block">${s.sale_date || ''} · ${m.label || escHtml(s.platform || '')}</span>
+        </span>
+        <span class="sdp-row-val" style="text-align:right">
+          $${Number(s.sale_price || 0).toFixed(2)}
+          <span style="display:block;color:${pColor};font-size:0.8rem">${pStr}</span>
+        </span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="sdp-header">
+      <div style="flex:1">
+        <div class="sdp-card-name">${escHtml(b.name)}</div>
+        ${b.username && b.username !== b.name ? `<div class="small muted" style="margin-top:4px">${escHtml(b.username)}</div>` : ''}
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+          ${[...b.platforms].map(p => { const m = chMeta[p]; return `<span class="badge ${m ? m.badge : 'badge-muted'}">${m ? m.label : escHtml(p)}</span>`; }).join('')}
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="closeSaleDetail()" style="flex-shrink:0">✕</button>
+    </div>
+
+    <div class="sdp-money">
+      <div class="sdp-money-item">
+        <div class="sdp-money-label">Lifetime Spend</div>
+        <div class="sdp-money-val" style="color:var(--gold2)">C$${b.spend.toFixed(2)}</div>
+      </div>
+      <div class="sdp-money-item">
+        <div class="sdp-money-label">Net to You</div>
+        <div class="sdp-money-val" style="color:${b.net >= 0 ? 'var(--green)' : 'var(--red)'}">${b.net >= 0 ? '+' : ''}$${b.net.toFixed(2)}</div>
+      </div>
+    </div>
+
+    <div class="sdp-section">
+      <div class="sdp-section-title">Summary</div>
+      <div class="sdp-row"><span class="sdp-row-label">Orders</span><span class="sdp-row-val">${b.orders}</span></div>
+      <div class="sdp-row"><span class="sdp-row-label">Cards Bought</span><span class="sdp-row-val">${b.cards}</span></div>
+      <div class="sdp-row"><span class="sdp-row-label">Avg Order</span><span class="sdp-row-val">$${avg.toFixed(2)}</span></div>
+      <div class="sdp-row"><span class="sdp-row-label">First Purchase</span><span class="sdp-row-val">${b.first || '—'}</span></div>
+      <div class="sdp-row"><span class="sdp-row-label">Last Purchase</span><span class="sdp-row-val">${b.last || '—'}</span></div>
+    </div>
+
+    <div class="sdp-section">
+      <div class="sdp-section-title">Purchase History (${b.sales.length})</div>
+      ${history}
+    </div>`;
 }
 
 // ─── Channel tab switching ────────────────────────────────────────────────────

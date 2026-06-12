@@ -22,3 +22,24 @@ serve*.sh
 
 # Local Netlify folder
 .netlify
+
+# Local debug / one-off scripts — may contain credentials, never commit
+_test_*.js
+_check_*.js
+_check_*.py
+_exchange_code.js
+_rebuild.py
+_pickup.ps1
+*.patch
+
+# Secrets — never commit
+_session-logs/Authtoken.txt
+
+# Large / personal data exports — keep local
+*.pst
+facebook-*/
+facebook-*.zip
+Card Photos/
+
+# Office temp lock files
+~$*

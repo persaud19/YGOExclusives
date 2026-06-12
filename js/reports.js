@@ -30,7 +30,7 @@ function refreshReports() {
   const btn = document.getElementById('refresh-reports-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⟳ Refreshing…'; }
 
-  const ids = ['report-stats','report-inv-overview','report-set-value','report-high-value',
+  const ids = ['report-stats','report-portfolio','report-inv-overview','report-set-value','report-high-value',
                'report-high-qty','report-monthly-pl','report-price-movers','report-weekly-ai',
                'report-sets-in-inventory'];
   ids.forEach(id => {
@@ -63,6 +63,7 @@ async function loadReports() {
   };
 
   await Promise.all([
+    run(getPortfolioHistory,      renderPortfolio,          'report-portfolio'),
     run(getInventoryOverviewRows, renderInventoryOverview, 'report-inv-overview', cadRate),
     run(getHighValueUnlisted,     renderHighValueUnlisted,  'report-high-value',   cadRate),
     run(getHighQtyUnlisted,       renderHighQtyUnlisted,    'report-high-qty',     cadRate),
@@ -594,6 +595,103 @@ window.dlReport = function(sectionId, filename) {
   if (txt) { downloadText(filename, txt.dataset.dlContent, 'text/markdown'); return; }
   if (typeof showToast === 'function') showToast('No data to download — wait for report to load');
 };
+
+// ─── Portfolio Value Over Time ────────────────────────────────────────────────
+
+async function getPortfolioHistory() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/portfolio_history` +
+    `?select=snapshot_date,total_value_cad,high_end_cad,bread_butter_cad,bulk_cad,total_qty,unique_printings` +
+    `&order=snapshot_date.asc&limit=1100`,
+    { headers: DB_HEADERS_RETURN }
+  );
+  // Table may not exist yet (one-time SQL pending) — treat as "no data" rather than error
+  if (res.status === 404) return [];
+  if (!res.ok) {
+    const txt = await res.text();
+    if (/relation .*portfolio_history.* does not exist|could not find the table/i.test(txt)) return [];
+    throw new Error('Portfolio fetch failed: ' + res.status);
+  }
+  return res.json();
+}
+
+function renderPortfolio(rows) {
+  const container = document.getElementById('report-portfolio');
+  if (!container) return;
+
+  if (!rows || !rows.length) {
+    container.innerHTML = `<p class="muted small">No portfolio snapshots yet. A snapshot is written automatically every Monday (or run the Bulk Price job). Once the <code>portfolio_history</code> table exists and the first Monday run completes, your inventory's value trend appears here.</p>`;
+    return;
+  }
+
+  const pts = rows
+    .map(r => ({ date: r.snapshot_date, val: parseFloat(r.total_value_cad) || 0, qty: r.total_qty || 0 }))
+    .filter(p => p.date);
+
+  const latest = pts[pts.length - 1];
+  const prior  = pts.length > 1 ? pts[pts.length - 2] : null;
+  const delta  = prior ? latest.val - prior.val : 0;
+  const deltaPct = prior && prior.val > 0 ? (delta / prior.val) * 100 : 0;
+  const dColor = delta >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const headline = `
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:baseline;margin-bottom:16px">
+      <div>
+        <div class="cinzel" style="font-size:1.8rem;color:var(--gold2)">C$${latest.val.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+        <div class="muted small">Current inventory value · ${latest.date}</div>
+      </div>
+      ${prior ? `<div>
+        <div class="cinzel" style="font-size:1.1rem;color:${dColor}">${delta >= 0 ? '+' : '−'}C$${Math.abs(delta).toLocaleString(undefined,{maximumFractionDigits:0})} (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%)</div>
+        <div class="muted small">since ${prior.date}</div>
+      </div>` : ''}
+      <div>
+        <div class="cinzel" style="font-size:1.1rem;color:var(--txt)">${latest.qty.toLocaleString()}</div>
+        <div class="muted small">total cards</div>
+      </div>
+    </div>`;
+
+  if (pts.length < 2) {
+    container.innerHTML = headline +
+      `<p class="muted small">Only one snapshot so far — the trend line appears after next Monday's snapshot.</p>`;
+    return;
+  }
+
+  // ── Hand-rolled SVG area+line chart (no chart lib) ──
+  const W = 760, H = 200, padL = 8, padR = 8, padT = 12, padB = 24;
+  const xs = pts.map((_, i) => padL + (i / (pts.length - 1)) * (W - padL - padR));
+  const vmax = Math.max(...pts.map(p => p.val));
+  const vmin = Math.min(...pts.map(p => p.val));
+  const range = (vmax - vmin) || 1;
+  const y = v => padT + (1 - (v - vmin) / range) * (H - padT - padB);
+
+  const linePts = pts.map((p, i) => `${xs[i].toFixed(1)},${y(p.val).toFixed(1)}`).join(' ');
+  const areaPts = `${xs[0].toFixed(1)},${(H - padB).toFixed(1)} ${linePts} ${xs[xs.length - 1].toFixed(1)},${(H - padB).toFixed(1)}`;
+
+  const dots = pts.map((p, i) =>
+    `<circle cx="${xs[i].toFixed(1)}" cy="${y(p.val).toFixed(1)}" r="2.5" fill="var(--gold2)"><title>${p.date}: C$${p.val.toLocaleString(undefined,{maximumFractionDigits:0})}</title></circle>`
+  ).join('');
+
+  // sparse x labels (first, mid, last)
+  const labelIdx = [...new Set([0, Math.floor((pts.length - 1) / 2), pts.length - 1])];
+  const xLabels = labelIdx.map(i =>
+    `<text x="${xs[i].toFixed(1)}" y="${H - 6}" fill="var(--muted)" font-size="10" text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}">${pts[i].date}</text>`
+  ).join('');
+
+  container.innerHTML = headline + `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" style="display:block;max-height:220px">
+      <defs>
+        <linearGradient id="portfolioFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--gold2)" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="var(--gold2)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <polygon points="${areaPts}" fill="url(#portfolioFill)"/>
+      <polyline points="${linePts}" fill="none" stroke="var(--gold2)" stroke-width="2"/>
+      ${dots}
+      ${xLabels}
+    </svg>
+    <div class="muted small" style="margin-top:6px">Hover a point for its value · ${pts.length} weekly snapshot${pts.length !== 1 ? 's' : ''}</div>`;
+}
 
 // ─── Price Movers (week / month / year toggle) ────────────────────────────────
 

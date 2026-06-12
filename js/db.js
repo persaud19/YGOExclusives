@@ -220,6 +220,44 @@ async function getCardById(id) {
   };
 }
 
+// ─── Lookup (Deck Companion) ──────────────────────────────────────────────────
+// Shared select: location-relevant qty fields, no price fields.
+const LOOKUP_SELECT =
+  'card_number,card_name,set_name,rarity,rarity_order,' +
+  'qty_fe_nm,qty_fe_lp,qty_fe_mp,qty_un_nm,qty_un_lp,qty_un_mp,' +
+  'qty_binder_fe_nm,qty_binder_un_nm,qty_total,cards(api_id)';
+
+// Fuzzy single-card search (live typing). Highest rarity first.
+async function lookupInventorySearch(term) {
+  const params = new URLSearchParams({
+    card_name: `ilike.*${term}*`,
+    select:    LOOKUP_SELECT,
+    order:     'rarity_order.desc',
+    limit:     300,
+  });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/card_inventory?${params}`, { headers: DB_HEADERS_RETURN });
+  if (!res.ok) throw new Error(`Lookup failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+// Exact case-insensitive match for a list of names (no wildcards = no guessing).
+// Values are double-quoted so commas/spaces/& in names don't break the or= filter.
+async function lookupInventoryByNames(names) {
+  if (!names.length) return [];
+  const orClause = names
+    .map(n => `card_name.ilike."${String(n).replace(/"/g, '')}"`)
+    .join(',');
+  const params = new URLSearchParams({
+    or:     `(${orClause})`,
+    select: LOOKUP_SELECT,
+    order:  'rarity_order.desc',
+    limit:  2000,
+  });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/card_inventory?${params}`, { headers: DB_HEADERS_RETURN });
+  if (!res.ok) throw new Error(`Lookup failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
 async function saveCard(card) {
   return dbUpsert('cards', card);
 }

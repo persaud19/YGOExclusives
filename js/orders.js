@@ -8,8 +8,45 @@ function initOrders() {
   if (!ordersInitialized) {
     ordersInitialized = true;
     document.getElementById('orders-refresh-btn').addEventListener('click', loadOrders);
+    document.getElementById('orders-sync-btn').addEventListener('click', syncEbayOrders);
   }
   loadOrders();
+}
+
+// ─── Pull new eBay orders, then reload the list ───────────────────────────────
+// TODO: automate this — run the eBay sync daily at 6:00am EST and auto-refresh
+// this page (GitHub Actions cron + page reload). Manual button for now.
+
+async function syncEbayOrders() {
+  const btn = document.getElementById('orders-sync-btn');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⇅ Syncing…';
+
+  try {
+    const syncKey = localStorage.getItem('ygoexclusives_sync_key') || '';
+    const res  = await fetch('/.netlify/functions/ebay-sync', {
+      headers: { 'X-Api-Key': syncKey },
+    });
+    const data = await res.json();
+
+    if (res.status === 401) {
+      showToast('Sync key not set — add ygoexclusives_sync_key to localStorage');
+      btn.textContent = orig;
+      btn.disabled = false;
+      return;
+    }
+    if (!res.ok) throw new Error(data.error || `${res.status}`);
+
+    btn.textContent = `✓ ${data.upserted} synced`;
+    await loadOrders();
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+
+  } catch (err) {
+    btn.textContent = orig;
+    btn.disabled = false;
+    showToast('eBay sync failed: ' + err.message);
+  }
 }
 
 // ─── Load unshipped sales, group by order ─────────────────────────────────────

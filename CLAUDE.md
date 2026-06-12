@@ -242,6 +242,11 @@ Photo naming convention: `LOB-EN001_front.jpg` (card number prefix).
 - `process-photos.ps1` and `mark-listed.ps1` scripts exist but full photo workflow not wired end-to-end
 - Google Drive desktop app not yet set up on Ryan's machine
 
+### eBay order sync — NOT automated (manual only)
+- ⚠️ There is NO scheduled eBay order sync. The "daily 13:00 UTC GitHub Actions" line elsewhere in this doc was aspirational — no `ebay-sync.yml` workflow exists. The only sync that ever ran was a one-time manual backfill on 2026-05-31.
+- For now, sync is manual via the **⇅ Sync eBay** button on the Orders tab (`syncEbayOrders()` in `js/orders.js`) → calls `ebay-sync` function → reloads the order list.
+- **TODO (Ryan wants this automated):** run the eBay order sync **daily at 6:00am EST** to pull new orders AND auto-refresh the Orders page. Needs a GitHub Actions cron (`ebay-sync.yml`, `0 11 * * *` = 11:00 UTC = 6am EST) hitting the deployed function with `SYNC_API_KEY`, plus a client-side periodic `loadOrders()` so an open Orders tab refreshes itself.
+
 ### Cleanup
 - `_pickup.ps1` and `0001-feat-*.patch` still in project root — safe to delete now that changes are merged to master
 

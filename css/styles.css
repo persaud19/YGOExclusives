@@ -1336,8 +1336,103 @@ tr:hover td { background: var(--surf2); }
 .rs-qty-input.rs-saved  { background: rgba(39,174,96,.2);  border-color: var(--green); }
 .rs-qty-input.rs-error  { background: rgba(231,76,60,.2);  border-color: var(--red); }
 
-/* ─── Deal Check (Pricer) Tab ───────────────────────────────────────────────── */
+/* ─── Lookup / Deal Check Tab ───────────────────────────────────────────────── */
 .pricer-wrap { max-width: 960px; }
+
+/* Mode toggle (Lookup ↔ Deal Check) */
+.lookup-seg-wrap {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--b1);
+  border: 1px solid var(--b2);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+.lookup-seg {
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 8px 20px;
+  transition: background 0.15s, color 0.15s;
+}
+.lookup-seg:hover  { color: var(--txt); }
+.lookup-seg.active { background: var(--gold); color: #1a1530; }
+
+/* Lookup tally header */
+.lookup-tally {
+  font-size: 0.9rem;
+  color: var(--txt);
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--surf2);
+  border-radius: 8px;
+}
+.lookup-tally-ok    { color: var(--green); font-weight: 600; }
+.lookup-tally-short { color: var(--yellow); font-weight: 600; }
+.lookup-tally-miss  { color: var(--red); font-weight: 600; }
+
+/* Lookup result groups */
+.lookup-group {
+  background: var(--surf);
+  border: 1px solid var(--b2);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.lookup-group-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--b1);
+}
+.lookup-group-name { font-weight: 600; font-size: 1rem; color: var(--txt); flex: 1 1 auto; }
+.lookup-verdict {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.lookup-verdict.ok    { background: rgba(61,184,122,0.14); color: var(--green); }
+.lookup-verdict.short { background: rgba(224,72,72,0.14);  color: var(--red); }
+
+.lookup-group-body { padding: 6px 16px 12px; }
+.lookup-print {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--b1);
+}
+.lookup-print:last-child { border-bottom: none; }
+.lookup-print-id  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lookup-print-loc { margin-top: 5px; display: flex; gap: 8px; flex-wrap: wrap; }
+.lookup-loc {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+.lookup-loc-binder   { background: rgba(96,160,240,0.16); color: var(--blue); }
+.lookup-loc-basement { background: rgba(232,176,48,0.14); color: var(--gold2); }
+
+/* Not-found block */
+.lookup-notfound {
+  margin-top: 16px;
+  background: rgba(224,72,72,0.06);
+  border: 1px solid rgba(224,72,72,0.25);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+.lookup-notfound-head { color: var(--red); font-weight: 600; font-size: 0.88rem; margin-bottom: 8px; }
+.lookup-notfound ul   { margin: 0; padding-left: 20px; line-height: 1.7; }
+.lookup-notfound li   { color: var(--txt); }
 
 /* Search panel */
 .pricer-search-panel {
