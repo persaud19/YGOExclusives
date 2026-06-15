@@ -1771,6 +1771,9 @@ tr:hover td { background: var(--surf2); }
 .oc-table th:last-child { text-align: center; }
 .oc-table tbody tr { border-bottom: 1px solid #eee; }
 .oc-table tbody tr:last-child { border-bottom: none; }
+/* Override the global dark tr:hover (styles.css ~886) so the white order
+   card stays readable on hover instead of going black. */
+.oc-table tbody tr:hover td { background: #f3f0fb !important; }
 
 .oc-card-name {
   padding: 10px 12px;
@@ -1778,11 +1781,26 @@ tr:hover td { background: var(--surf2); }
   font-weight: 600;
   color: #111;
 }
+/* Set number is the primary focus when present */
 .oc-card-num {
   padding: 10px 12px;
-  font-size: 0.9rem;
-  color: #555;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1a1035;
   font-family: monospace;
+  letter-spacing: 0.02em;
+}
+/* When a row has no set number, the card NAME becomes the focal point
+   and the set-number cell just shows a muted dash. */
+.oc-no-num .oc-card-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #1a1035;
+}
+.oc-no-num .oc-card-num {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #999;
 }
 .oc-card-qty {
   padding: 10px 12px;
@@ -1791,6 +1809,36 @@ tr:hover td { background: var(--surf2); }
   font-weight: 800;
   color: #1a1035;
 }
+
+/* eBay listing thumbnail */
+.oc-thumb {
+  width: 46px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #d0d0e0;
+  background: #f0f0f5;
+  display: block;
+}
+.oc-thumb-link { display: inline-block; line-height: 0; }
+.oc-thumb-cell { padding: 8px 12px; width: 58px; }
+
+/* Ship priority pill in the header */
+.oc-priority {
+  border-radius: 99px;
+  padding: 3px 12px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border: 2px solid;
+}
+.oc-prio-green  { background: #1a5a2a; color: #80e8a0; border-color: #40b060; }
+.oc-prio-yellow { background: #6a5512; color: #ffe08a; border-color: #d0a82a; }
+.oc-prio-red    { background: #6a1a1a; color: #ff9a9a; border-color: #d04040; }
+
+/* Colored left edge on the whole card for at-a-glance triage */
+.order-card.prio-green  { border-left: 6px solid #40b060; }
+.order-card.prio-yellow { border-left: 6px solid #d0a82a; }
+.order-card.prio-red    { border-left: 6px solid #d04040; }
 
 /* ─── Print styles ───────────────────────────────────────────────────────── */
 

@@ -64,7 +64,7 @@ async function loadOrders() {
       shipped: 'eq.false',
       platform: 'eq.ebay',
       order: 'sale_date.asc,ebay_order_id.asc',
-      select: 'id,sale_date,card_name,card_number,quantity,shipping_service,shipping_cost_out,buyer_name,buyer_username,buyer_address_line1,buyer_address_line2,buyer_city,buyer_province,buyer_postal_code,buyer_country,ebay_order_id',
+      select: 'id,sale_date,card_name,card_number,quantity,shipping_service,shipping_cost_out,buyer_name,buyer_username,buyer_address_line1,buyer_address_line2,buyer_city,buyer_province,buyer_postal_code,buyer_country,ebay_order_id,ebay_item_id',
       limit: '500',
     });
 
@@ -122,23 +122,48 @@ function buildOrderCard(items) {
   const hasAddress = addressParts.length > 0;
 
   // Build card rows HTML
-  const rowsHtml = items.map(item => `
-    <tr>
-      <td class="oc-card-name">${escHtml(item.card_name || '—')}</td>
-      <td class="oc-card-num">${escHtml(item.card_number || '—')}</td>
+  const rowsHtml = items.map(item => {
+    const num     = (item.card_number || '').trim();
+    const hasNum  = num && num !== '—';
+    const rowCls  = hasNum ? '' : 'oc-no-num';
+    const itemUrl = item.ebay_item_id ? `https://www.ebay.com/itm/${encodeURIComponent(item.ebay_item_id)}` : '';
+
+    // Thumbnail cell: real eBay photo if we have it, else a link to the listing.
+    let thumbCell = '<td class="oc-thumb-cell"></td>';
+    if (item.ebay_image_url) {
+      const img = `<img class="oc-thumb" src="${escHtml(item.ebay_image_url)}" alt="" loading="lazy">`;
+      thumbCell = `<td class="oc-thumb-cell">${itemUrl
+        ? `<a class="oc-thumb-link" href="${itemUrl}" target="_blank" rel="noopener">${img}</a>`
+        : img}</td>`;
+    } else if (itemUrl) {
+      thumbCell = `<td class="oc-thumb-cell"><a class="oc-thumb-link" href="${itemUrl}" target="_blank" rel="noopener" title="Open eBay listing">🔗</a></td>`;
+    }
+
+    const nameHtml = itemUrl
+      ? `<a href="${itemUrl}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${escHtml(item.card_name || '—')}</a>`
+      : escHtml(item.card_name || '—');
+
+    return `
+    <tr class="${rowCls}">
+      ${thumbCell}
+      <td class="oc-card-name">${nameHtml}</td>
+      <td class="oc-card-num">${escHtml(num || '—')}</td>
       <td class="oc-card-qty">${item.quantity || 1}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   const isTrackedClass = isTracked ? 'oc-badge-tracked' : 'oc-badge-letter';
+  const prio = shipPriority(first.sale_date);
 
   const card = document.createElement('div');
-  card.className = 'order-card';
+  card.className = `order-card prio-${prio.color}`;
   card.dataset.orderGroup = JSON.stringify(items.map(i => i.id));
 
   card.innerHTML = `
     <div class="order-card-header">
       <div class="oc-meta">
+        <span class="oc-priority oc-prio-${prio.color}">${prio.label}</span>
         <span class="oc-order-id">${escHtml(first.ebay_order_id || 'Manual')}</span>
         <span class="oc-date">${formatDate(first.sale_date)}</span>
         <span class="oc-ship-badge ${isTrackedClass}">${shipLabel}</span>
@@ -168,6 +193,7 @@ function buildOrderCard(items) {
         <table class="oc-table">
           <thead>
             <tr>
+              <th></th>
               <th>Card</th>
               <th>Set Number</th>
               <th>Qty</th>
@@ -235,6 +261,24 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// Ship priority by age of the order:
+//   < 2 days  → green   (fresh)
+//   2–3 days  → yellow  (getting old)
+//   ≥ 4 days  → red      (overdue)
+function shipPriority(saleDateStr) {
+  if (!saleDateStr) return { color: 'green', label: 'Day 0' };
+  const sale  = new Date(saleDateStr + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.max(0, Math.round((today - sale) / 86400000));
+
+  let color = 'green';
+  if (days >= 4)      color = 'red';
+  else if (days >= 2) color = 'yellow';
+
+  return { color, label: `Day ${days}` };
 }
 
 function formatDate(dateStr) {
