@@ -8,7 +8,7 @@ let lqTotal = 0;
 async function lqLoad() {
   const status = document.getElementById('lq-status-filter').value;
   const tbody  = document.getElementById('lq-tbody');
-  tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center;padding:24px">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="14" class="muted" style="text-align:center;padding:24px">Loading…</td></tr>';
 
   try {
     const offset = lqPage * LQ_PAGE_SIZE;
@@ -40,7 +40,7 @@ async function lqLoad() {
     const msg = e.message.includes('relation') || e.message.includes('does not exist')
       ? 'listing_queue table not created yet — run backups/listing-queue-setup.sql in Supabase first.'
       : `Error loading queue: ${e.message}`;
-    tbody.innerHTML = `<tr><td colspan="13" style="color:var(--yellow);text-align:center;padding:24px">${msg}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14" style="color:var(--yellow);text-align:center;padding:24px">${msg}</td></tr>`;
   }
 }
 
@@ -71,7 +71,7 @@ async function lqRenderStats(activeStatus) {
 function lqRenderRows(rows, status) {
   const tbody = document.getElementById('lq-tbody');
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="13" class="muted" style="text-align:center;padding:32px">No ${status} items in queue.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14" class="muted" style="text-align:center;padding:32px">No ${status} items in queue.</td></tr>`;
     return;
   }
 
@@ -112,6 +112,7 @@ function lqRenderRows(rows, status) {
              </select>`
           : `<div class="muted small">${row.rarity || '—'}</div>`}
       </td>
+      <td style="text-align:center">${lqConfCell(row)}</td>
       <td>
         <select class="input" style="font-size:0.8rem;padding:3px 6px" id="lq-cond-${row.id}" onchange="lqSaveField('${row.id}','condition',this.value)">
           <option value="NM" ${row.condition==='NM'?'selected':''}>NM</option>
@@ -182,6 +183,22 @@ function lqRarityOptions(current) {
     `<option value="${r}" ${norm(r) === norm(cur) ? 'selected' : ''}>${r}</option>`
   ).join('');
   return html;
+}
+
+// ── Vision rarity confidence cell ─────────────────────────────────────────────
+// Color-coded so low-confidence rarities (where Claude Vision was unsure) jump
+// out for review. Threshold: below 90 = worth a look. 100 = deterministic match
+// (set-code shortcut or single stocked rarity — no vision needed). null = legacy
+// row scanned before confidence tracking existed.
+function lqConfCell(row) {
+  const c = row.rarity_confidence;
+  if (c == null) return '<span class="muted small">—</span>';
+  const n = Math.round(Number(c));
+  let color = 'var(--green)';        // >= 90: confident
+  if (n < 70)      color = 'var(--red)';     // very unsure
+  else if (n < 90) color = 'var(--yellow)';  // needs a look
+  const weight = n < 90 ? '700' : '500';
+  return `<span style="color:${color};font-weight:${weight};font-size:0.85rem">${n}</span>`;
 }
 
 // ── Fire a ygoexclusives:// protocol URI (gesture-safe, no page navigation) ───
