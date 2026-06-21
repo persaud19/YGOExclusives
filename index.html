@@ -328,7 +328,7 @@
               <th rowspan="2">Rarity</th>
               <th colspan="4" class="inv-th-group-label inv-th-group-start">1st Edition</th>
               <th colspan="4" class="inv-th-group-label inv-th-group-start">Unlimited</th>
-              <th colspan="2" class="inv-th-group-label inv-th-group-start">Binder</th>
+              <th colspan="2" class="inv-th-group-label inv-th-group-start">Binder / Deck</th>
               <th rowspan="2" class="inv-th-alt" title="Alternate art toggle">Alt</th>
               <th colspan="2" class="inv-th-group-label inv-th-group-start">Alt Art NM</th>
               <th rowspan="2" class="inv-th-total-end" title="Total across all editions &amp; conditions">Total</th>
@@ -1510,6 +1510,7 @@
           <button class="btn btn-secondary" onclick="lqLoad()">Refresh</button>
           <button class="btn btn-secondary" id="lq-ebay-listed-sync-btn" onclick="lqSyncListedStatus()">⟳ Sync Listed</button>
           <button class="btn btn-secondary" id="lq-ebay-refresh-btn" onclick="lqRefreshEbayPrices()">↺ eBay Prices</button>
+          <button class="btn btn-primary" id="lq-push-selected-btn" style="background:var(--green);border-color:var(--green);display:none" onclick="lqPushSelected()">▶ Push Selected (<span id="lq-sel-count">0</span>)</button>
         </div>
       </div>
 
@@ -1553,7 +1554,7 @@
         <table class="inv-table" id="lq-table">
           <thead>
             <tr>
-              <th style="width:36px"></th>
+              <th style="width:32px;text-align:center"><input type="checkbox" id="lq-select-all" onclick="lqToggleSelectAll(this.checked)" title="Select all on this page"></th>
               <th>Card</th>
               <th>Set / Rarity</th>
               <th style="width:110px">Condition</th>

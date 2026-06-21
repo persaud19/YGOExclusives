@@ -92,14 +92,25 @@ function lqRenderRows(rows, status) {
     const price = row.price_cad ? `$${Number(row.price_cad).toFixed(2)}` : '<span class="muted">—</span>';
 
     return `<tr id="lq-row-${row.id}">
-      <td style="text-align:center">${flagIcon}</td>
+      <td style="text-align:center;white-space:nowrap">
+        ${status === 'pending'
+          ? `<input type="checkbox" class="lq-select" value="${row.id}" data-cn="${row.card_number}" onchange="lqUpdateSelCount()">`
+          : ''}
+        ${flagIcon}
+      </td>
       <td>
         <div style="font-weight:500">${row.card_name || '—'}</div>
         <div class="muted small">${row.card_number}</div>
       </td>
       <td>
         <div>${row.set_name || '—'}</div>
-        <div class="muted small">${row.rarity || '—'}</div>
+        ${status === 'pending'
+          ? `<select class="input" style="font-size:0.72rem;padding:2px 4px;margin-top:3px;max-width:185px"
+                 title="Wrong rarity? Change it here — inventory count & comps refresh"
+                 onchange="lqSaveRarity('${row.id}','${row.card_number}',this.value)">
+               ${lqRarityOptions(row.rarity)}
+             </select>`
+          : `<div class="muted small">${row.rarity || '—'}</div>`}
       </td>
       <td>
         <select class="input" style="font-size:0.8rem;padding:3px 6px" id="lq-cond-${row.id}" onchange="lqSaveField('${row.id}','condition',this.value)">
@@ -152,6 +163,152 @@ function lqRenderRows(rows, status) {
       <td>${actionCell}</td>
     </tr>`;
   }).join('');
+
+  // Fresh rows = no selection; reset the bulk-select UI.
+  lqUpdateSelCount();
+}
+
+// ── Rarity dropdown options (matches stored value case-insensitively) ──────────
+function lqRarityOptions(current) {
+  const cur  = current || '';
+  const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const inList = cur && RARITIES.some(r => norm(r) === norm(cur));
+
+  let html = '';
+  if (!cur)           html += `<option value="" selected>— select —</option>`;
+  // Preserve an unrecognised stored value so it isn't silently lost.
+  if (cur && !inList) html += `<option value="${cur}" selected>${cur}</option>`;
+  html += RARITIES.map(r =>
+    `<option value="${r}" ${norm(r) === norm(cur) ? 'selected' : ''}>${r}</option>`
+  ).join('');
+  return html;
+}
+
+// ── Fire a ygoexclusives:// protocol URI (gesture-safe, no page navigation) ───
+function lqLaunchUri(uri) {
+  try {
+    const a = document.createElement('a');
+    a.href = uri;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (e) { /* non-fatal — push uses photo_folder path regardless */ }
+}
+
+// ── Change a card's rarity, then re-pull the true inventory count + comps ──────
+async function lqSaveRarity(id, cardNumber, newRarity) {
+  if (!newRarity) return;
+
+  // Keep the physical photo folder's name in sync with the corrected rarity.
+  // Fired here (inside the change gesture) and runs hidden via launch-push.bat.
+  // Housekeeping only — it never blocks the DB update below or the push.
+  lqLaunchUri(`ygoexclusives://rename-folder/${encodeURIComponent(id)}/${encodeURIComponent(newRarity)}`);
+
+  try {
+    // 1. Persist the corrected rarity on the queue row
+    await lqSaveField(id, 'rarity', newRarity);
+
+    // 2. Find the matching card_inventory row (card_number + rarity is unique)
+    const params = new URLSearchParams();
+    params.set('card_number', `eq.${cardNumber}`);
+    params.set('rarity', `ilike.${newRarity}`);
+    params.set('select', 'id,card_name,set_name,qty_total,tcg_price_cad,tcg_low_price,ebay_low_cad');
+    params.set('limit', '1');
+    const res  = await fetch(`${SUPABASE_URL}/rest/v1/card_inventory?${params.toString()}`, { headers: DB_HEADERS });
+    const rows = await res.json();
+
+    if (!rows || rows.length === 0) {
+      showToast(`Saved rarity, but ${cardNumber} has no "${newRarity}" row in inventory — count not updated.`, 'error');
+      lqLoad();
+      return;
+    }
+
+    // 3. Refresh the rarity-specific reference data (true count + comps)
+    const inv = rows[0];
+    const patch = {
+      card_inventory_id: inv.id,
+      card_name:         inv.card_name,
+      set_name:          inv.set_name,
+      qty_inventory:     inv.qty_total,
+      tcg_low_cad:       inv.tcg_low_price != null ? Math.round(inv.tcg_low_price * 1.38 * 100) / 100 : null,
+      ebay_low_cad:      inv.ebay_low_cad ?? null,
+    };
+    // Only seed "Your Price" if it hasn't been set yet — never clobber a manual price.
+    const curPrice = parseFloat(document.getElementById(`lq-price-${id}`)?.value || '0');
+    if ((!curPrice || curPrice <= 0) && inv.tcg_price_cad) {
+      patch.price_cad = Math.round(inv.tcg_price_cad * 100) / 100;
+    }
+
+    await fetch(`${SUPABASE_URL}/rest/v1/listing_queue?id=eq.${id}`, {
+      method: 'PATCH', headers: DB_HEADERS, body: JSON.stringify(patch),
+    });
+
+    showToast(`Rarity → ${newRarity}. Inventory count refreshed: ${inv.qty_total ?? 0}.`);
+    lqLoad();
+  } catch (e) {
+    showToast('Rarity update failed: ' + e.message, 'error');
+  }
+}
+
+// ── Bulk-select helpers ───────────────────────────────────────────────────────
+function lqToggleSelectAll(checked) {
+  document.querySelectorAll('#lq-tbody .lq-select').forEach(cb => { cb.checked = checked; });
+  lqUpdateSelCount();
+}
+
+function lqUpdateSelCount() {
+  const all     = document.querySelectorAll('#lq-tbody .lq-select');
+  const checked = document.querySelectorAll('#lq-tbody .lq-select:checked');
+  const n = checked.length;
+
+  const countEl = document.getElementById('lq-sel-count');
+  if (countEl) countEl.textContent = n;
+
+  const btn = document.getElementById('lq-push-selected-btn');
+  if (btn) btn.style.display = n > 0 ? '' : 'none';
+
+  const allEl = document.getElementById('lq-select-all');
+  if (allEl) {
+    allEl.checked       = all.length > 0 && n === all.length;
+    allEl.indeterminate = n > 0 && n < all.length;
+  }
+}
+
+// ── Push only the checked cards (passes queue-row IDs to the PS push script) ───
+function lqPushSelected() {
+  const sel = Array.from(document.querySelectorAll('#lq-tbody .lq-select:checked'));
+  if (sel.length === 0) { showToast('No cards selected.', 'error'); return; }
+
+  const ids = [];
+  const unpriced = [];
+  sel.forEach(cb => {
+    const id    = cb.value;
+    const price = parseFloat(document.getElementById(`lq-price-${id}`)?.value || '0');
+    if (!price || price <= 0) unpriced.push(cb.dataset.cn || id);
+    else ids.push(id);
+  });
+
+  if (unpriced.length > 0) {
+    showToast(`Skipping ${unpriced.length} card(s) with no price: ${unpriced.join(', ')}`, 'error');
+  }
+  if (ids.length === 0) { showToast('None of the selected cards have a price.', 'error'); return; }
+
+  if (!confirm(`Push ${ids.length} selected card(s) to eBay.ca?\n\nThis opens PowerShell — confirm in that window to complete the listings.`)) return;
+
+  window.location.href = `ygoexclusives://push-ids/${ids.join(',')}`;
+
+  const btn = document.getElementById('lq-push-selected-btn');
+  if (btn) {
+    btn.disabled = true;
+    let secs = 30;
+    btn.textContent = `Pushing… ${secs}s`;
+    const iv = setInterval(() => {
+      secs--;
+      if (btn) btn.textContent = `Pushing… ${secs}s`;
+      if (secs <= 0) { clearInterval(iv); if (btn) btn.disabled = false; lqLoad(); }
+    }, 1000);
+  }
 }
 
 // ── Pagination ────────────────────────────────────────────────────────────────
