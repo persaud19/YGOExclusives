@@ -28,6 +28,7 @@ D:\CoworkOS\YGO Project\
 │   ├── acquisitions.js         ← manual entry + bulk CSV import + vendor management
 │   ├── sales.js                ← sales log + eBay sync
 │   ├── reports.js              ← all report sections (10-row scroll cap on all tables)
+│   ├── dashboard.js            ← Dashboard tab (KPIs, Collection DNA, value concentration)
 │   ├── listing.js              ← eBay title/desc + FB post generators
 │   ├── listing-queue.js        ← Listing Queue tab (DB-backed queue, eBay prices, sync listed)
 │   ├── orders.js               ← Orders tab (pick & ship sheet)
@@ -215,6 +216,7 @@ Photo naming convention: `LOB-EN001_front.jpg` (card number prefix).
 | Sales | ✅ | eBay sync live, slide-in detail panel, multi-channel log modal, buyer info, net profit |
 | Orders | ✅ | Pick & ship sheet, Mark Shipped, Print — visible in Inventory + Full Access |
 | Reports | ✅ | All sections with 10-row scroll, Sets Not in Inventory at bottom |
+| Dashboard | ✅ | Instant analysis (2026-07-16): KPI row · Collection DNA (Nostalgia/Staples/Individual, Whole↔Binder scope toggle) · Value Concentration (top 10 names, set-segmented bars). Nostalgia = first-10-booster names (YGOPRODeck, cached in localStorage `ygx_nostalgia_names_v1`) + DM/GX anime aces; staples curated in dashboard.js. Price basis: max(tcg_price_cad, ebay_low_cad) |
 | Listing Queue | ✅ | eBay Low (CAD) column, ↺ eBay Prices, ⟳ Sync Listed |
 | Rarity Sets | ✅ | RA01+ horizontal grid, card_inventory table, alternate art rows |
 | Bulk Price Updater | ✅ | Standalone /bulk-price.html, YGOPRODeck, USD→CAD |
