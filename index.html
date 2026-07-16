@@ -262,6 +262,9 @@
     <button class="tab-btn hidden" data-tab="sales" data-mode="owner">
       Sales
     </button>
+    <button class="tab-btn hidden" data-tab="dashboard" data-mode="owner">
+      Dashboard
+    </button>
     <button class="tab-btn hidden" data-tab="reports" data-mode="owner">
       Reports
     </button>
@@ -896,6 +899,41 @@
   </div>
 
   <!-- ─── REPORTS TAB ───────────────────────────────────────────────────── -->
+  <!-- ─── DASHBOARD TAB ──────────────────────────────────────────────────── -->
+  <div id="tab-dashboard" class="tab-panel">
+    <div class="tab-content">
+
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="muted small" style="margin-right:4px">Scope:</span>
+          <button class="btn btn-primary btn-sm dash-scope-btn" data-scope="all" onclick="setDashScope('all')">Whole Inventory</button>
+          <button class="btn btn-secondary btn-sm dash-scope-btn" data-scope="binder" onclick="setDashScope('binder')">Binder Only</button>
+        </div>
+        <button id="refresh-dash-btn" class="btn btn-secondary btn-sm" onclick="refreshDashboard()">&#8635; Refresh</button>
+      </div>
+
+      <!-- KPI stat cards (always whole-inventory) -->
+      <div class="stat-grid" id="dash-stats"><p class="muted small">Loading…</p></div>
+
+      <!-- Collection DNA -->
+      <div class="report-section">
+        <div class="report-section-hdr">
+          <h3>Collection DNA <span class="muted small rsh-sub">(Nostalgia / Staples / Individual · value share)</span></h3>
+        </div>
+        <div id="dash-dna"><p class="muted small">Loading…</p></div>
+      </div>
+
+      <!-- Value concentration -->
+      <div class="report-section">
+        <div class="report-section-hdr">
+          <h3>Value Concentration <span class="muted small rsh-sub">(top 10 card names · all printings merged · segments = sets)</span></h3>
+        </div>
+        <div id="dash-concentration"><p class="muted small">Loading…</p></div>
+      </div>
+
+    </div>
+  </div>
+
   <div id="tab-reports" class="tab-panel">
     <div class="tab-content">
 
@@ -1697,6 +1735,7 @@
 <script src="js/acquisitions.js"></script>
 <script src="js/sales.js"></script>
 <script src="js/reports.js"></script>
+<script src="js/dashboard.js"></script>
 <script src="js/listing.js"></script>
 <script src="js/pricer.js"></script>
 <script src="js/listing-queue.js"></script>

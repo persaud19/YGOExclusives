@@ -91,6 +91,8 @@ function onTabActivated(tabId) {
     initAcquisitions();
   } else if (tabId === 'sales' && typeof initSales === 'function') {
     initSales();
+  } else if (tabId === 'dashboard' && typeof initDashboard === 'function') {
+    initDashboard();
   } else if (tabId === 'reports' && typeof initReports === 'function') {
     initReports();
   } else if (tabId === 'rarity-sets' && typeof initRaritySets === 'function') {
